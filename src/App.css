@@ -1,0 +1,142 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 深色主題（預設） */
+.app[data-theme="dark"] {
+  --app-bg: #181825;
+  --term-bg: #1e1e2e;
+  --sidebar-bg: #11111b;
+  --border: #313244;
+  --fg: #cdd6f4;
+  --muted: #a6adc8;
+  --hover: #1e1e2e;
+  --active: #313244;
+  color-scheme: dark;
+}
+
+/* 淺色主題 */
+.app[data-theme="light"] {
+  --app-bg: #eff1f5;
+  --term-bg: #eff1f5;
+  --sidebar-bg: #e6e9ef;
+  --border: #ccd0da;
+  --fg: #4c4f69;
+  --muted: #6c6f85;
+  --hover: #dce0e8;
+  --active: #ccd0da;
+  color-scheme: light;
+}
+
+.app-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--term-bg);
+}
+
+.terminal-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+/* ---- single 視圖：只顯示 active pane，鋪滿 ---- */
+.terminal-area.single .pane {
+  position: absolute;
+  inset: 0;
+}
+.terminal-area.single .pane[data-active="false"] {
+  display: none;
+}
+.terminal-area.single .pane-label {
+  display: none; /* 單一視圖不需標題列 */
+}
+
+/* ---- grid 視圖：所有 pane 平鋪 ---- */
+.terminal-area.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 6px;
+  padding: 6px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.terminal-area.grid .pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.terminal-area.grid .pane.focused {
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 1px #89b4fa;
+}
+
+.pane-label {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--fg);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pane-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pane-agent {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--active);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* grid 模式下，terminal 需要在 flex 剩餘空間內可縮放 */
+.terminal-area.grid .pane .terminal-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.empty-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+}
