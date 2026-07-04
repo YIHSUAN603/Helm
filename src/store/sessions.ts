@@ -1,6 +1,9 @@
 // 多 session 狀態管理 + agent 感知。
 import { create } from "zustand";
 import { persistSession, removePersistedSession } from "../ipc/persist";
+import { useLayoutStore } from "./layout";
+import { useUiStore } from "./ui";
+import { siblingFirstSession } from "./layoutTree";
 import { notify } from "../ipc/notify";
 import { getProfile } from "../agents/registry";
 import type { AgentLauncher, AgentState } from "../agents/types";
@@ -69,13 +72,25 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   closeSession: (id) => {
     const { sessions, activeId } = get();
+    // split 版面：先記下 sibling（focus 移交對象），再收合 leaf。
+    const layout = useLayoutStore.getState();
+    const sibling = siblingFirstSession(layout.root, id);
+    layout.removeSession(id);
     const remaining = sessions.filter((s) => s.id !== id);
     let nextActive = activeId;
     if (activeId === id) {
       const idx = sessions.findIndex((s) => s.id === id);
-      nextActive = remaining[idx]?.id ?? remaining[idx - 1]?.id ?? null;
+      nextActive = sibling ?? remaining[idx]?.id ?? remaining[idx - 1]?.id ?? null;
     }
     set({ sessions: remaining, activeId: nextActive });
+    // split 模式下樹被關空但還有（隱藏的）session → 讓 nextActive 成為新 root。
+    if (
+      nextActive &&
+      useUiStore.getState().viewMode === "split" &&
+      useLayoutStore.getState().root === null
+    ) {
+      useLayoutStore.getState().attachSession(nextActive, null);
+    }
     void removePersistedSession(id);
   },
 

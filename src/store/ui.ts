@@ -1,22 +1,31 @@
-// 應用層 UI 狀態（版面/面板開關）。
+// 應用層 UI 狀態（版面/面板開關）。viewMode 記在 localStorage。
 import { create } from "zustand";
 
-export type ViewMode = "single" | "grid";
+export type ViewMode = "single" | "split";
+
+const STORAGE_KEY = "aiterminal.viewMode";
+
+function initial(): ViewMode {
+  const v = localStorage.getItem(STORAGE_KEY);
+  if (v === "grid") return "split"; // 舊版 grid 模式遷移
+  return v === "split" ? "split" : "single";
+}
 
 interface UiState {
   viewMode: ViewMode;
   filesOpen: boolean;
   setViewMode: (m: ViewMode) => void;
-  toggleView: () => void;
   toggleFiles: () => void;
   setFilesOpen: (v: boolean) => void;
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
-  viewMode: "single",
+  viewMode: initial(),
   filesOpen: false,
-  setViewMode: (m) => set({ viewMode: m }),
-  toggleView: () => set({ viewMode: get().viewMode === "single" ? "grid" : "single" }),
+  setViewMode: (m) => {
+    localStorage.setItem(STORAGE_KEY, m);
+    set({ viewMode: m });
+  },
   toggleFiles: () => set({ filesOpen: !get().filesOpen }),
   setFilesOpen: (v) => set({ filesOpen: v }),
 }));

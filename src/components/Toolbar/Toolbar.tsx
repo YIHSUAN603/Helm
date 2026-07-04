@@ -1,7 +1,8 @@
-// 頂部工具列：視圖切換（single/grid）、broadcast 派工、以及 active session 的成本/用量。
+// 頂部工具列：視圖切換（single/split）、broadcast 派工、以及 active session 的成本/用量。
 import { useState } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
+import { useLayoutStore } from "../../store/layout";
 import { ptyWrite } from "../../ipc/pty";
 import "./Toolbar.css";
 
@@ -18,7 +19,7 @@ export function Toolbar() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const viewMode = useUiStore((s) => s.viewMode);
-  const toggleView = useUiStore((s) => s.toggleView);
+  const setViewMode = useUiStore((s) => s.setViewMode);
   const filesOpen = useUiStore((s) => s.filesOpen);
   const toggleFiles = useUiStore((s) => s.toggleFiles);
 
@@ -46,14 +47,18 @@ export function Toolbar() {
       <div className="tb-view">
         <button
           className={viewMode === "single" ? "on" : ""}
-          onClick={() => viewMode !== "single" && toggleView()}
+          onClick={() => setViewMode("single")}
           title="單一視圖"
         >
           ▢
         </button>
         <button
-          className={viewMode === "grid" ? "on" : ""}
-          onClick={() => viewMode !== "grid" && toggleView()}
+          className={viewMode === "split" ? "on" : ""}
+          onClick={() => {
+            // 首次進 split 且無版面樹：把現有 sessions 自動平衡排列。
+            useLayoutStore.getState().ensureTree(sessions.map((s) => s.id));
+            setViewMode("split");
+          }}
           title="分割視圖"
         >
           ▦

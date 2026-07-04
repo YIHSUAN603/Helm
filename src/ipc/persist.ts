@@ -2,6 +2,8 @@
 // 呼叫皆 try/catch 包起：即使後端尚未就緒也不影響 UI 運作。
 import { invoke } from "@tauri-apps/api/core";
 import type { Session } from "../store/sessions";
+import type { LayoutNode } from "../store/layoutTree";
+import { sanitizeTree } from "../store/layoutTree";
 import { getProfile } from "../agents/registry";
 
 interface StoredSession {
@@ -52,5 +54,25 @@ export async function removePersistedSession(id: string): Promise<void> {
     await invoke("session_delete", { id });
   } catch {
     // 忽略
+  }
+}
+
+/** 還原 split 版面樹；不存在或損壞時回 null。 */
+export async function loadLayout(): Promise<LayoutNode | null> {
+  try {
+    const json = await invoke<string | null>("layout_get");
+    if (!json) return null;
+    return sanitizeTree(JSON.parse(json));
+  } catch {
+    return null;
+  }
+}
+
+/** 持久化 split 版面樹（結構變更與拖曳 commit 時呼叫）。 */
+export async function persistLayout(root: LayoutNode | null): Promise<void> {
+  try {
+    await invoke("layout_set", { tree: JSON.stringify(root) });
+  } catch {
+    // 忽略：持久化失敗不影響使用。
   }
 }

@@ -1,0 +1,62 @@
+/* 分隔線 overlay：本體透明 hit area（7px 寬），hover/拖曳時顯示中央藍線。
+   視覺上的 1px 分隔由兩側 pane 的 border 提供。 */
+.split-resizers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* 只有分隔線本身可互動 */
+  z-index: 10; /* 在 pane 之上、浮動面板（15/20）之下 */
+}
+
+.split-resizer {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.split-resizer.row {
+  width: 7px;
+  margin-left: -3.5px; /* 讓 hit area 中心對齊分隔線 */
+  cursor: col-resize;
+}
+
+.split-resizer.column {
+  height: 7px;
+  margin-top: -3.5px;
+  cursor: row-resize;
+}
+
+/* 中央高亮線 */
+.split-resizer::after {
+  content: "";
+  position: absolute;
+  background: transparent;
+  transition: background 0.1s;
+}
+.split-resizer.row::after {
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 3px;
+}
+.split-resizer.column::after {
+  left: 0;
+  right: 0;
+  top: 2px;
+  height: 3px;
+}
+.split-resizer:hover::after,
+.split-resizer.dragging::after {
+  background: #89b4fa;
+}
+
+/* 拖曳期間：全域關閉文字選取、鎖定 cursor（蓋過 xterm 的 text cursor）。 */
+body.pane-resizing {
+  -webkit-user-select: none;
+  user-select: none;
+}
+body.pane-resizing-row * {
+  cursor: col-resize !important;
+}
+body.pane-resizing-column * {
+  cursor: row-resize !important;
+}

@@ -45,6 +45,15 @@ impl Store {
         // 舊 DB 升級：補欄位（已存在則忽略錯誤）。
         let _ = conn.execute("ALTER TABLE sessions ADD COLUMN agent_id TEXT", []);
         let _ = conn.execute("ALTER TABLE sessions ADD COLUMN launch_command TEXT", []);
+        // split 版面樹：整棵樹以 JSON blob 單列存放（讀寫都是整體，不需正規化）。
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS layout (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                tree TEXT NOT NULL
+            )",
+            [],
+        )
+        .map_err(|e| format!("create layout table failed: {e}"))?;
         Ok(Store {
             conn: Mutex::new(conn),
         })
@@ -102,5 +111,28 @@ pub fn session_delete(state: State<'_, Store>, id: String) -> Result<(), String>
     let conn = state.conn.lock().unwrap();
     conn.execute("DELETE FROM sessions WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn layout_get(state: State<'_, Store>) -> Result<Option<String>, String> {
+    let conn = state.conn.lock().unwrap();
+    conn.query_row("SELECT tree FROM layout WHERE id = 1", [], |row| row.get(0))
+        .map(Some)
+        .or_else(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => Ok(None),
+            other => Err(other.to_string()),
+        })
+}
+
+#[tauri::command]
+pub fn layout_set(state: State<'_, Store>, tree: String) -> Result<(), String> {
+    let conn = state.conn.lock().unwrap();
+    conn.execute(
+        "INSERT INTO layout (id, tree) VALUES (1, ?1)
+         ON CONFLICT(id) DO UPDATE SET tree = ?1",
+        [tree],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }

@@ -136,14 +136,30 @@ export function Terminal({
       void ptyWrite(id, data);
     });
 
+    // 拖曳分隔線時 resize 事件連發：fit 用 rAF 合併（畫面即時跟手），
+    // ptyResize 尾端 debounce（拖曳結束才通知 PTY 新的 cols/rows）。
+    let fitRaf = 0;
+    let ptyResizeTimer: ReturnType<typeof setTimeout> | undefined;
     const resizeObserver = new ResizeObserver(() => {
       if (container.clientWidth === 0 || container.clientHeight === 0) return;
-      try {
-        fitAddon.fit();
-        void ptyResize(id, term.cols, term.rows);
-      } catch {
-        /* ignore */
+      if (!fitRaf) {
+        fitRaf = requestAnimationFrame(() => {
+          fitRaf = 0;
+          try {
+            fitAddon.fit();
+          } catch {
+            /* ignore */
+          }
+        });
       }
+      if (ptyResizeTimer) clearTimeout(ptyResizeTimer);
+      ptyResizeTimer = setTimeout(() => {
+        try {
+          void ptyResize(id, term.cols, term.rows);
+        } catch {
+          /* ignore */
+        }
+      }, 80);
     });
     resizeObserver.observe(container);
 
@@ -151,6 +167,8 @@ export function Terminal({
       disposed = true;
       if (idleTimer) clearTimeout(idleTimer);
       if (scanTimer) clearTimeout(scanTimer);
+      if (fitRaf) cancelAnimationFrame(fitRaf);
+      if (ptyResizeTimer) clearTimeout(ptyResizeTimer);
       resizeObserver.disconnect();
       titleDisposable.dispose();
       dataDisposable.dispose();

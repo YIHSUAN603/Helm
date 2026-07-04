@@ -25,6 +25,8 @@ pub fn run() {
             store::sessions_list,
             store::session_upsert,
             store::session_delete,
+            store::layout_get,
+            store::layout_set,
             config::read_agents_config,
         ])
         .run(tauri::generate_context!())

@@ -72,61 +72,24 @@ body {
   display: none; /* 單一視圖不需標題列 */
 }
 
-/* ---- grid 視圖：所有 pane 平鋪 ---- */
-.terminal-area.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  grid-auto-rows: 1fr;
-  gap: 6px;
-  padding: 6px;
-  box-sizing: border-box;
-  overflow: auto;
-}
-.terminal-area.grid .pane {
-  position: relative;
+/* ---- split 視圖：pane 依版面樹的百分比 rect 絕對定位（top/left/width/height 為 inline style） ---- */
+.terminal-area.split .pane {
+  position: absolute;
   display: flex;
   flex-direction: column;
-  min-height: 220px;
+  box-sizing: border-box;
   border: 1px solid var(--border);
-  border-radius: 8px;
   overflow: hidden;
 }
-.terminal-area.grid .pane.focused {
+.terminal-area.split .pane[data-in-layout="false"] {
+  display: none; /* 不在版面樹中：隱藏但仍掛載（保留 PTY） */
+}
+.terminal-area.split .pane.focused {
   border-color: #89b4fa;
-  box-shadow: 0 0 0 1px #89b4fa;
 }
 
-.pane-label {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 9px;
-  background: var(--sidebar-bg);
-  border-bottom: 1px solid var(--border);
-  font-size: 11.5px;
-  color: var(--fg);
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.pane-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pane-agent {
-  font-size: 9.5px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--active);
-  border-radius: 4px;
-  padding: 1px 5px;
-}
-
-/* grid 模式下，terminal 需要在 flex 剩餘空間內可縮放 */
-.terminal-area.grid .pane .terminal-pane {
+/* split 模式下，terminal 需要在 flex 剩餘空間內可縮放 */
+.terminal-area.split .pane .terminal-pane {
   flex: 1 1 auto;
   min-height: 0;
 }

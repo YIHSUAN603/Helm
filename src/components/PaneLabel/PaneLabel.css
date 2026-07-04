@@ -1,0 +1,72 @@
+/* pane 標題列（從 App.css 抽出）+ 分割/關閉按鈕。 */
+.pane-label {
+  position: relative; /* launcher 選單定位錨點 */
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--fg);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pane-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pane-agent {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--active);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.pane-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.pane:hover .pane-actions,
+.pane.focused .pane-actions {
+  opacity: 1;
+}
+
+.pane-actions button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pane-actions button:hover {
+  background: var(--active);
+  color: var(--fg);
+}
+
+.pane-actions .pane-close:hover {
+  color: #f38ba8;
+}
+
+/* launcher 選單掛在標題列右側下方（樣式本體重用 SessionSidebar.css 的 .launcher-menu）。 */
+.pane-launcher-menu {
+  position: absolute;
+  top: 100%;
+  right: 6px;
+  z-index: 40;
+}

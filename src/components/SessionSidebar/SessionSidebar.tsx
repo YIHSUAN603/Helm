@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useSessionStore, type Session } from "../../store/sessions";
 import { useThemeStore } from "../../store/theme";
+import { useUiStore } from "../../store/ui";
+import { useLayoutStore } from "../../store/layout";
 import { listLaunchers } from "../../agents/registry";
 import "./SessionSidebar.css";
 
@@ -35,6 +37,13 @@ export function SessionSidebar() {
 
   const launchers = listLaunchers();
 
+  // split 模式：不在版面樹中的 session 換入目前 focused 的 leaf（tmux 式）。
+  const attachIfSplit = (id: string, focusedId: string | null) => {
+    if (useUiStore.getState().viewMode === "split") {
+      useLayoutStore.getState().attachSession(id, focusedId);
+    }
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -55,7 +64,9 @@ export function SessionSidebar() {
                   <button
                     key={l.label}
                     onClick={() => {
-                      createSession(l);
+                      const focusedId = activeId;
+                      const id = createSession(l);
+                      attachIfSplit(id, focusedId);
                       setMenuOpen(false);
                     }}
                   >
@@ -75,7 +86,10 @@ export function SessionSidebar() {
             <div
               key={s.id}
               className={`session-item ${s.id === activeId ? "active" : ""}`}
-              onClick={() => setActive(s.id)}
+              onClick={() => {
+                attachIfSplit(s.id, activeId);
+                setActive(s.id);
+              }}
             >
               <span className={`status-dot ${cls}`} title={stateLabel[cls] ?? ""} />
               <span className="session-name" title={s.title}>
