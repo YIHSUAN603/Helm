@@ -12,6 +12,8 @@ import { useUiStore } from "./store/ui";
 import { useLayoutStore } from "./store/layout";
 import { computeLayout, pruneMissingSessions, type RectPct } from "./store/layoutTree";
 import { loadSessions, loadLayout } from "./ipc/persist";
+import { runShortcut } from "./shortcuts";
+import { listen } from "@tauri-apps/api/event";
 import { ensureNotifyPermission } from "./ipc/notify";
 import { initRegistry, detectProfile, getProfile } from "./agents/registry";
 import { deriveState, stripAnsi } from "./agents/engine";
@@ -98,29 +100,27 @@ function App() {
     [layoutRoot],
   );
 
-  // 全域快捷鍵：⌘D 右分割、⌘⇧D 下分割、⌘⇧W 關閉 focused pane。
+  // 快捷鍵：⌘\ 右分割、⌘⇧D 下分割、⌘⇧W 關閉 focused pane。
   // capture phase：搶在 xterm 的按鍵處理之前。
+  // 注意：macOS WKWebView 會在原生層吞掉部分 Cmd 組合鍵（實測 ⌘D 到不了 DOM，
+  // 選單 accelerator 在 webview 有焦點時也不會觸發），所以綁定必須挑實測可達
+  // DOM 的組合；選單項（見 lib.rs）提供可發現性與滑鼠入口。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       const key = e.key.toLowerCase();
-      const store = useSessionStore.getState();
-      const active = store.activeId;
-      if (!active) return;
-      if (key === "d") {
+      if (key === "\\") {
         e.preventDefault();
         e.stopPropagation();
-        const dir = e.shiftKey ? "column" : "row";
-        const layoutStore = useLayoutStore.getState();
-        // single 模式下分割 → 自動切到 split。
-        useUiStore.getState().setViewMode("split");
-        if (!layoutStore.canSplitPane(active, dir)) return;
-        const newId = store.createSession();
-        layoutStore.splitPane(active, dir, newId);
+        runShortcut("layout:split-right");
+      } else if (key === "d" && e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        runShortcut("layout:split-down");
       } else if (key === "w" && e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
-        store.closeSession(active);
+        runShortcut("layout:close-pane");
       }
     };
     window.addEventListener("keydown", onKey, true);
@@ -133,6 +133,8 @@ function App() {
     (async () => {
       await initRegistry();
       void ensureNotifyPermission();
+      // 原生選單 accelerator → 版面快捷鍵（純瀏覽器環境會 reject，忽略）。
+      listen<string>("app://shortcut", (e) => runShortcut(e.payload)).catch(() => {});
       const restored = await loadSessions();
       const store = useSessionStore.getState();
       if (restored.length > 0) store.restoreSessions(restored);

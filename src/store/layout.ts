@@ -17,8 +17,8 @@ import {
 import { persistLayout } from "../ipc/persist";
 
 /** pane 最小尺寸（px），拖曳 clamp 與分割前檢查共用。 */
-export const MIN_PANE_W = 200;
-export const MIN_PANE_H = 120;
+export const MIN_PANE_W = 120;
+export const MIN_PANE_H = 80;
 
 /** 量 terminal-area 的實際 px 尺寸（分割前檢查用；量不到就不擋）。 */
 function areaSize(): { width: number; height: number } | null {
