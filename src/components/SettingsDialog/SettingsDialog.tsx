@@ -1,17 +1,22 @@
 // 設定對話框：主題、字型、游標、預設 shell/工作目錄。所有變更即時套用並寫入 localStorage。
 // 結構仿 CommandPalette：backdrop + 置中對話框，Esc/backdrop 點擊關閉並還原焦點。
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { useUiStore } from "../../store/ui";
 import { useThemeStore, THEME_NAMES, THEME_LABELS } from "../../store/theme";
 import { useSettingsStore, type CursorStyle } from "../../store/settings";
+import { useLanguageStore, LANGUAGE_NAMES, LANGUAGE_LABELS } from "../../store/language";
+import { useUpdateStore } from "../../store/update";
 import { focusActiveTerminal } from "../../focus/focusUtils";
+import { useT } from "../../i18n";
 import "./SettingsDialog.css";
 
-const CURSOR_STYLES: { value: CursorStyle; label: string }[] = [
-  { value: "block", label: "方塊" },
-  { value: "bar", label: "直線" },
-  { value: "underline", label: "底線" },
-];
+const CURSOR_STYLE_KEYS: Record<CursorStyle, string> = {
+  block: "settings.cursorStyleBlock",
+  bar: "settings.cursorStyleBar",
+  underline: "settings.cursorStyleUnderline",
+};
+const CURSOR_STYLES: CursorStyle[] = ["block", "bar", "underline"];
 
 export function SettingsDialog() {
   const open = useUiStore((s) => s.settingsOpen);
@@ -20,11 +25,15 @@ export function SettingsDialog() {
 }
 
 function SettingsDialogInner() {
+  const t = useT();
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
   const prevFocusRef = useRef<Element | null>(document.activeElement);
 
   const themeName = useThemeStore((s) => s.name);
   const setThemeName = useThemeStore((s) => s.setName);
+
+  const language = useLanguageStore((s) => s.name);
+  const setLanguage = useLanguageStore((s) => s.setName);
 
   const fontFamily = useSettingsStore((s) => s.fontFamily);
   const fontSize = useSettingsStore((s) => s.fontSize);
@@ -39,9 +48,17 @@ function SettingsDialogInner() {
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
   const setDefaultCwd = useSettingsStore((s) => s.setDefaultCwd);
 
+  const updatePhase = useUpdateStore((s) => s.phase);
+  const updateVersion = useUpdateStore((s) => s.version);
+  const [appVersion, setAppVersion] = useState("");
+
   useEffect(() => {
     const dialog = document.getElementById("settings-dialog");
     (dialog?.querySelector("select, input") as HTMLElement | null)?.focus();
+  }, []);
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => {});
   }, []);
 
   const close = () => {
@@ -70,19 +87,19 @@ function SettingsDialogInner() {
         className="settings"
         role="dialog"
         aria-modal="true"
-        aria-label="設定"
+        aria-label={t("settings.dialogLabel")}
         onKeyDown={onKeyDown}
       >
         <div className="settings-header">
-          <span className="settings-title">設定</span>
-          <button className="settings-close" onClick={close} aria-label="關閉">
+          <span className="settings-title">{t("settings.title")}</span>
+          <button className="settings-close" onClick={close} aria-label={t("settings.close")}>
             ×
           </button>
         </div>
 
         <div className="settings-body">
           <label className="settings-row">
-            <span>主題</span>
+            <span>{t("settings.theme")}</span>
             <select
               value={themeName}
               onChange={(e) => setThemeName(e.target.value as typeof themeName)}
@@ -96,7 +113,21 @@ function SettingsDialogInner() {
           </label>
 
           <label className="settings-row">
-            <span>字型</span>
+            <span>{t("settings.language")}</span>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as typeof language)}
+            >
+              {LANGUAGE_NAMES.map((name) => (
+                <option key={name} value={name}>
+                  {LANGUAGE_LABELS[name]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="settings-row">
+            <span>{t("settings.fontFamily")}</span>
             <input
               type="text"
               value={fontFamily}
@@ -105,7 +136,7 @@ function SettingsDialogInner() {
           </label>
 
           <label className="settings-row">
-            <span>字型大小</span>
+            <span>{t("settings.fontSize")}</span>
             <input
               type="number"
               min={8}
@@ -119,21 +150,21 @@ function SettingsDialogInner() {
           </label>
 
           <label className="settings-row">
-            <span>游標樣式</span>
+            <span>{t("settings.cursorStyle")}</span>
             <select
               value={cursorStyle}
               onChange={(e) => setCursorStyle(e.target.value as CursorStyle)}
             >
               {CURSOR_STYLES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
+                <option key={c} value={c}>
+                  {t(CURSOR_STYLE_KEYS[c])}
                 </option>
               ))}
             </select>
           </label>
 
           <label className="settings-row">
-            <span>游標閃爍</span>
+            <span>{t("settings.cursorBlink")}</span>
             <input
               type="checkbox"
               checked={cursorBlink}
@@ -142,24 +173,38 @@ function SettingsDialogInner() {
           </label>
 
           <label className="settings-row">
-            <span>預設 Shell</span>
+            <span>{t("settings.defaultShell")}</span>
             <input
               type="text"
               value={defaultShell}
-              placeholder="留空使用系統預設"
+              placeholder={t("settings.defaultShellPlaceholder")}
               onChange={(e) => setDefaultShell(e.target.value)}
             />
           </label>
 
           <label className="settings-row">
-            <span>預設工作目錄</span>
+            <span>{t("settings.defaultCwd")}</span>
             <input
               type="text"
               value={defaultCwd}
-              placeholder="留空使用使用者家目錄"
+              placeholder={t("settings.defaultCwdPlaceholder")}
               onChange={(e) => setDefaultCwd(e.target.value)}
             />
           </label>
+
+          <div className="settings-row">
+            <span>{t("settings.updateVersion")}</span>
+            <span>{appVersion}</span>
+          </div>
+
+          <div className="settings-row">
+            <span>{t("settings.updateStatus")}</span>
+            <span>
+              {updatePhase === "idle" || updatePhase === "checking"
+                ? t("update.checking")
+                : t(`update.${updatePhase}`, { version: updateVersion ?? "" })}
+            </span>
+          </div>
         </div>
       </div>
     </div>

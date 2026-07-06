@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
 import { useLayoutStore } from "../../store/layout";
+import { useUpdateStore } from "../../store/update";
 import {
   resolveFocusedWorkspace,
   sessionsInWorkspace,
@@ -12,6 +13,7 @@ import {
 } from "../../store/workspaceGroups";
 import { ptyWrite } from "../../ipc/pty";
 import { focusActiveTerminal } from "../../focus/focusUtils";
+import { useT } from "../../i18n";
 import "./Toolbar.css";
 
 type Target = "all" | "agents";
@@ -24,14 +26,15 @@ function fmtNum(n?: number): string {
 }
 
 export function Toolbar() {
+  const t = useT();
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const viewMode = useUiStore((s) => s.viewMode);
   const setViewMode = useUiStore((s) => s.setViewMode);
   const filesOpen = useUiStore((s) => s.filesOpen);
   const toggleFiles = useUiStore((s) => s.toggleFiles);
-  const settingsOpen = useUiStore((s) => s.settingsOpen);
-  const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
+  const updatePhase = useUpdateStore((s) => s.phase);
+  const updateVersion = useUpdateStore((s) => s.version);
 
   const [text, setText] = useState("");
   const [target, setTarget] = useState<Target>("agents");
@@ -61,7 +64,7 @@ export function Toolbar() {
           className={viewMode === "single" ? "on" : ""}
           aria-pressed={viewMode === "single"}
           onClick={() => setViewMode("single")}
-          title="單一視圖"
+          title={t("toolbar.singleView")}
         >
           ▢
         </button>
@@ -75,7 +78,7 @@ export function Toolbar() {
               .ensureTree(workspaceId, workspaceSessions.map((s) => s.id));
             setViewMode("split");
           }}
-          title="分割視圖"
+          title={t("toolbar.splitView")}
         >
           ▦
         </button>
@@ -83,12 +86,12 @@ export function Toolbar() {
 
       <div className="tb-broadcast">
         <select value={target} onChange={(e) => setTarget(e.target.value as Target)}>
-          <option value="agents">Workspace 內 agent</option>
-          <option value="all">Workspace 內 session</option>
+          <option value="agents">{t("toolbar.targetAgents")}</option>
+          <option value="all">{t("toolbar.targetAll")}</option>
         </select>
         <input
           value={text}
-          placeholder={`派工給 ${targetCount} 個 session…`}
+          placeholder={t("toolbar.broadcastPlaceholder", { count: targetCount })}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -100,19 +103,25 @@ export function Toolbar() {
           }}
         />
         <button className="tb-send" onClick={broadcast} disabled={!text.trim() || targetCount === 0}>
-          送出
+          {t("toolbar.send")}
         </button>
       </div>
 
       <div className="tb-spacer" />
 
+      {(updatePhase === "downloading" || updatePhase === "relaunching") && (
+        <span className="tb-update" title={t(`update.${updatePhase}`, { version: updateVersion ?? "" })}>
+          {t(`update.${updatePhase}`, { version: updateVersion ?? "" })}
+        </span>
+      )}
+
       {active?.agentId && (
         <div className="tb-cost">
-          <span className="tb-agent">{active.agentLabel ?? "Agent"}</span>
-          <span className="tb-mono" title="本次成本">
+          <span className="tb-agent">{active.agentLabel ?? t("toolbar.defaultAgent")}</span>
+          <span className="tb-mono" title={t("toolbar.cost")}>
             {fmtCost(active.cost)}
           </span>
-          <span className="tb-mono" title="input / output tokens">
+          <span className="tb-mono" title={t("toolbar.tokens")}>
             ↑{fmtNum(active.tokensIn)} ↓{fmtNum(active.tokensOut)}
           </span>
         </div>
@@ -121,21 +130,13 @@ export function Toolbar() {
         className={`tb-files ${filesOpen ? "on" : ""}`}
         aria-pressed={filesOpen}
         onClick={toggleFiles}
-        title="此 Workspace 的檔案變更"
+        title={t("toolbar.changedFiles")}
       >
-        變更 {changedCount}
+        {t("toolbar.changedFilesLabel", { count: changedCount })}
       </button>
-      <span className="tb-total" title="此 Workspace 成本總計">
+      <span className="tb-total" title={t("toolbar.totalCost")}>
         Σ ${totalCost.toFixed(4)}
       </span>
-      <button
-        className={`tb-settings ${settingsOpen ? "on" : ""}`}
-        aria-pressed={settingsOpen}
-        onClick={() => setSettingsOpen(!settingsOpen)}
-        title="設定"
-      >
-        ⚙
-      </button>
     </div>
   );
 }

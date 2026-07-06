@@ -26,9 +26,14 @@ import { matchBinding } from "./commands/keymap";
 import { runCommand } from "./commands/registry";
 import { listen } from "@tauri-apps/api/event";
 import { ensureNotifyPermission } from "./ipc/notify";
+import { setMenuLanguage } from "./ipc/menu";
+import { checkForUpdate, downloadAndInstallUpdate } from "./ipc/update";
+import { useUpdateStore } from "./store/update";
+import { useLanguageStore } from "./store/language";
 import { initRegistry, detectProfile, getProfile } from "./agents/registry";
 import { deriveState, stripAnsi } from "./agents/engine";
 import { extractFromLine } from "./agents/extract";
+import { useT } from "./i18n";
 import "./App.css";
 
 // 只在整個 app 生命週期做一次啟動流程。
@@ -42,6 +47,24 @@ const lineBuffers = new Map<string, string>();
 // menu row absent; a single divergent scan must not clear the approval (that
 // flapping is what caused the notification storm).
 const nonWaitingStreak = new Map<string, number>();
+
+// 啟動時自動檢查並安裝更新，找到新版本就直接下載、安裝、重啟，無需使用者互動。
+async function checkAndInstallUpdate(): Promise<void> {
+  const { setPhase } = useUpdateStore.getState();
+  setPhase("checking");
+  const update = await checkForUpdate();
+  if (!update) {
+    setPhase("up-to-date");
+    return;
+  }
+  try {
+    setPhase("downloading", update.version);
+    await downloadAndInstallUpdate(update);
+    setPhase("relaunching", update.version);
+  } catch {
+    setPhase("error", update.version);
+  }
+}
 
 // split 模式下 leaf rect（百分比）→ pane 的 inline style。
 function rectStyle(rect: RectPct): CSSProperties {
@@ -134,6 +157,7 @@ function handleStream(id: string, text: string) {
 }
 
 function App() {
+  const t = useT();
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const setActive = useSessionStore((s) => s.setActive);
@@ -177,6 +201,8 @@ function App() {
     (async () => {
       await initRegistry();
       void ensureNotifyPermission();
+      // 啟動時把已持久化的語言同步給原生選單（Rust 端預設建置為 zh-TW）。
+      void setMenuLanguage(useLanguageStore.getState().name);
       // 原生選單 accelerator → 命令派發（純瀏覽器環境會 reject，忽略）。
       listen<string>("app://shortcut", (e) => runCommand(e.payload)).catch(() => {});
       // Notifications are suppressed while the window is focused (the
@@ -192,6 +218,7 @@ function App() {
       if (useUiStore.getState().viewMode === "split") {
         useLayoutStore.getState().ensureTree(DEFAULT_WORKSPACE_ID, [id]);
       }
+      void checkAndInstallUpdate();
     })();
   }, []);
 
@@ -231,7 +258,7 @@ function App() {
           })}
           {viewMode === "split" && <SplitResizers resizers={layout.resizers} />}
           {sessions.length === 0 && (
-            <div className="empty-hint">按左側 + 新增一個 session</div>
+            <div className="empty-hint">{t("app.emptyHint")}</div>
           )}
           <ApprovalPanel />
           <ChangedFilesPanel />
