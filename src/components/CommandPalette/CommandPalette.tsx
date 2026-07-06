@@ -9,6 +9,7 @@ import { filterCommands } from "../../commands/filter";
 import { shortcutLabel } from "../../commands/keymap";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import type { Command } from "../../commands/types";
+import { useT } from "../../i18n";
 import "./CommandPalette.css";
 
 const IS_MAC = navigator.userAgent.includes("Mac");
@@ -21,6 +22,7 @@ export function CommandPalette() {
 }
 
 function PaletteDialog() {
+  const t = useT();
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -86,14 +88,14 @@ function PaletteDialog() {
         className="palette"
         role="dialog"
         aria-modal="true"
-        aria-label="命令面板"
+        aria-label={t("palette.dialogLabel")}
         onKeyDown={onKeyDown}
       >
         <input
           ref={inputRef}
           value={query}
-          placeholder="輸入命令…"
-          aria-label="搜尋命令"
+          placeholder={t("palette.inputPlaceholder")}
+          aria-label={t("palette.searchLabel")}
           onChange={(e) => {
             setQuery(e.target.value);
             setSelected(0);
@@ -101,7 +103,7 @@ function PaletteDialog() {
         />
         <div className="palette-list" role="listbox" ref={listRef}>
           {results.length === 0 && (
-            <div className="palette-empty">沒有符合的命令</div>
+            <div className="palette-empty">{t("palette.empty")}</div>
           )}
           {results.map((c, i) => (
             <div

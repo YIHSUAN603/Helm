@@ -4,6 +4,7 @@ import { useSessionStore, type Session } from "../../store/sessions";
 import { activateSession } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey } from "../../focus/listNav";
+import { useT } from "../../i18n";
 
 /** Roving-focus targets in the sidebar: workspace headers + visible sessions. */
 export const SIDEBAR_NAV_SELECTOR = ".workspace-header, .session-item";
@@ -14,15 +15,15 @@ function dotClass(s: Session): string {
   return s.status;
 }
 
-const stateLabel: Record<string, string> = {
-  "agent-thinking": "思考中",
-  "agent-tool": "執行中",
-  "agent-waiting": "等待審批",
-  "agent-done": "完成",
-  "agent-error": "錯誤",
-  busy: "執行中",
-  idle: "閒置",
-  exited: "已結束",
+const stateLabelKeys: Record<string, string> = {
+  "agent-thinking": "sidebar.state.thinking",
+  "agent-tool": "sidebar.state.tool",
+  "agent-waiting": "sidebar.state.waiting",
+  "agent-done": "sidebar.state.done",
+  "agent-error": "sidebar.state.error",
+  busy: "sidebar.state.busy",
+  idle: "sidebar.state.idle",
+  exited: "sidebar.state.exited",
 };
 
 interface SessionItemProps {
@@ -32,6 +33,7 @@ interface SessionItemProps {
 }
 
 export function SessionItem({ session: s, isActive, listRef }: SessionItemProps) {
+  const t = useT();
   const closeSession = useSessionStore((x) => x.closeSession);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -66,14 +68,14 @@ export function SessionItem({ session: s, isActive, listRef }: SessionItemProps)
       onClick={() => activateSession(s.id)}
       onKeyDown={onKeyDown}
     >
-      <span className={`status-dot ${cls}`} title={stateLabel[cls] ?? ""} />
+      <span className={`status-dot ${cls}`} title={cls in stateLabelKeys ? t(stateLabelKeys[cls]) : ""} />
       <span className="session-name" title={s.title}>
         {s.title}
       </span>
       {s.agentLabel && <span className="agent-tag">{s.agentLabel}</span>}
       <button
         className="icon-btn close"
-        title="關閉"
+        title={t("sidebar.close")}
         tabIndex={-1}
         onClick={(e) => {
           e.stopPropagation();

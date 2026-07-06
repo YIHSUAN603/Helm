@@ -9,6 +9,7 @@ import {
   workspaceChangedFileCount,
 } from "../../store/workspaceGroups";
 import { focusActiveTerminal } from "../../focus/focusUtils";
+import { useT } from "../../i18n";
 import "./ChangedFilesPanel.css";
 
 function SessionFileGroup({ session }: { session: Session }) {
@@ -38,6 +39,7 @@ function SessionFileGroup({ session }: { session: Session }) {
 }
 
 export function ChangedFilesPanel() {
+  const t = useT();
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const open = useUiStore((s) => s.filesOpen);
@@ -62,13 +64,13 @@ export function ChangedFilesPanel() {
   return (
     <div className="files-panel" data-focus-region="files" onKeyDown={onKeyDown}>
       <div className="files-header">
-        <span>檔案變更 {total > 0 && `(${total})`}</span>
-        <button className="files-close" onClick={onClose} title="關閉">
+        <span>{total > 0 ? t("files.titleWithCount", { count: total }) : t("files.title")}</span>
+        <button className="files-close" onClick={onClose} title={t("files.close")}>
           ×
         </button>
       </div>
       <div className="files-list">
-        {groups.length === 0 && <div className="files-empty">尚無變更</div>}
+        {groups.length === 0 && <div className="files-empty">{t("files.empty")}</div>}
         {groups.map((s) => (
           <SessionFileGroup key={s.id} session={s} />
         ))}

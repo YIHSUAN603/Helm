@@ -159,7 +159,10 @@ pub fn pty_write(state: State<'_, PtyManager>, id: String, data: String) -> Resu
         .writer
         .write_all(data.as_bytes())
         .map_err(|e| format!("write failed: {e}"))?;
-    session.writer.flush().map_err(|e| format!("flush failed: {e}"))?;
+    session
+        .writer
+        .flush()
+        .map_err(|e| format!("flush failed: {e}"))?;
     Ok(())
 }
 

@@ -13,6 +13,7 @@ import {
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey } from "../../focus/listNav";
 import { SessionItem, SIDEBAR_NAV_SELECTOR } from "./SessionItem";
+import { useT } from "../../i18n";
 
 interface WorkspaceGroupProps {
   workspace: Workspace;
@@ -35,6 +36,7 @@ export function WorkspaceGroup({
   onRenameStart,
   onRenameEnd,
 }: WorkspaceGroupProps) {
+  const t = useT();
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const renameWorkspace = useWorkspaceStore((s) => s.renameWorkspace);
   const moveSessionToWorkspace = useSessionStore((s) => s.moveSessionToWorkspace);
@@ -140,7 +142,7 @@ export function WorkspaceGroup({
         {pendingCount > 0 && (
           <button
             className="workspace-approval-badge"
-            title={`${pendingCount} 個待審批 — 點擊前往`}
+            title={t("sidebar.pendingApprovalBadge", { count: pendingCount })}
             tabIndex={-1}
             onClick={(e) => {
               e.stopPropagation();
@@ -153,7 +155,7 @@ export function WorkspaceGroup({
         )}
         <button
           className="icon-btn hover-action"
-          title="在此 Workspace 新增 Shell"
+          title={t("sidebar.addSession")}
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
@@ -166,7 +168,7 @@ export function WorkspaceGroup({
         {deletable && (
           <button
             className="icon-btn hover-action"
-            title="刪除 Workspace（session 移到預設）"
+            title={t("sidebar.removeWorkspace")}
             tabIndex={-1}
             onClick={(e) => {
               e.stopPropagation();

@@ -15,9 +15,11 @@ import {
   pendingApprovalsInWorkspace,
   resolveFocusedWorkspace,
 } from "../../store/workspaceGroups";
+import { useT } from "../../i18n";
 import "./ApprovalPanel.css";
 
 export function ApprovalPanel() {
+  const t = useT();
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
 
@@ -42,14 +44,14 @@ export function ApprovalPanel() {
   return (
     <div className="approval-panel" data-focus-region="approvals" onKeyDown={onKeyDown}>
       <div className="approval-header">
-        待審批 <span className="approval-count">{pending.length}</span>
+        {t("approval.pending")} <span className="approval-count">{pending.length}</span>
         {pending.length > 1 && (
           <span className="approval-batch">
             <button className="batch approve" onClick={() => respondAllApprovals(true)}>
-              全部批准
+              {t("approval.approveAll")}
             </button>
             <button className="batch reject" onClick={() => respondAllApprovals(false)}>
-              全部拒絕
+              {t("approval.rejectAll")}
             </button>
           </span>
         )}
@@ -63,7 +65,7 @@ export function ApprovalPanel() {
             onClick={() => activateSession(s.id)}
             onKeyDown={(e) => onMetaKeyDown(e, s.id)}
           >
-            <span className="approval-agent">{s.agentLabel ?? "Agent"}</span>
+            <span className="approval-agent">{s.agentLabel ?? t("toolbar.defaultAgent")}</span>
             <span className="approval-session">{s.title}</span>
           </div>
           <div className="approval-prompt" title={s.pendingApproval}>
@@ -71,8 +73,7 @@ export function ApprovalPanel() {
           </div>
           {isResponseIneffective(s.id, s.pendingApproval ?? "", Date.now()) && (
             <div className="approval-hint">
-              提示在回應後又出現——按鍵可能不符此 agent，請直接在終端機回應，或在
-              agents.json 為它設定 approve/reject 按鍵。
+              {t("approval.ineffectiveHint")}
             </div>
           )}
           <div className="approval-actions">
@@ -80,13 +81,13 @@ export function ApprovalPanel() {
               className="approve"
               onClick={() => respondApproval(s.id, s.agentId, true)}
             >
-              批准
+              {t("approval.approve")}
             </button>
             <button
               className="reject"
               onClick={() => respondApproval(s.id, s.agentId, false)}
             >
-              拒絕
+              {t("approval.reject")}
             </button>
           </div>
         </div>

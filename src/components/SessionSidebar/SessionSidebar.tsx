@@ -7,20 +7,21 @@ import { useRef } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useWorkspaceStore } from "../../store/workspaces";
 import { groupSessions, DEFAULT_WORKSPACE_ID } from "../../store/workspaceGroups";
-import { useThemeStore } from "../../store/theme";
 import { useUiStore } from "../../store/ui";
 import { newWorkspace } from "../../commands/actions";
 import { WorkspaceGroup } from "./WorkspaceGroup";
+import { useT } from "../../i18n";
 import "./SessionSidebar.css";
 
 export function SessionSidebar() {
+  const t = useT();
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const theme = useThemeStore((s) => s.name);
-  const toggleTheme = useThemeStore((s) => s.toggle);
   const renamingId = useUiStore((s) => s.renamingWorkspaceId);
   const setRenamingId = useUiStore((s) => s.setRenamingWorkspaceId);
+  const settingsOpen = useUiStore((s) => s.settingsOpen);
+  const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
   const listRef = useRef<HTMLDivElement>(null);
 
   const groups = groupSessions(workspaces, sessions);
@@ -34,7 +35,7 @@ export function SessionSidebar() {
       <div className="sidebar-header">
         <span className="sidebar-title">SESSIONS</span>
         <div className="sidebar-actions">
-          <button className="icon-btn" title="新增 Workspace" onClick={addWorkspace}>
+          <button className="icon-btn" title={t("sidebar.newWorkspace")} onClick={addWorkspace}>
             +
           </button>
         </div>
@@ -57,8 +58,12 @@ export function SessionSidebar() {
       </div>
 
       <div className="sidebar-footer">
-        <button className="theme-btn" onClick={toggleTheme}>
-          {theme === "dark" ? "☾ Dark" : "☀ Light"}
+        <button
+          className={`settings-btn ${settingsOpen ? "on" : ""}`}
+          aria-pressed={settingsOpen}
+          onClick={() => setSettingsOpen(!settingsOpen)}
+        >
+          ⚙ {t("sidebar.settings")}
         </button>
       </div>
     </aside>

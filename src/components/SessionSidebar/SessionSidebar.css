@@ -289,7 +289,7 @@
   border-top: 1px solid var(--border);
 }
 
-.theme-btn {
+.settings-btn {
   width: 100%;
   border: 1px solid var(--border);
   background: transparent;
@@ -300,7 +300,8 @@
   cursor: pointer;
 }
 
-.theme-btn:hover {
+.settings-btn:hover,
+.settings-btn.on {
   background: var(--hover);
   color: var(--fg);
 }

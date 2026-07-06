@@ -14,6 +14,7 @@ import {
 } from "../store/workspaceGroups";
 import { listLaunchers } from "../agents/registry";
 import { cycleFocusRegion, focusActiveTerminal } from "../focus/focusUtils";
+import { t } from "../i18n";
 import {
   activateSession,
   cycleSession,
@@ -52,7 +53,8 @@ function inSplitMode(): boolean {
 function splitLeafCount(): number {
   const { sessions, activeId } = useSessionStore.getState();
   const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-  return collectSessionIds(useLayoutStore.getState().trees[workspaceId] ?? null).length;
+  return collectSessionIds(useLayoutStore.getState().trees[workspaceId] ?? null)
+    .length;
 }
 
 function toggleViewMode(): void {
@@ -71,32 +73,32 @@ function toggleViewMode(): void {
 }
 
 const PANE_DIRS = [
-  ["left", "左方"],
-  ["right", "右方"],
-  ["up", "上方"],
-  ["down", "下方"],
+  ["left", "command.dirLeft"],
+  ["right", "command.dirRight"],
+  ["up", "command.dirUp"],
+  ["down", "command.dirDown"],
 ] as const;
 
-const RESIZE_TITLES = {
-  left: "縮窄 Pane",
-  right: "加寬 Pane",
-  up: "縮短 Pane",
-  down: "加高 Pane",
+const RESIZE_TITLE_KEYS = {
+  left: "command.resizeLeft",
+  right: "command.resizeRight",
+  up: "command.resizeUp",
+  down: "command.resizeDown",
 } as const;
 
 function layoutCommands(): Command[] {
-  const nav: Command[] = PANE_DIRS.map(([dir, label]) => ({
+  const nav: Command[] = PANE_DIRS.map(([dir, dirKey]) => ({
     id: `layout:focus-${dir}`,
-    title: `焦點：${label} Pane`,
-    category: "版面",
+    title: t("command.focusPane", { dir: t(dirKey) }),
+    category: t("category.layout"),
     keywords: "focus pane",
     enabled: inSplitMode,
     run: () => focusPane(dir),
   }));
   const resize: Command[] = PANE_DIRS.map(([dir]) => ({
     id: `layout:resize-${dir}`,
-    title: RESIZE_TITLES[dir],
-    category: "版面",
+    title: t(RESIZE_TITLE_KEYS[dir]),
+    category: t("category.layout"),
     keywords: "resize pane",
     enabled: inSplitMode,
     run: () => resizeActivePane(dir),
@@ -107,188 +109,190 @@ function layoutCommands(): Command[] {
 function numberedSwitchCommands(): Command[] {
   return Array.from({ length: 9 }, (_, i) => ({
     id: `session:switch-${i + 1}`,
-    title: `切換到第 ${i + 1} 個 Session`,
-    category: "Session",
+    title: t("command.switchToIndex", { n: i + 1 }),
+    category: t("category.session"),
     hidden: true,
     enabled: () => useSessionStore.getState().sessions.length > i,
     run: () => switchToSessionIndex(i),
   }));
 }
 
-const STATIC_COMMANDS: Command[] = [
-  {
-    id: "palette:open",
-    title: "命令面板",
-    category: "檢視",
-    keywords: "command palette",
-    run: () => {
-      const ui = useUiStore.getState();
-      ui.setPaletteOpen(!ui.paletteOpen);
+function staticCommands(): Command[] {
+  return [
+    {
+      id: "palette:open",
+      title: t("command.paletteOpen"),
+      category: t("category.view"),
+      keywords: "command palette",
+      run: () => {
+        const ui = useUiStore.getState();
+        ui.setPaletteOpen(!ui.paletteOpen);
+      },
     },
-  },
-  {
-    id: "layout:split-right",
-    title: "向右分割",
-    category: "版面",
-    keywords: "split right",
-    enabled: hasActive,
-    run: () => splitActivePane("row"),
-  },
-  {
-    id: "layout:split-down",
-    title: "向下分割",
-    category: "版面",
-    keywords: "split down",
-    enabled: hasActive,
-    run: () => splitActivePane("column"),
-  },
-  {
-    id: "layout:close-pane",
-    title: "關閉 Pane",
-    category: "版面",
-    keywords: "close pane",
-    enabled: hasActive,
-    run: () => {
-      const store = useSessionStore.getState();
-      if (store.activeId) store.closeSession(store.activeId);
+    {
+      id: "layout:split-right",
+      title: t("command.splitRight"),
+      category: t("category.layout"),
+      keywords: "split right",
+      enabled: hasActive,
+      run: () => splitActivePane("row"),
     },
-  },
-  {
-    id: "layout:focus-next-pane",
-    title: "焦點：下一個 Pane",
-    category: "版面",
-    keywords: "next pane",
-    enabled: () => inSplitMode() && splitLeafCount() >= 2,
-    run: () => focusPane("next"),
-  },
-  ...layoutCommands(),
-  {
-    id: "session:new",
-    title: "新增 Session（shell）",
-    category: "Session",
-    keywords: "new session shell",
-    run: () => newSession(),
-  },
-  {
-    id: "session:next",
-    title: "下一個 Session",
-    category: "Session",
-    keywords: "next session",
-    enabled: () => useSessionStore.getState().sessions.length >= 2,
-    run: () => cycleSession(1),
-  },
-  {
-    id: "session:prev",
-    title: "上一個 Session",
-    category: "Session",
-    keywords: "previous session",
-    enabled: () => useSessionStore.getState().sessions.length >= 2,
-    run: () => cycleSession(-1),
-  },
-  ...numberedSwitchCommands(),
-  {
-    id: "workspace:new",
-    title: "新增 Workspace",
-    category: "Session",
-    keywords: "new workspace group",
-    run: () => {
-      newWorkspace();
+    {
+      id: "layout:split-down",
+      title: t("command.splitDown"),
+      category: t("category.layout"),
+      keywords: "split down",
+      enabled: hasActive,
+      run: () => splitActivePane("column"),
     },
-  },
-  {
-    id: "view:toggle-mode",
-    title: "切換 單一/分割 視圖",
-    category: "檢視",
-    keywords: "toggle view single split",
-    run: toggleViewMode,
-  },
-  {
-    id: "view:toggle-files",
-    title: "檔案變更面板",
-    category: "檢視",
-    keywords: "changed files panel",
-    run: () => useUiStore.getState().toggleFiles(),
-  },
-  {
-    id: "theme:toggle",
-    title: "切換主題",
-    category: "檢視",
-    keywords: "toggle theme dark light",
-    run: () => useThemeStore.getState().toggle(),
-  },
-  {
-    id: "settings:open",
-    title: "開啟設定",
-    category: "檢視",
-    keywords: "settings preferences font theme cursor shell",
-    run: () => {
-      const ui = useUiStore.getState();
-      ui.setSettingsOpen(!ui.settingsOpen);
+    {
+      id: "layout:close-pane",
+      title: t("command.closePane"),
+      category: t("category.layout"),
+      keywords: "close pane",
+      enabled: hasActive,
+      run: () => {
+        const store = useSessionStore.getState();
+        if (store.activeId) store.closeSession(store.activeId);
+      },
     },
-  },
-  {
-    id: "broadcast:focus",
-    title: "聚焦派工輸入框",
-    category: "檢視",
-    keywords: "broadcast input",
-    run: focusBroadcastInput,
-  },
-  {
-    id: "approval:approve-active",
-    title: "批准目前 Session",
-    category: "審批",
-    keywords: "approve",
-    enabled: activeHasApproval,
-    run: () => respondActiveApproval(true),
-  },
-  {
-    id: "approval:reject-active",
-    title: "拒絕目前 Session",
-    category: "審批",
-    keywords: "reject",
-    enabled: activeHasApproval,
-    run: () => respondActiveApproval(false),
-  },
-  {
-    id: "approval:approve-all",
-    title: "全部批准（此 Workspace）",
-    category: "審批",
-    keywords: "approve all",
-    enabled: anyApproval,
-    run: () => respondAllApprovals(true),
-  },
-  {
-    id: "approval:reject-all",
-    title: "全部拒絕（此 Workspace）",
-    category: "審批",
-    keywords: "reject all",
-    enabled: anyApproval,
-    run: () => respondAllApprovals(false),
-  },
-  {
-    id: "focus:cycle-region",
-    title: "循環焦點區域",
-    category: "檢視",
-    keywords: "cycle focus region",
-    run: () => cycleFocusRegion(1),
-  },
-  {
-    id: "focus:cycle-region-back",
-    title: "循環焦點區域（反向）",
-    category: "檢視",
-    keywords: "cycle focus region back",
-    hidden: true,
-    run: () => cycleFocusRegion(-1),
-  },
-  {
-    id: "focus:terminal",
-    title: "回到終端機",
-    category: "檢視",
-    keywords: "focus terminal",
-    enabled: hasActive,
-    run: focusActiveTerminal,
-  },
-];
+    {
+      id: "layout:focus-next-pane",
+      title: t("command.focusNextPane"),
+      category: t("category.layout"),
+      keywords: "next pane",
+      enabled: () => inSplitMode() && splitLeafCount() >= 2,
+      run: () => focusPane("next"),
+    },
+    ...layoutCommands(),
+    {
+      id: "session:new",
+      title: t("command.newSession"),
+      category: t("category.session"),
+      keywords: "new session shell",
+      run: () => newSession(),
+    },
+    {
+      id: "session:next",
+      title: t("command.nextSession"),
+      category: t("category.session"),
+      keywords: "next session",
+      enabled: () => useSessionStore.getState().sessions.length >= 2,
+      run: () => cycleSession(1),
+    },
+    {
+      id: "session:prev",
+      title: t("command.prevSession"),
+      category: t("category.session"),
+      keywords: "previous session",
+      enabled: () => useSessionStore.getState().sessions.length >= 2,
+      run: () => cycleSession(-1),
+    },
+    ...numberedSwitchCommands(),
+    {
+      id: "workspace:new",
+      title: t("command.newWorkspace"),
+      category: t("category.session"),
+      keywords: "new workspace group",
+      run: () => {
+        newWorkspace();
+      },
+    },
+    {
+      id: "view:toggle-mode",
+      title: t("command.toggleViewMode"),
+      category: t("category.view"),
+      keywords: "toggle view single split",
+      run: toggleViewMode,
+    },
+    {
+      id: "view:toggle-files",
+      title: t("command.toggleFiles"),
+      category: t("category.view"),
+      keywords: "changed files panel",
+      run: () => useUiStore.getState().toggleFiles(),
+    },
+    {
+      id: "theme:toggle",
+      title: t("command.toggleTheme"),
+      category: t("category.view"),
+      keywords: "toggle theme dark light",
+      run: () => useThemeStore.getState().toggle(),
+    },
+    {
+      id: "settings:open",
+      title: t("command.openSettings"),
+      category: t("category.view"),
+      keywords: "settings preferences font theme cursor shell",
+      run: () => {
+        const ui = useUiStore.getState();
+        ui.setSettingsOpen(!ui.settingsOpen);
+      },
+    },
+    {
+      id: "broadcast:focus",
+      title: t("command.focusBroadcast"),
+      category: t("category.view"),
+      keywords: "broadcast input",
+      run: focusBroadcastInput,
+    },
+    {
+      id: "approval:approve-active",
+      title: t("command.approveActive"),
+      category: t("category.approval"),
+      keywords: "approve",
+      enabled: activeHasApproval,
+      run: () => respondActiveApproval(true),
+    },
+    {
+      id: "approval:reject-active",
+      title: t("command.rejectActive"),
+      category: t("category.approval"),
+      keywords: "reject",
+      enabled: activeHasApproval,
+      run: () => respondActiveApproval(false),
+    },
+    {
+      id: "approval:approve-all",
+      title: t("command.approveAll"),
+      category: t("category.approval"),
+      keywords: "approve all",
+      enabled: anyApproval,
+      run: () => respondAllApprovals(true),
+    },
+    {
+      id: "approval:reject-all",
+      title: t("command.rejectAll"),
+      category: t("category.approval"),
+      keywords: "reject all",
+      enabled: anyApproval,
+      run: () => respondAllApprovals(false),
+    },
+    {
+      id: "focus:cycle-region",
+      title: t("command.cycleFocusRegion"),
+      category: t("category.view"),
+      keywords: "cycle focus region",
+      run: () => cycleFocusRegion(1),
+    },
+    {
+      id: "focus:cycle-region-back",
+      title: t("command.cycleFocusRegionBack"),
+      category: t("category.view"),
+      keywords: "cycle focus region back",
+      hidden: true,
+      run: () => cycleFocusRegion(-1),
+    },
+    {
+      id: "focus:terminal",
+      title: t("command.focusTerminal"),
+      category: t("category.view"),
+      keywords: "focus terminal",
+      enabled: hasActive,
+      run: focusActiveTerminal,
+    },
+  ];
+}
 
 /** Palette-only commands rebuilt from live sessions / launchers. */
 function dynamicCommands(): Command[] {
@@ -296,8 +300,8 @@ function dynamicCommands(): Command[] {
   for (const s of useSessionStore.getState().sessions) {
     cmds.push({
       id: `session:switch:${s.id}`,
-      title: `切換到：${s.title}`,
-      category: "Session",
+      title: t("command.switchToSession", { title: s.title }),
+      category: t("category.session"),
       keywords: s.agentLabel ?? "switch",
       run: () => activateSession(s.id),
     });
@@ -305,23 +309,23 @@ function dynamicCommands(): Command[] {
   listLaunchers().forEach((l, i) => {
     cmds.push({
       id: `session:new:${i}`,
-      title: `新增 Session：${l.label}`,
-      category: "Session",
+      title: t("command.newSessionWith", { label: l.label }),
+      category: t("category.session"),
       keywords: "new session",
       run: () => newSession(l),
     });
     cmds.push({
       id: `layout:split-right-with:${i}`,
-      title: `向右分割：${l.label}`,
-      category: "版面",
+      title: t("command.splitRightWith", { label: l.label }),
+      category: t("category.layout"),
       keywords: "split right",
       enabled: hasActive,
       run: () => splitActivePane("row", l),
     });
     cmds.push({
       id: `layout:split-down-with:${i}`,
-      title: `向下分割：${l.label}`,
-      category: "版面",
+      title: t("command.splitDownWith", { label: l.label }),
+      category: t("category.layout"),
       keywords: "split down",
       enabled: hasActive,
       run: () => splitActivePane("column", l),
@@ -331,7 +335,7 @@ function dynamicCommands(): Command[] {
 }
 
 export function listCommands(): Command[] {
-  return [...STATIC_COMMANDS, ...dynamicCommands()];
+  return [...staticCommands(), ...dynamicCommands()];
 }
 
 /** Run a command by id; silently ignores unknown or disabled commands. */

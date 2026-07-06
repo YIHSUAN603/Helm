@@ -8,6 +8,7 @@ import type { SplitDir } from "../../store/layoutTree";
 import { listLaunchers } from "../../agents/registry";
 import { handleListKey } from "../../focus/listNav";
 import type { AgentLauncher } from "../../agents/types";
+import { useT } from "../../i18n";
 import "./PaneLabel.css";
 
 // 綜合狀態燈：agent 狀態優先，否則活動狀態（同 sidebar）。
@@ -20,6 +21,7 @@ function isContextMenuKey(e: React.KeyboardEvent): boolean {
 }
 
 export function PaneLabel({ session }: { session: Session }) {
+  const t = useT();
   const closeSession = useSessionStore((s) => s.closeSession);
   // 記住要用哪個方向開 launcher 選單；null = 選單關閉。
   const [menuDir, setMenuDir] = useState<SplitDir | null>(null);
@@ -86,11 +88,11 @@ export function PaneLabel({ session }: { session: Session }) {
       <span className="pane-title">{session.title}</span>
       {session.agentLabel && <span className="pane-agent">{session.agentLabel}</span>}
       <span className="pane-actions">
-        {splitButton("row", "◫", "向右分割（右鍵選 agent）")}
-        {splitButton("column", "⊟", "向下分割（右鍵選 agent）")}
+        {splitButton("row", "◫", t("pane.splitRight"))}
+        {splitButton("column", "⊟", t("pane.splitDown"))}
         <button
           className="pane-close"
-          title="關閉"
+          title={t("pane.close")}
           onClick={(e) => {
             e.stopPropagation();
             closeSession(session.id);
