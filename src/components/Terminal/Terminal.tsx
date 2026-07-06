@@ -16,6 +16,7 @@ import {
   ptyWrite,
 } from "../../ipc/pty";
 import { useThemeStore, xtermThemes } from "../../store/theme";
+import { useSettingsStore } from "../../store/settings";
 import "./Terminal.css";
 
 interface TerminalProps {
@@ -73,11 +74,12 @@ export function Terminal({
     const container = containerRef.current;
     if (!container) return;
 
+    const settings = useSettingsStore.getState();
     const term = new XTerm({
-      fontFamily:
-        '"SF Mono", "Cascadia Mono", "Cascadia Code", Consolas, "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
-      fontSize: 13,
-      cursorBlink: true,
+      fontFamily: settings.fontFamily,
+      fontSize: settings.fontSize,
+      cursorStyle: settings.cursorStyle,
+      cursorBlink: settings.cursorBlink,
       allowProposedApi: true,
       theme: xtermThemes[useThemeStore.getState().name],
     });
@@ -125,7 +127,9 @@ export function Terminal({
         cbRef.current.onExit?.();
       });
       if (disposed) return;
-      await ptySpawn({ id, cols: term.cols, rows: term.rows, cwd, shell });
+      const effectiveShell = shell ?? (settings.defaultShell || undefined);
+      const effectiveCwd = cwd ?? (settings.defaultCwd || undefined);
+      await ptySpawn({ id, cols: term.cols, rows: term.rows, cwd: effectiveCwd, shell: effectiveShell });
       // 啟動 agent：把指令當作使用者輸入送進 PTY（保留完整 shell 環境）。
       if (launchCommand) {
         await ptyWrite(id, `${launchCommand}\r`);
@@ -202,6 +206,27 @@ export function Terminal({
     const term = termRef.current;
     if (term) term.options.theme = xtermThemes[themeName];
   }, [themeName]);
+
+  // 字型/游標設定變更：套用到已存在的 term，並重新 fit（字型大小會改變 cell 尺寸）。
+  const fontFamily = useSettingsStore((s) => s.fontFamily);
+  const fontSize = useSettingsStore((s) => s.fontSize);
+  const cursorStyle = useSettingsStore((s) => s.cursorStyle);
+  const cursorBlink = useSettingsStore((s) => s.cursorBlink);
+  useEffect(() => {
+    const term = termRef.current;
+    const fit = fitRef.current;
+    if (!term || !fit) return;
+    term.options.fontFamily = fontFamily;
+    term.options.fontSize = fontSize;
+    term.options.cursorStyle = cursorStyle;
+    term.options.cursorBlink = cursorBlink;
+    try {
+      fit.fit();
+      void ptyResize(id, term.cols, term.rows);
+    } catch {
+      /* ignore */
+    }
+  }, [id, fontFamily, fontSize, cursorStyle, cursorBlink]);
 
   // 版面（single/grid、顯示與否）由外層 pane 控制；這裡只填滿容器。
   return <div className="terminal-pane" ref={containerRef} />;

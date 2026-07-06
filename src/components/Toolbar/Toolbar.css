@@ -120,3 +120,19 @@
   font-variant-numeric: tabular-nums;
   color: #a6e3a1;
 }
+
+.tb-settings {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  font-size: 13px;
+  width: 26px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tb-settings:hover,
+.tb-settings.on {
+  background: var(--active);
+}

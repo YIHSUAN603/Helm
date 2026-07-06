@@ -21,6 +21,7 @@ import {
   resolveFocusedWorkspace,
 } from "./store/workspaceGroups";
 import { CommandPalette } from "./components/CommandPalette/CommandPalette";
+import { SettingsDialog } from "./components/SettingsDialog/SettingsDialog";
 import { matchBinding } from "./commands/keymap";
 import { runCommand } from "./commands/registry";
 import { listen } from "@tauri-apps/api/event";
@@ -237,6 +238,7 @@ function App() {
         </div>
       </main>
       <CommandPalette />
+      <SettingsDialog />
     </div>
   );
 }

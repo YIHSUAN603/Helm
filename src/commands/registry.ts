@@ -217,6 +217,16 @@ const STATIC_COMMANDS: Command[] = [
     run: () => useThemeStore.getState().toggle(),
   },
   {
+    id: "settings:open",
+    title: "開啟設定",
+    category: "檢視",
+    keywords: "settings preferences font theme cursor shell",
+    run: () => {
+      const ui = useUiStore.getState();
+      ui.setSettingsOpen(!ui.settingsOpen);
+    },
+  },
+  {
     id: "broadcast:focus",
     title: "聚焦派工輸入框",
     category: "檢視",

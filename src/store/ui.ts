@@ -15,12 +15,14 @@ interface UiState {
   viewMode: ViewMode;
   filesOpen: boolean;
   paletteOpen: boolean;
+  settingsOpen: boolean;
   // 剛用工具列「新增 Workspace」建立、待側欄立即進入命名的 workspace id。
   renamingWorkspaceId: string | null;
   setViewMode: (m: ViewMode) => void;
   toggleFiles: () => void;
   setFilesOpen: (v: boolean) => void;
   setPaletteOpen: (v: boolean) => void;
+  setSettingsOpen: (v: boolean) => void;
   setRenamingWorkspaceId: (id: string | null) => void;
 }
 
@@ -28,6 +30,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   viewMode: initial(),
   filesOpen: false,
   paletteOpen: false,
+  settingsOpen: false,
   renamingWorkspaceId: null,
   setViewMode: (m) => {
     localStorage.setItem(STORAGE_KEY, m);
@@ -36,5 +39,6 @@ export const useUiStore = create<UiState>((set, get) => ({
   toggleFiles: () => set({ filesOpen: !get().filesOpen }),
   setFilesOpen: (v) => set({ filesOpen: v }),
   setPaletteOpen: (v) => set({ paletteOpen: v }),
+  setSettingsOpen: (v) => set({ settingsOpen: v }),
   setRenamingWorkspaceId: (id) => set({ renamingWorkspaceId: id }),
 }));

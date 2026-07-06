@@ -48,6 +48,118 @@ body {
   color-scheme: light;
 }
 
+/* Solarized Dark */
+.app[data-theme="solarized"] {
+  --app-bg: #002b36;
+  --term-bg: #002b36;
+  --sidebar-bg: #073642;
+  --border: #586e75;
+  --fg: #839496;
+  --muted: #657b83;
+  --hover: #073642;
+  --active: #586e75;
+  --accent: #268bd2;
+  color-scheme: dark;
+}
+
+/* Nord */
+.app[data-theme="nord"] {
+  --app-bg: #2e3440;
+  --term-bg: #2e3440;
+  --sidebar-bg: #3b4252;
+  --border: #4c566a;
+  --fg: #d8dee9;
+  --muted: #a8b3c4;
+  --hover: #3b4252;
+  --active: #4c566a;
+  --accent: #88c0d0;
+  color-scheme: dark;
+}
+
+/* Dracula */
+.app[data-theme="dracula"] {
+  --app-bg: #282a36;
+  --term-bg: #282a36;
+  --sidebar-bg: #21222c;
+  --border: #44475a;
+  --fg: #f8f8f2;
+  --muted: #6272a4;
+  --hover: #343746;
+  --active: #44475a;
+  --accent: #bd93f9;
+  color-scheme: dark;
+}
+
+/* Gruvbox Dark */
+.app[data-theme="gruvbox"] {
+  --app-bg: #282828;
+  --term-bg: #282828;
+  --sidebar-bg: #1d2021;
+  --border: #504945;
+  --fg: #ebdbb2;
+  --muted: #928374;
+  --hover: #3c3836;
+  --active: #504945;
+  --accent: #d79921;
+  color-scheme: dark;
+}
+
+/* One Dark */
+.app[data-theme="onedark"] {
+  --app-bg: #282c34;
+  --term-bg: #282c34;
+  --sidebar-bg: #21252b;
+  --border: #3e4451;
+  --fg: #abb2bf;
+  --muted: #4f5666;
+  --hover: #2c313a;
+  --active: #3e4451;
+  --accent: #4aa5f0;
+  color-scheme: dark;
+}
+
+/* Tokyo Night */
+.app[data-theme="tokyonight"] {
+  --app-bg: #1a1b26;
+  --term-bg: #1a1b26;
+  --sidebar-bg: #16161e;
+  --border: #33467c;
+  --fg: #c0caf5;
+  --muted: #414868;
+  --hover: #292e42;
+  --active: #33467c;
+  --accent: #7aa2f7;
+  color-scheme: dark;
+}
+
+/* GitHub Dark */
+.app[data-theme="githubDark"] {
+  --app-bg: #0d1117;
+  --term-bg: #0d1117;
+  --sidebar-bg: #010409;
+  --border: #30363d;
+  --fg: #c9d1d9;
+  --muted: #6e7681;
+  --hover: #161b22;
+  --active: #30363d;
+  --accent: #58a6ff;
+  color-scheme: dark;
+}
+
+/* GitHub Light */
+.app[data-theme="githubLight"] {
+  --app-bg: #ffffff;
+  --term-bg: #ffffff;
+  --sidebar-bg: #f6f8fa;
+  --border: #d0d7de;
+  --fg: #24292f;
+  --muted: #57606a;
+  --hover: #eaeef2;
+  --active: #d0d7de;
+  --accent: #0969da;
+  color-scheme: light;
+}
+
 /* 鍵盤操作的可見焦點框（滑鼠點擊不顯示） */
 :focus-visible {
   outline: 2px solid var(--accent);

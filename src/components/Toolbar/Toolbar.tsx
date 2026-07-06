@@ -30,6 +30,8 @@ export function Toolbar() {
   const setViewMode = useUiStore((s) => s.setViewMode);
   const filesOpen = useUiStore((s) => s.filesOpen);
   const toggleFiles = useUiStore((s) => s.toggleFiles);
+  const settingsOpen = useUiStore((s) => s.settingsOpen);
+  const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
 
   const [text, setText] = useState("");
   const [target, setTarget] = useState<Target>("agents");
@@ -126,6 +128,14 @@ export function Toolbar() {
       <span className="tb-total" title="此 Workspace 成本總計">
         Σ ${totalCost.toFixed(4)}
       </span>
+      <button
+        className={`tb-settings ${settingsOpen ? "on" : ""}`}
+        aria-pressed={settingsOpen}
+        onClick={() => setSettingsOpen(!settingsOpen)}
+        title="設定"
+      >
+        ⚙
+      </button>
     </div>
   );
 }
