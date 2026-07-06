@@ -96,16 +96,86 @@ check(
   deriveState(claude, "Run this command?\n❯ 1. Yes\n  2. No, tell Claude").state === "waiting",
 );
 
+// 反例：跨行 / 大小寫 / 已回答提示不應誤判為 waiting（修正通知風暴的 false positive）
+check(
+  "claude 行尾 ❯ + 後行編號清單不跨行誤判",
+  deriveState(claude, "some text ❯\n\n1. Run the build").state !== "waiting",
+);
+check(
+  "claude shell 提示符 ❯ + 編號散文不誤判",
+  deriveState(claude, "~/project ❯\ngit log\n 2. Create a branch").state !== "waiting",
+);
+check(
+  "claude 小寫散文 (❯ 1. yes ...) 不誤判",
+  deriveState(claude, "❯ 1. yes we could do that").state !== "waiting",
+);
+check(
+  "generic 已回答的 (y/n): y 不再視為 waiting",
+  deriveState(GENERIC_PROFILE, "Overwrite? (y/n): y").state !== "waiting",
+);
+check(
+  "codex 已回答的 (y/n): n 不再視為 waiting",
+  deriveState(codex, "Delete file? (y/n): n").state !== "waiting",
+);
+
+// y/n 各種活提示形式仍須偵測為 waiting（行尾錨定不可造成 false negative）
+check(
+  "generic 偵測 (Y/n)",
+  deriveState(GENERIC_PROFILE, "Continue? (Y/n)").state === "waiting",
+);
+check(
+  "generic 偵測 [y/N] 含尾端空白",
+  deriveState(GENERIC_PROFILE, "Replace? [y/N] ").state === "waiting",
+);
+check(
+  "generic 偵測 (y/n): 冒號結尾",
+  deriveState(GENERIC_PROFILE, "Proceed? (y/n):").state === "waiting",
+);
+
 // codex
 check(
   "codex 偵測 waiting (Allow command)",
   deriveState(codex, "Allow command to run? (y/n)").state === "waiting",
 );
+// detectOutput 收緊：不因一般文字提到 codex 而誤標 session
+{
+  const detect = new RegExp(codex.detectOutput!, "i");
+  check("codex detectOutput 命中 CLI banner", detect.test("Codex CLI v1.0"));
+  check(
+    "codex detectOutput 不因檔名提及誤判",
+    !detect.test("downloading codex-notes.md from git log"),
+  );
+}
 
 // waiting 優先於其他狀態
 check(
   "waiting 優先序高於 error",
   deriveState(GENERIC_PROFILE, "error happened\nProceed? (y/n)").state === "waiting",
 );
+
+// prompt 擷取：選單式審批應回報上方的問題行（每筆審批可辨識），
+// 而不是各審批都相同的選項列「❯ 1. Yes」。
+{
+  const d = deriveState(
+    claude,
+    "Do you want to make this edit to demo.txt?\n❯ 1. Yes\n  2. No, tell Claude",
+  );
+  check("claude 選單 prompt 用上方問題行", d.prompt === "Do you want to make this edit to demo.txt?");
+}
+{
+  const d = deriveState(
+    claude,
+    "╭──────────────────────────╮\n│ Bash command             │\n│ Do you want to proceed?  │\n│ ❯ 1. Yes                 │\n│   2. No                  │\n╰──────────────────────────╯",
+  );
+  check("claude 有邊框的審批框 prompt 去除邊框", d.prompt === "Do you want to proceed?");
+}
+{
+  const d = deriveState(claude, "❯ 1. Yes\n  2. No");
+  check("選單上方無問題行時 fallback 用選項列", d.prompt === "❯ 1. Yes");
+}
+{
+  const d = deriveState(GENERIC_PROFILE, "Overwrite config? (y/n) ");
+  check("y/n 式提示行為不變（本身就是問題行）", !!d.prompt && d.prompt.includes("Overwrite config?"));
+}
 
 console.log(`\n${passed} checks passed.`);

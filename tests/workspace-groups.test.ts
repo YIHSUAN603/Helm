@@ -5,7 +5,11 @@ import {
   DEFAULT_WORKSPACE_ID,
   flattenGroupedIds,
   groupSessions,
-  resolveTargetWorkspace,
+  pendingApprovalsInWorkspace,
+  resolveFocusedWorkspace,
+  sessionsInWorkspace,
+  workspaceChangedFileCount,
+  workspaceTotalCost,
   type Workspace,
 } from "../src/store/workspaceGroups.ts";
 
@@ -20,8 +24,12 @@ function ws(id: string, name = id): Workspace {
   return { id, name, collapsed: false };
 }
 
-function sess(id: string, workspaceId: string) {
-  return { id, workspaceId };
+function sess(
+  id: string,
+  workspaceId: string,
+  extra: { pendingApproval?: string; cost?: number; changedFiles?: unknown[] } = {},
+) {
+  return { id, workspaceId, ...extra };
 }
 
 // groupSessions: bucketing, empty groups, orphan fallback
@@ -46,13 +54,69 @@ function sess(id: string, workspaceId: string) {
   check("without default, orphan falls into first group", groups[0].sessions.map((s) => s.id).join(",") === "sX");
 }
 
-// resolveTargetWorkspace
+// resolveFocusedWorkspace
 {
   const sessions = [sess("s1", DEFAULT_WORKSPACE_ID), sess("s2", "w2")];
-  check("active session's workspace wins", resolveTargetWorkspace(sessions, "s2") === "w2");
-  check("null active → default", resolveTargetWorkspace(sessions, null) === DEFAULT_WORKSPACE_ID);
-  check("unknown active → default", resolveTargetWorkspace(sessions, "nope") === DEFAULT_WORKSPACE_ID);
-  check("no sessions → default", resolveTargetWorkspace([], "s1") === DEFAULT_WORKSPACE_ID);
+  check("active session's workspace wins", resolveFocusedWorkspace(sessions, "s2") === "w2");
+  check("null active → default", resolveFocusedWorkspace(sessions, null) === DEFAULT_WORKSPACE_ID);
+  check("unknown active → default", resolveFocusedWorkspace(sessions, "nope") === DEFAULT_WORKSPACE_ID);
+  check("no sessions → default", resolveFocusedWorkspace([], "s1") === DEFAULT_WORKSPACE_ID);
+}
+
+// sessionsInWorkspace: membership and order
+{
+  const sessions = [sess("s1", "w1"), sess("s2", "w2"), sess("s3", "w1")];
+  check(
+    "only sessions of the workspace, insertion order kept",
+    sessionsInWorkspace(sessions, "w1").map((s) => s.id).join(",") === "s1,s3",
+  );
+  check("unknown workspace → empty array", sessionsInWorkspace(sessions, "nope").length === 0);
+}
+
+// pendingApprovalsInWorkspace: workspace + pending filter
+{
+  const sessions = [
+    sess("s1", "w1", { pendingApproval: "Allow?" }),
+    sess("s2", "w1"),
+    sess("s3", "w2", { pendingApproval: "Run?" }),
+  ];
+  check(
+    "only pending sessions of the workspace",
+    pendingApprovalsInWorkspace(sessions, "w1").map((s) => s.id).join(",") === "s1",
+  );
+  check(
+    "other workspace's pending excluded",
+    pendingApprovalsInWorkspace(sessions, "w2").map((s) => s.id).join(",") === "s3",
+  );
+  check(
+    "no pending → empty array",
+    pendingApprovalsInWorkspace([sess("s4", "w3")], "w3").length === 0,
+  );
+}
+
+// workspaceTotalCost: per-workspace sum, missing cost = 0
+{
+  const sessions = [
+    sess("s1", "w1", { cost: 0.5 }),
+    sess("s2", "w1"),
+    sess("s3", "w2", { cost: 2 }),
+  ];
+  check("sums only the workspace's costs", workspaceTotalCost(sessions, "w1") === 0.5);
+  check("other workspace not mixed in", workspaceTotalCost(sessions, "w2") === 2);
+  check("empty workspace → 0", workspaceTotalCost(sessions, "nope") === 0);
+}
+
+// workspaceChangedFileCount: per-workspace file totals
+{
+  const sessions = [
+    sess("s1", "w1", { changedFiles: [{}, {}] }),
+    sess("s2", "w1", { changedFiles: [{}] }),
+    sess("s3", "w1"),
+    sess("s4", "w2", { changedFiles: [{}] }),
+  ];
+  check("counts files across the workspace's sessions", workspaceChangedFileCount(sessions, "w1") === 3);
+  check("other workspace not mixed in", workspaceChangedFileCount(sessions, "w2") === 1);
+  check("empty workspace → 0", workspaceChangedFileCount(sessions, "nope") === 0);
 }
 
 // flattenGroupedIds: visual order across groups

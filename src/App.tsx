@@ -6,11 +6,16 @@ import { Toolbar } from "./components/Toolbar/Toolbar";
 import { ChangedFilesPanel } from "./components/ChangedFilesPanel/ChangedFilesPanel";
 import { PaneLabel } from "./components/PaneLabel/PaneLabel";
 import { SplitResizers } from "./components/SplitLayout/SplitResizers";
-import { useSessionStore } from "./store/sessions";
+import { notifyPendingApproval, useSessionStore } from "./store/sessions";
+import { clearApprovalSuppress, isApprovalSuppressed } from "./store/approvalSuppress";
 import { useThemeStore } from "./store/theme";
 import { useUiStore } from "./store/ui";
 import { useLayoutStore } from "./store/layout";
 import { computeLayout, type RectPct } from "./store/layoutTree";
+import {
+  DEFAULT_WORKSPACE_ID,
+  resolveFocusedWorkspace,
+} from "./store/workspaceGroups";
 import { CommandPalette } from "./components/CommandPalette/CommandPalette";
 import { matchBinding } from "./commands/keymap";
 import { runCommand } from "./commands/registry";
@@ -27,6 +32,12 @@ let bootstrapped = false;
 // 每個 session 的殘餘半行，逐行擷取用。
 const lineBuffers = new Map<string, string>();
 
+// Consecutive non-waiting scans per session while an approval is pending.
+// The TUI redraws constantly and a scan can catch a mid-redraw frame with the
+// menu row absent; a single divergent scan must not clear the approval (that
+// flapping is what caused the notification storm).
+const nonWaitingStreak = new Map<string, number>();
+
 // split 模式下 leaf rect（百分比）→ pane 的 inline style。
 function rectStyle(rect: RectPct): CSSProperties {
   return {
@@ -41,7 +52,12 @@ function rectStyle(rect: RectPct): CSSProperties {
 function handleScan(id: string, text: string) {
   const store = useSessionStore.getState();
   const sess = store.sessions.find((x) => x.id === id);
-  if (!sess) return;
+  if (!sess) {
+    lineBuffers.delete(id);
+    nonWaitingStreak.delete(id);
+    clearApprovalSuppress(id);
+    return;
+  }
   let profileId = sess.agentId;
   if (!profileId) {
     const p = detectProfile(text);
@@ -50,6 +66,27 @@ function handleScan(id: string, text: string) {
     profileId = p.id;
   }
   const derived = deriveState(getProfile(profileId), text);
+  if (derived.state === "waiting") {
+    // Just-answered prompt still on screen (TUI mid-repaint): don't resurrect
+    // the approval the user already responded to. A different prompt passes.
+    if (isApprovalSuppressed(id, derived.prompt ?? "", Date.now())) {
+      return;
+    }
+    nonWaitingStreak.delete(id);
+    store.setAgentState(id, derived.state, derived.prompt);
+    return;
+  }
+  // Pending approval + non-waiting result: drop the first divergent scan as a
+  // possibly-stale redraw frame; apply only on the second consecutive one.
+  // This delays clearing, never setting, so real approvals are unaffected.
+  if (sess.pendingApproval) {
+    const streak = (nonWaitingStreak.get(id) ?? 0) + 1;
+    if (streak < 2) {
+      nonWaitingStreak.set(id, streak);
+      return;
+    }
+  }
+  nonWaitingStreak.delete(id);
   if (derived.state) {
     store.setAgentState(id, derived.state, derived.prompt);
   } else if (sess.pendingApproval) {
@@ -61,7 +98,11 @@ function handleScan(id: string, text: string) {
 function handleStream(id: string, text: string) {
   const store = useSessionStore.getState();
   const sess = store.sessions.find((x) => x.id === id);
-  if (!sess?.agentId) return;
+  if (!sess) {
+    lineBuffers.delete(id);
+    return;
+  }
+  if (!sess.agentId) return;
   const profile = getProfile(sess.agentId);
   if (!profile.extract) return;
 
@@ -90,7 +131,10 @@ function App() {
   const setStatus = useSessionStore((s) => s.setStatus);
   const theme = useThemeStore((s) => s.name);
   const viewMode = useUiStore((s) => s.viewMode);
-  const layoutRoot = useLayoutStore((s) => s.root);
+  const trees = useLayoutStore((s) => s.trees);
+  // split 視圖只渲染 focused workspace 的樹；其他 workspace 的 pane 拿不到
+  // rect → data-in-layout="false" 隱藏（Terminal 保持掛載）。
+  const layoutRoot = trees[resolveFocusedWorkspace(sessions, activeId)] ?? null;
 
   // split 版面樹 → 每個 leaf 的百分比 rect + 分隔線幾何（single 模式不用）。
   const layout = useMemo(
@@ -125,10 +169,18 @@ function App() {
       void ensureNotifyPermission();
       // 原生選單 accelerator → 命令派發（純瀏覽器環境會 reject，忽略）。
       listen<string>("app://shortcut", (e) => runCommand(e.payload)).catch(() => {});
+      // Notifications are suppressed while the window is focused (the
+      // ApprovalPanel is visible then); on blur, send them for approvals
+      // still pending. Dedupe in notifyPendingApproval stops alt-tab spam.
+      window.addEventListener("blur", () => {
+        for (const s of useSessionStore.getState().sessions) {
+          notifyPendingApproval(s);
+        }
+      });
       // 每次啟動都是全新配置：一個預設 workspace + 一個新 session。
       const id = useSessionStore.getState().createSession();
       if (useUiStore.getState().viewMode === "split") {
-        useLayoutStore.getState().ensureTree([id]);
+        useLayoutStore.getState().ensureTree(DEFAULT_WORKSPACE_ID, [id]);
       }
     })();
   }, []);

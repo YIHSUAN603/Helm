@@ -11,6 +11,12 @@ export type AgentState =
 
 /** 各狀態的辨識 pattern（regex 來源字串，套用在近期清乾淨的輸出上）。 */
 export interface AgentStatePatterns {
+  /**
+   * Matched per line and CASE-SENSITIVELY (it drives desktop notifications,
+   * so precision matters most here — enumerate case variants explicitly,
+   * e.g. "\\([yY]\\/[nN]\\)"). All other states are matched per line with
+   * the "i" flag.
+   */
   waiting?: string;
   thinking?: string;
   tool?: string;

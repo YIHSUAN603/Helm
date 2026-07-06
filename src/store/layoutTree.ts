@@ -192,6 +192,28 @@ export function siblingFirstSession(
   return siblingFirstSession(inA ? root.a : root.b, sessionId);
 }
 
+/**
+ * 把 session 掛進樹：focused leaf 存在時換入（tmux 式），
+ * 否則對第一個 leaf 分割（不踢掉既有 pane）；空樹則成為單一 leaf。
+ * session 已在樹中時回傳原引用（no-op）。
+ */
+export function attachSessionToTree(
+  root: LayoutNode | null,
+  sessionId: string,
+  focusedSessionId: string | null,
+): LayoutNode {
+  if (!root) return leaf(sessionId);
+  if (findLeafBySession(root, sessionId)) return root;
+  const focused = focusedSessionId
+    ? findLeafBySession(root, focusedSessionId)
+    : null;
+  if (focused) {
+    return swapLeafSession(root, focused.id, sessionId);
+  }
+  const first = findLeafBySession(root, collectSessionIds(root)[0]);
+  return splitLeaf(root, first!.id, "row", sessionId);
+}
+
 /** 把指定 leaf 的 session 換成另一個（tmux 式換入）。 */
 export function swapLeafSession(
   root: LayoutNode,

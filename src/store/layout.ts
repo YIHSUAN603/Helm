@@ -1,6 +1,8 @@
-// Split 版面樹的狀態管理。樹只算幾何，Terminal pane 本體由 App.tsx 平鋪渲染。
+// Split 版面樹的狀態管理。每個 workspace 一棵樹（forest），樹只算幾何，
+// Terminal pane 本體由 App.tsx 平鋪渲染（只渲染 focused workspace 的樹）。
 import { create } from "zustand";
 import {
+  attachSessionToTree,
   buildBalancedTree,
   computeLayout,
   findLeafBySession,
@@ -8,7 +10,6 @@ import {
   removeLeafBySession,
   setRatio as setTreeRatio,
   splitLeaf,
-  swapLeafSession,
   type LayoutNode,
   type SplitDir,
 } from "./layoutTree";
@@ -26,28 +27,43 @@ function areaSize(): { width: number; height: number } | null {
 }
 
 interface LayoutState {
-  root: LayoutNode | null;
+  /** workspaceId → 該 workspace 的版面樹（不變量：session 只出現在自己 workspace 的樹）。 */
+  trees: Record<string, LayoutNode | null>;
   /** 分割後的兩半是否都還夠大（量不到 DOM 時放行）。 */
-  canSplitPane: (sessionId: string, dir: SplitDir) => boolean;
+  canSplitPane: (workspaceId: string, sessionId: string, dir: SplitDir) => boolean;
   /** 把 newSessionId 分割進 sessionId 的 leaf；session 不在樹中時先成為 root。 */
-  splitPane: (sessionId: string, dir: SplitDir, newSessionId: string) => void;
-  /** 不在樹中的 session 換入目前 focused 的 leaf（樹空則成為 root）。 */
-  attachSession: (sessionId: string, focusedSessionId: string | null) => void;
-  /** session 關閉時收合對應 leaf（不在樹中則 no-op）。 */
+  splitPane: (
+    workspaceId: string,
+    sessionId: string,
+    dir: SplitDir,
+    newSessionId: string,
+  ) => void;
+  /** 不在樹中的 session 換入 focused 的 leaf（無 focused 則分割第一個 leaf；樹空則成為 root）。 */
+  attachSession: (
+    workspaceId: string,
+    sessionId: string,
+    focusedSessionId: string | null,
+  ) => void;
+  /** session 關閉或搬離 workspace 時收合對應 leaf（搜尋所有樹；不在樹中則 no-op）。 */
   removeSession: (sessionId: string) => void;
   setRatio: (splitId: string, ratio: number) => void;
-  /** 樹為空時用現有 sessions 自動平衡排列（首次切到 split 模式）。 */
-  ensureTree: (sessionIds: string[]) => void;
+  /** 該 workspace 樹為空時用其 sessions 自動平衡排列（首次進 split 模式）。 */
+  ensureTree: (workspaceId: string, sessionIds: string[]) => void;
+  /** workspace 被刪除時清掉對應的樹。 */
+  dropTree: (workspaceId: string) => void;
 }
 
 export const useLayoutStore = create<LayoutState>((set, get) => {
-  const commit = (root: LayoutNode | null) => set({ root });
+  const treeOf = (workspaceId: string): LayoutNode | null =>
+    get().trees[workspaceId] ?? null;
+  const commit = (workspaceId: string, root: LayoutNode | null) =>
+    set((s) => ({ trees: { ...s.trees, [workspaceId]: root } }));
 
   return {
-    root: null,
+    trees: {},
 
-    canSplitPane: (sessionId, dir) => {
-      const { root } = get();
+    canSplitPane: (workspaceId, sessionId, dir) => {
+      const root = treeOf(workspaceId);
       if (!root) return true;
       const target = findLeafBySession(root, sessionId);
       if (!target) return true;
@@ -61,49 +77,56 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
         : (rect.height / 100) * size.height >= MIN_PANE_H * 2;
     },
 
-    splitPane: (sessionId, dir, newSessionId) => {
-      const { root } = get();
+    splitPane: (workspaceId, sessionId, dir, newSessionId) => {
+      const root = treeOf(workspaceId);
       if (!root || !findLeafBySession(root, sessionId)) {
         // 目標不在樹中（例如剛從 single 模式切過來）→ 先以它為 root 再分割。
         const base = leaf(sessionId);
-        commit(splitLeaf(base, base.id, dir, newSessionId));
+        commit(workspaceId, splitLeaf(base, base.id, dir, newSessionId));
         return;
       }
       const target = findLeafBySession(root, sessionId)!;
-      commit(splitLeaf(root, target.id, dir, newSessionId));
+      commit(workspaceId, splitLeaf(root, target.id, dir, newSessionId));
     },
 
-    attachSession: (sessionId, focusedSessionId) => {
-      const { root } = get();
-      if (findLeafBySession(root, sessionId)) return;
-      if (!root) {
-        commit(leaf(sessionId));
-        return;
-      }
-      const target = focusedSessionId
-        ? findLeafBySession(root, focusedSessionId)
-        : null;
-      if (target) {
-        commit(swapLeafSession(root, target.id, sessionId));
-      }
-      // 沒有 focused leaf 可換 → 留在樹外（sidebar 點選時再換入）。
+    attachSession: (workspaceId, sessionId, focusedSessionId) => {
+      const root = treeOf(workspaceId);
+      const next = attachSessionToTree(root, sessionId, focusedSessionId);
+      if (next !== root) commit(workspaceId, next);
     },
 
     removeSession: (sessionId) => {
-      const { root } = get();
-      if (!root || !findLeafBySession(root, sessionId)) return;
-      commit(removeLeafBySession(root, sessionId));
+      // session id 全域唯一，至多命中一棵樹。
+      for (const [workspaceId, root] of Object.entries(get().trees)) {
+        if (root && findLeafBySession(root, sessionId)) {
+          commit(workspaceId, removeLeafBySession(root, sessionId));
+          return;
+        }
+      }
     },
 
     setRatio: (splitId, ratio) => {
-      const { root } = get();
-      if (!root) return;
-      set({ root: setTreeRatio(root, splitId, ratio) });
+      // split node id 全域唯一（UUID），至多命中一棵樹。
+      for (const [workspaceId, root] of Object.entries(get().trees)) {
+        if (!root) continue;
+        const next = setTreeRatio(root, splitId, ratio);
+        if (next !== root) {
+          commit(workspaceId, next);
+          return;
+        }
+      }
     },
 
-    ensureTree: (sessionIds) => {
-      if (get().root) return;
-      commit(buildBalancedTree(sessionIds));
+    ensureTree: (workspaceId, sessionIds) => {
+      if (treeOf(workspaceId)) return;
+      commit(workspaceId, buildBalancedTree(sessionIds));
+    },
+
+    dropTree: (workspaceId) => {
+      set((s) => {
+        const { [workspaceId]: _dropped, ...rest } = s.trees;
+        return { trees: rest };
+      });
     },
   };
 });

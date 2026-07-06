@@ -18,6 +18,7 @@ npm run tauri build    # Package the desktop app
 
 # Tests (pure functions, no GUI / Tauri needed, using Node's built-in test)
 node --experimental-strip-types tests/layout-tree.test.ts
+node --experimental-strip-types tests/workspace-groups.test.ts
 node --experimental-strip-types tests/agent-engine.test.ts
 node --experimental-strip-types tests/agent-extract.test.ts
 ```
@@ -30,10 +31,9 @@ There is no lint config; type checking relies on `tsc` (run by `npm run build`).
 
 1. **Rust backend** (`src-tauri/src/`) — exposes capabilities to the frontend via `#[tauri::command]`. All registered in `lib.rs`'s `invoke_handler`.
    - `pty.rs` — one PTY per session (`portable-pty`). `pty_spawn` starts a reader thread that streams output to the frontend as base64 via `pty://output/<id>` events; emits `pty://exit/<id>` on exit.
-   - `store.rs` — SQLite (`rusqlite`, bundled) persistence. Stores only lightweight session metadata and the split layout tree (the whole tree as a single-row JSON blob). **PTYs are not persisted**; they are re-spawned on restore.
    - `config.rs` — reads `agents.json` from the app config dir; writes a template with a demo launcher if it doesn't exist.
 
-2. **IPC wrapper layer** (`src/ipc/`) — wraps Rust commands / events as TS functions. All persistence calls fail silently via try/catch (so the UI works even if the backend isn't ready). `pty.ts` handles base64 decoding; `persist.ts` corresponds to store.rs; `notify.ts` handles desktop notifications.
+2. **IPC wrapper layer** (`src/ipc/`) — wraps Rust commands / events as TS functions. `pty.ts` handles base64 decoding; `notify.ts` handles desktop notifications.
 
 3. **React frontend** (`src/`) — UI + state (Zustand) + agent detection logic.
 
@@ -55,18 +55,22 @@ PTY output → `Terminal.tsx` writes to xterm and triggers two debounced pipelin
 
 ### Split layout (tmux-style)
 
-- `store/layoutTree.ts` — **pure-function** binary split-tree operations (split / remove / setRatio / computeLayout, etc.), with no React/Zustand dependency, directly unit-testable. Core invariant: a session appears in at most one leaf.
-- `store/layout.ts` — wraps the above pure functions in a Zustand store and handles persistence (structural changes write immediately; drag ratios write only on commit).
-- The layout tree **only computes geometry** (each leaf's percentage rect); `App.tsx` renders all panes tiled, switching single/split only via class + inline style, so **the same set of Terminals stays mounted and is never rebuilt** (PTYs keep running, scrollback preserved).
+- `store/layoutTree.ts` — **pure-function** binary split-tree operations (split / remove / setRatio / computeLayout / attachSessionToTree, etc.), with no React/Zustand dependency, directly unit-testable. Core invariant: a session appears in at most one leaf.
+- `store/layout.ts` — wraps the above pure functions in a Zustand store holding **one tree per workspace** (`trees: Record<workspaceId, LayoutNode | null>`; invariant: a session only appears in its own workspace's tree). Most actions take a `workspaceId`; `removeSession` / `setRatio` search all trees (ids are globally unique). `moveSessionToWorkspace` and workspace deletion clean the trees up (`removeSession` / `dropTree`).
+- The layout tree **only computes geometry** (each leaf's percentage rect); `App.tsx` renders all panes tiled but computes rects only from the **focused workspace's** tree — sessions from other workspaces get no rect and are hidden via `data-in-layout="false"` CSS — switching single/split only via class + inline style, so **the same set of Terminals stays mounted and is never rebuilt** (PTYs keep running, scrollback preserved). Split view therefore shows only the focused workspace; switching the active session to another workspace swaps in that workspace's whole layout (ratios remembered).
+
+### Sidebar hierarchy (workspace → session)
+
+The sidebar (`src/components/SessionSidebar/`) is two-level: collapsible **workspaces** (pure visual grouping, not tied to a cwd) containing **sessions**. `store/workspaceGroups.ts` holds the pure grouping helpers (`groupSessions`, `resolveFocusedWorkspace`, `sessionsInWorkspace`, workspace cost/file aggregations, `flattenGroupedIds`; unit-tested); `store/workspaces.ts` is the Zustand store (create / rename / delete / collapse). New sessions land in the active session's workspace; deleting a workspace moves its sessions to the default one (id `"default"`, never deletable). Sessions are dragged between workspaces via HTML5 DnD (`text/plain` carries the session id). Session cycling (`session:next/prev`, Cmd+1..9) follows the sidebar's grouped visual order (see `sessionIdsInSidebarOrder` in `src/commands/actions.ts`). The **focused workspace** is derived, not stored: it is the active session's workspace (`resolveFocusedWorkspace`). ApprovalPanel, ChangedFilesPanel (grouped by session), the Toolbar's Σ cost / broadcast targets / changed-file count, and the approve/reject-all commands are all scoped to it; other workspaces surface pending approvals via a clickable badge on their sidebar header (desktop notifications stay global).
 
 ### Zustand stores (`src/store/`)
 
-`sessions.ts` (session list + agent state; the convergence point of agent awareness), `layout.ts` / `layoutTree.ts` (split), `theme.ts` (includes xterm themes), `ui.ts` (viewMode: single/split).
+`sessions.ts` (session list + agent state; the convergence point of agent awareness), `workspaces.ts` / `workspaceGroups.ts` (sidebar grouping), `layout.ts` / `layoutTree.ts` (split), `theme.ts` (includes xterm themes), `ui.ts` (viewMode: single/split).
 
 ## Important Notes
 
-- **macOS Cmd shortcuts**: WKWebView swallows some Cmd key combinations when the webview has focus (in testing, ⌘D never reaches the DOM, and menu accelerators don't fire either). So shortcuts take two paths: the frontend DOM `keydown` (capture phase, ahead of xterm, see `App.tsx`) uses combinations verified to reach the DOM (⌘\, ⌘⇧D, ⌘⇧W); the native menu (`lib.rs`) emits `app://shortcut` events routed through `runShortcut` (`shortcuts.ts`) for discoverability and mouse access. When changing shortcuts, update both places.
-- **Bootstrap** runs only once per app lifetime (the `bootstrapped` flag in `App.tsx`): load registry → restore sessions → restore and prune the layout tree (removing leaves pointing to no-longer-existing sessions).
+- **Windows support**: PTYs use ConPTY via `portable-pty`. The default shell is resolved in `pty.rs` as `AITERMINAL_SHELL` → `SHELL` → platform default (Windows: `pwsh.exe` if on PATH else `powershell.exe`, launched with `-NoLogo`; Unix: `/bin/zsh`). Home falls back `HOME` → `USERPROFILE`. The `agents.json` template in `config.rs` has per-platform demo commands (`#[cfg(windows)]` = PowerShell syntax).
+- **macOS Cmd shortcuts**: WKWebView swallows some Cmd key combinations when the webview has focus (in testing, ⌘D never reaches the DOM, and menu accelerators don't fire either) — this does not happen on Windows, where Ctrl combos reach the DOM normally. So shortcuts take two paths: the frontend DOM `keydown` (capture phase, ahead of xterm, see `App.tsx`) matches `KEYMAP` in `src/commands/keymap.ts` and dispatches via `runCommand` (`src/commands/registry.ts`); the native menu (`lib.rs`) emits `app://shortcut` events into the same `runCommand` for discoverability and mouse access. When changing shortcuts, update both places.
+- **Nothing is persisted across launches** (deliberate): sessions, workspaces, and the split layout all live in memory only. **Bootstrap** runs only once per app lifetime (the `bootstrapped` flag in `App.tsx`) and simply creates one fresh session in the default workspace. The only cross-launch state is user preferences in localStorage (theme, viewMode).
 - **Launching an agent** works by writing the command as user input into the PTY (`ptyWrite(id, "claude\r")`), preserving the full shell environment, rather than spawning the command directly.
-- Usage/file changes (cost/tokens/changedFiles) are **not persisted**; re-running a session resets them to zero.
 - After adding a Rust command, remember to register it in `lib.rs`'s `generate_handler!` and add a corresponding wrapper in `src/ipc/`.

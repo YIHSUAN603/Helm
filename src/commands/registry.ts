@@ -7,6 +7,11 @@ import { useLayoutStore } from "../store/layout";
 import { useUiStore } from "../store/ui";
 import { useThemeStore } from "../store/theme";
 import { collectSessionIds } from "../store/layoutTree";
+import {
+  pendingApprovalsInWorkspace,
+  resolveFocusedWorkspace,
+  sessionsInWorkspace,
+} from "../store/workspaceGroups";
 import { listLaunchers } from "../agents/registry";
 import { cycleFocusRegion, focusActiveTerminal } from "../focus/focusUtils";
 import {
@@ -33,8 +38,11 @@ function activeHasApproval(): boolean {
   return Boolean(sessions.find((s) => s.id === activeId)?.pendingApproval);
 }
 
+// Scoped to the focused workspace, matching respondAllApprovals' semantics.
 function anyApproval(): boolean {
-  return useSessionStore.getState().sessions.some((s) => s.pendingApproval);
+  const { sessions, activeId } = useSessionStore.getState();
+  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
+  return pendingApprovalsInWorkspace(sessions, workspaceId).length > 0;
 }
 
 function inSplitMode(): boolean {
@@ -42,7 +50,9 @@ function inSplitMode(): boolean {
 }
 
 function splitLeafCount(): number {
-  return collectSessionIds(useLayoutStore.getState().root).length;
+  const { sessions, activeId } = useSessionStore.getState();
+  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
+  return collectSessionIds(useLayoutStore.getState().trees[workspaceId] ?? null).length;
 }
 
 function toggleViewMode(): void {
@@ -51,9 +61,12 @@ function toggleViewMode(): void {
     ui.setViewMode("single");
     return;
   }
-  // First entry into split mode with no tree: auto-balance existing sessions.
-  const ids = useSessionStore.getState().sessions.map((s) => s.id);
-  useLayoutStore.getState().ensureTree(ids);
+  // First entry into split mode with no tree: auto-balance the focused
+  // workspace's sessions (split view only shows the focused workspace).
+  const { sessions, activeId } = useSessionStore.getState();
+  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
+  const ids = sessionsInWorkspace(sessions, workspaceId).map((s) => s.id);
+  useLayoutStore.getState().ensureTree(workspaceId, ids);
   ui.setViewMode("split");
 }
 
@@ -228,7 +241,7 @@ const STATIC_COMMANDS: Command[] = [
   },
   {
     id: "approval:approve-all",
-    title: "全部批准",
+    title: "全部批准（此 Workspace）",
     category: "審批",
     keywords: "approve all",
     enabled: anyApproval,
@@ -236,7 +249,7 @@ const STATIC_COMMANDS: Command[] = [
   },
   {
     id: "approval:reject-all",
-    title: "全部拒絕",
+    title: "全部拒絕（此 Workspace）",
     category: "審批",
     keywords: "reject all",
     enabled: anyApproval,

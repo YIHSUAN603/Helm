@@ -5,7 +5,11 @@ import { useRef, useState } from "react";
 import { useSessionStore, type Session } from "../../store/sessions";
 import { useWorkspaceStore, expandWorkspace } from "../../store/workspaces";
 import type { Workspace } from "../../store/workspaceGroups";
-import { newSession, removeWorkspace } from "../../commands/actions";
+import {
+  activateFirstPendingApproval,
+  newSession,
+  removeWorkspace,
+} from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey } from "../../focus/listNav";
 import { LauncherMenu } from "./LauncherMenu";
@@ -38,6 +42,7 @@ export function WorkspaceGroup({
   const moveSessionToWorkspace = useSessionStore((s) => s.moveSessionToWorkspace);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const pendingCount = sessions.filter((s) => s.pendingApproval).length;
   const plusRef = useRef<HTMLButtonElement>(null);
   // Counter to ignore dragleave noise from child elements.
   const dragDepth = useRef(0);
@@ -141,6 +146,21 @@ export function WorkspaceGroup({
           </span>
         )}
         <span className="workspace-count">{sessions.length}</span>
+        {/* Cross-workspace alert: pending approvals inside this group. */}
+        {pendingCount > 0 && (
+          <button
+            className="workspace-approval-badge"
+            title={`${pendingCount} 個待審批 — 點擊前往`}
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              activateFirstPendingApproval(w.id);
+            }}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
+            {pendingCount}
+          </button>
+        )}
         {/* Clicks inside the menu (items / backdrop) must not toggle collapse. */}
         <div
           className="new-menu-wrap"

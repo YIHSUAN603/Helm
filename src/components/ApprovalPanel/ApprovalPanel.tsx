@@ -1,5 +1,6 @@
-// 集中審批面板：跨 session 匯總所有等待審批的 agent，一鍵批准/拒絕。
+// 集中審批面板：匯總「聚焦 workspace 內」所有等待審批的 agent，一鍵批准/拒絕。
 // 批准/拒絕 = 把該 profile 定義的按鍵序列寫回對應 PTY（不攔截 stdin）。
+// 其他 workspace 的待審批由側欄徽章與桌面通知提示。
 // Buttons share respondApproval with the approval:* commands; Esc returns
 // focus to the terminal.
 import {
@@ -9,12 +10,19 @@ import {
 } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { useSessionStore } from "../../store/sessions";
+import { isResponseIneffective } from "../../store/approvalSuppress";
+import {
+  pendingApprovalsInWorkspace,
+  resolveFocusedWorkspace,
+} from "../../store/workspaceGroups";
 import "./ApprovalPanel.css";
 
 export function ApprovalPanel() {
   const sessions = useSessionStore((s) => s.sessions);
+  const activeId = useSessionStore((s) => s.activeId);
 
-  const pending = sessions.filter((s) => s.pendingApproval);
+  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
+  const pending = pendingApprovalsInWorkspace(sessions, workspaceId);
   if (pending.length === 0) return null;
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -61,6 +69,12 @@ export function ApprovalPanel() {
           <div className="approval-prompt" title={s.pendingApproval}>
             {s.pendingApproval}
           </div>
+          {isResponseIneffective(s.id, s.pendingApproval ?? "", Date.now()) && (
+            <div className="approval-hint">
+              提示在回應後又出現——按鍵可能不符此 agent，請直接在終端機回應，或在
+              agents.json 為它設定 approve/reject 按鍵。
+            </div>
+          )}
           <div className="approval-actions">
             <button
               className="approve"

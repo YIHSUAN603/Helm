@@ -98,6 +98,13 @@
   opacity: 0.85;
 }
 
+.approval-hint {
+  font-size: 11px;
+  color: #fab387;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
 .approval-actions {
   display: flex;
   gap: 8px;

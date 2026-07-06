@@ -2,6 +2,7 @@
 // 執行：node --experimental-strip-types tests/layout-tree.test.ts
 import assert from "node:assert";
 import {
+  attachSessionToTree,
   buildBalancedTree,
   clampRatio,
   collectSessionIds,
@@ -150,6 +151,36 @@ function approx(a: number, b: number) {
   check("sibling：不在樹中 → null", siblingFirstSession(t, "nope") === null);
   check("sibling：root leaf → null", siblingFirstSession(leaf("x"), "x") === null);
   check("sibling：null 樹 → null", siblingFirstSession(null, "x") === null);
+}
+
+// attachSessionToTree：換入 focused leaf / 分割第一個 leaf / 空樹成 root
+{
+  const attached = attachSessionToTree(null, "s1", null);
+  check("attach 空樹 → 單一 leaf", attached.type === "leaf" && attached.sessionId === "s1");
+
+  const l = leaf("s1");
+  const t = splitLeaf(l, l.id, "row", "s2");
+  check("attach 已在樹中 → 原樹（引用相等）", attachSessionToTree(t, "s2", "s1") === t);
+
+  const swapped = attachSessionToTree(t, "s9", "s2");
+  check(
+    "attach focused 命中 → 換入該 leaf",
+    collectSessionIds(swapped).join(",") === "s1,s9",
+  );
+
+  const grownNoFocus = attachSessionToTree(t, "s9", null);
+  check(
+    "attach 無 focused → 分割第一個 leaf，原 session 全保留",
+    collectSessionIds(grownNoFocus).length === 3 &&
+    ["s1", "s2", "s9"].every((id) => findLeafBySession(grownNoFocus, id) !== null),
+  );
+
+  const grownMissFocus = attachSessionToTree(t, "s9", "not-in-tree");
+  check(
+    "attach focused 不在樹中 → 分割第一個 leaf，原 session 全保留",
+    collectSessionIds(grownMissFocus).length === 3 &&
+    ["s1", "s2", "s9"].every((id) => findLeafBySession(grownMissFocus, id) !== null),
+  );
 }
 
 console.log(`\nlayout-tree: ${passed} checks passed`);

@@ -49,6 +49,38 @@
   text-align: center;
 }
 
+.files-group {
+  margin-bottom: 6px;
+}
+
+.files-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.files-group-header:hover {
+  background: var(--hover);
+}
+
+.files-group-title {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.files-group-count {
+  flex: 0 0 auto;
+  font-size: 10px;
+}
+
 .file-row {
   display: flex;
   align-items: center;

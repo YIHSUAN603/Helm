@@ -33,9 +33,11 @@ export function PaneLabel({ session }: { session: Session }) {
 
   const splitTo = (dir: SplitDir, launcher?: AgentLauncher) => {
     const layout = useLayoutStore.getState();
-    if (!layout.canSplitPane(session.id, dir)) return;
-    const newId = useSessionStore.getState().createSession(launcher);
-    layout.splitPane(session.id, dir, newId);
+    if (!layout.canSplitPane(session.workspaceId, session.id, dir)) return;
+    const newId = useSessionStore
+      .getState()
+      .createSession(launcher, session.workspaceId);
+    layout.splitPane(session.workspaceId, session.id, dir, newId);
   };
 
   const openMenu = (e: React.SyntheticEvent, dir: SplitDir) => {

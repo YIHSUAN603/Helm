@@ -2,8 +2,10 @@
 import { create } from "zustand";
 import { useLayoutStore } from "./layout";
 import { useUiStore } from "./ui";
-import { siblingFirstSession } from "./layoutTree";
-import { resolveTargetWorkspace } from "./workspaceGroups";
+import { findLeafBySession, siblingFirstSession } from "./layoutTree";
+import { resolveFocusedWorkspace } from "./workspaceGroups";
+import { clearApprovalNotify, shouldNotifyApproval } from "./approvalNotify";
+import { clearApprovalSuppress } from "./approvalSuppress";
 import { notify } from "../ipc/notify";
 import { getProfile } from "../agents/registry";
 import type { AgentLauncher, AgentState } from "../agents/types";
@@ -50,6 +52,22 @@ interface SessionState {
 
 let counter = 0;
 
+/**
+ * Send the desktop notification for a session's pending approval, unless the
+ * app window is focused (the ApprovalPanel is already visible then) or the
+ * dedupe gate suppresses it. The focus check runs FIRST so a suppressed
+ * notification is not recorded and can still fire later from the blur
+ * listener in App.tsx. Known trade-off: answering inside the terminal (not
+ * via the panel) leaves the dedupe record, so an identical prompt within the
+ * cooldown shows only in the panel, without a toast.
+ */
+export function notifyPendingApproval(sess: Session): void {
+  if (!sess.pendingApproval) return;
+  if (document.hasFocus()) return;
+  if (!shouldNotifyApproval(sess.id, sess.pendingApproval, Date.now())) return;
+  notify(`${sess.agentLabel ?? "Agent"} 需要你核准`, sess.pendingApproval);
+}
+
 export const useSessionStore = create<SessionState>((set, get) => ({
   sessions: [],
   activeId: null,
@@ -63,7 +81,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       title: launcher?.label ?? `Session ${++counter}`,
       status: "idle",
       createdAt: Date.now(),
-      workspaceId: workspaceId ?? resolveTargetWorkspace(sessions, activeId),
+      workspaceId: workspaceId ?? resolveFocusedWorkspace(sessions, activeId),
       agentId: profileId,
       agentLabel: profileId ? getProfile(profileId).label : undefined,
       launchCommand: launcher?.command || undefined,
@@ -76,7 +94,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { sessions, activeId } = get();
     // split 版面：先記下 sibling（focus 移交對象），再收合 leaf。
     const layout = useLayoutStore.getState();
-    const sibling = siblingFirstSession(layout.root, id);
+    const closingWs = sessions.find((s) => s.id === id)?.workspaceId;
+    const sibling = closingWs
+      ? siblingFirstSession(layout.trees[closingWs] ?? null, id)
+      : null;
     layout.removeSession(id);
     const remaining = sessions.filter((s) => s.id !== id);
     let nextActive = activeId;
@@ -85,22 +106,36 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       nextActive = sibling ?? remaining[idx]?.id ?? remaining[idx - 1]?.id ?? null;
     }
     set({ sessions: remaining, activeId: nextActive });
-    // split 模式下樹被關空但還有（隱藏的）session → 讓 nextActive 成為新 root。
-    if (
-      nextActive &&
-      useUiStore.getState().viewMode === "split" &&
-      useLayoutStore.getState().root === null
-    ) {
-      useLayoutStore.getState().attachSession(nextActive, null);
+    clearApprovalNotify(id);
+    clearApprovalSuppress(id);
+    // split 模式下 nextActive 不在自己 workspace 的樹中（樹被關空、或落到
+    // 別的 workspace 的 detached session）→ 掛進去確保可見。
+    if (nextActive && useUiStore.getState().viewMode === "split") {
+      const nextWs = remaining.find((s) => s.id === nextActive)?.workspaceId;
+      const tree = nextWs ? useLayoutStore.getState().trees[nextWs] ?? null : null;
+      if (nextWs && !findLeafBySession(tree, nextActive)) {
+        useLayoutStore.getState().attachSession(nextWs, nextActive, null);
+      }
     }
   },
 
-  moveSessionToWorkspace: (sessionId, workspaceId) =>
+  moveSessionToWorkspace: (sessionId, workspaceId) => {
+    const { sessions, activeId } = get();
+    const target = sessions.find((s) => s.id === sessionId);
+    if (!target || target.workspaceId === workspaceId) return;
+    // 維持「樹只含自己 workspace 的 session」不變量：先從舊樹收合。
+    useLayoutStore.getState().removeSession(sessionId);
     set((s) => ({
       sessions: s.sessions.map((x) =>
         x.id === sessionId ? { ...x, workspaceId } : x,
       ),
-    })),
+    }));
+    // 搬的是 active session 時 focused workspace 跟著切換，active 必須可見；
+    // 非 active 的留在樹外（detached），點選時再換入，不打擾目的地版面。
+    if (sessionId === activeId && useUiStore.getState().viewMode === "split") {
+      useLayoutStore.getState().attachSession(workspaceId, sessionId, null);
+    }
+  },
 
   setActive: (id) => set({ activeId: id }),
 
@@ -136,9 +171,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           : x,
       ),
     }));
-    // 首次進入 waiting → 桌面通知。
+    // Entered waiting → desktop notification, gated by focus + dedupe
+    // (notifyPendingApproval) so state flapping cannot re-notify the same prompt.
     if (state === "waiting" && prev?.agentState !== "waiting") {
-      notify(`${prev?.agentLabel ?? "Agent"} 需要你核准`, prompt ?? "等待審批");
+      const sess = get().sessions.find((x) => x.id === id);
+      if (sess) notifyPendingApproval(sess);
     }
   },
 

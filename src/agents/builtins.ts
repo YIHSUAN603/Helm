@@ -8,9 +8,12 @@ export const GENERIC_PROFILE: AgentProfile = {
   id: "generic",
   label: "Agent",
   states: {
-    // 只保留強訊號：明確的 y/n 提示、或箭頭指著編號肯定選項。
+    // Strong signals only. y/n forms are anchored to end of line so an
+    // already-answered prompt still visible on screen ("... (y/n): y") no
+    // longer counts; case variants are enumerated because waiting patterns
+    // are matched case-sensitively (see engine.deriveState).
       waiting:
-      "\\(y\\/n\\)|\\(Y\\/n\\)|\\(y\\/N\\)|\\[y\\/N\\]|\\[Y\\/n\\]|❯\\s*\\d+\\.\\s*(Yes|Allow|Run|Apply|Proceed)",
+      "\\([yY]\\/[nN]\\)\\s*:?\\s*$|\\[[yY]\\/[nN]\\]\\s*:?\\s*$|❯\\s*\\d+\\.\\s*(Yes|Allow|Run|Apply|Proceed)",
     thinking: "thinking|working|analyz|generating|processing|⠋|⠙|⠹|⠸|⠼",
     tool: "running|executing|\\$\\s|\\brunning tool\\b|tool call",
     error: "\\berror\\b|\\bfailed\\b|traceback|exception",
@@ -34,8 +37,10 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
     detectOutput: "Claude Code|anthropic|claude\\.ai\\/code",
     states: {
     // 以下皆對照 Claude Code 2.1.x 實際 TUI 輸出校準。
-      // 只匹配「作用中的核准選單」：箭頭 ❯ 指著一個編號的肯定選項。
-      // （輸入框也是 ❯ 開頭，但後面沒有「數字.」，故不會誤觸發。）
+      // Only match an active approval menu: the ❯ arrow pointing at a
+      // numbered affirmative option. Matched per line and case-sensitively
+      // (engine.deriveState), so a trailing ❯ prompt plus a numbered list on
+      // another line, or lowercase prose like "1. yes we could", won't trigger.
       waiting: "❯\\s*\\d+\\.\\s*(Yes|Allow|Run|Apply|Proceed|Create)",
       // 思考中：旋轉星號 ✻✽✶✳✢、"thinking"、或 "esc to interrupt" 提示。
       thinking: "[✻✽✶✳✢]|\\bthinking\\b|esc to interrupt",
@@ -64,9 +69,14 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
   {
     id: "codex",
     label: "Codex",
-    detectOutput: "Codex CLI|OpenAI Codex|codex",
+    // No bare "codex": a session must not get permanently tagged just because
+    // a filename or chat line mentions the word.
+    detectOutput: "Codex CLI|OpenAI Codex",
     states: {
-      waiting: "Allow command|Run this command|\\(y\\/n\\)|approve\\?|Apply patch\\?",
+      // y/n anchored to end of line (answered prompts stay visible on screen);
+      // case variants enumerated since waiting is matched case-sensitively.
+      waiting:
+        "Allow command|Run this command|[Aa]pprove\\?|Apply patch\\?|\\([yY]\\/[nN]\\)\\s*:?\\s*$",
       thinking: "Thinking|Working|Reasoning",
       tool: "Running|exec|\\$\\s|patch",
       error: "\\berror\\b|failed",

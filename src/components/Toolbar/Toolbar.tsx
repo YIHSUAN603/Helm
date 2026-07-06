@@ -1,8 +1,15 @@
-// 頂部工具列：視圖切換（single/split）、broadcast 派工、以及 active session 的成本/用量。
+// 頂部工具列：視圖切換（single/split）、broadcast 派工、以及成本/用量。
+// 派工、Σ 成本、變更計數都限縮在聚焦 workspace 內。
 import { useState } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
 import { useLayoutStore } from "../../store/layout";
+import {
+  resolveFocusedWorkspace,
+  sessionsInWorkspace,
+  workspaceChangedFileCount,
+  workspaceTotalCost,
+} from "../../store/workspaceGroups";
 import { ptyWrite } from "../../ipc/pty";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import "./Toolbar.css";
@@ -28,11 +35,13 @@ export function Toolbar() {
   const [target, setTarget] = useState<Target>("agents");
 
   const active = sessions.find((s) => s.id === activeId);
-  const totalCost = sessions.reduce((sum, s) => sum + (s.cost ?? 0), 0);
-  const changedCount = active?.changedFiles?.length ?? 0;
+  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
+  const workspaceSessions = sessionsInWorkspace(sessions, workspaceId);
+  const totalCost = workspaceTotalCost(sessions, workspaceId);
+  const changedCount = workspaceChangedFileCount(sessions, workspaceId);
 
   const targets = () =>
-    target === "agents" ? sessions.filter((s) => s.agentId) : sessions;
+    target === "agents" ? workspaceSessions.filter((s) => s.agentId) : workspaceSessions;
 
   const broadcast = () => {
     const t = text.trim();
@@ -58,8 +67,10 @@ export function Toolbar() {
           className={viewMode === "split" ? "on" : ""}
           aria-pressed={viewMode === "split"}
           onClick={() => {
-            // 首次進 split 且無版面樹：把現有 sessions 自動平衡排列。
-            useLayoutStore.getState().ensureTree(sessions.map((s) => s.id));
+            // 首次進 split 且無版面樹：把 focused workspace 的 sessions 自動平衡排列。
+            useLayoutStore
+              .getState()
+              .ensureTree(workspaceId, workspaceSessions.map((s) => s.id));
             setViewMode("split");
           }}
           title="分割視圖"
@@ -70,8 +81,8 @@ export function Toolbar() {
 
       <div className="tb-broadcast">
         <select value={target} onChange={(e) => setTarget(e.target.value as Target)}>
-          <option value="agents">所有 agent</option>
-          <option value="all">所有 session</option>
+          <option value="agents">Workspace 內 agent</option>
+          <option value="all">Workspace 內 session</option>
         </select>
         <input
           value={text}
@@ -102,17 +113,17 @@ export function Toolbar() {
           <span className="tb-mono" title="input / output tokens">
             ↑{fmtNum(active.tokensIn)} ↓{fmtNum(active.tokensOut)}
           </span>
-          <button
-            className={`tb-files ${filesOpen ? "on" : ""}`}
-            aria-pressed={filesOpen}
-            onClick={toggleFiles}
-            title="檔案變更"
-          >
-            變更 {changedCount}
-          </button>
         </div>
       )}
-      <span className="tb-total" title="所有 session 成本總計">
+      <button
+        className={`tb-files ${filesOpen ? "on" : ""}`}
+        aria-pressed={filesOpen}
+        onClick={toggleFiles}
+        title="此 Workspace 的檔案變更"
+      >
+        變更 {changedCount}
+      </button>
+      <span className="tb-total" title="此 Workspace 成本總計">
         Σ ${totalCost.toFixed(4)}
       </span>
     </div>

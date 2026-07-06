@@ -1,20 +1,55 @@
-// 檔案變更面板：列出目前 session 這次執行 agent 動到的檔案（op + 路徑）。
-// Esc（面板內有焦點時）關閉並把焦點還給終端機。
-import { useSessionStore } from "../../store/sessions";
+// 檔案變更面板：列出聚焦 workspace 內所有 session 動到的檔案，依 session 分組。
+// 點分組標頭可跳到該 session；Esc（面板內有焦點時）關閉並把焦點還給終端機。
+import { activateSession } from "../../commands/actions";
+import { useSessionStore, type Session } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
+import {
+  resolveFocusedWorkspace,
+  sessionsInWorkspace,
+  workspaceChangedFileCount,
+} from "../../store/workspaceGroups";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import "./ChangedFilesPanel.css";
+
+function SessionFileGroup({ session }: { session: Session }) {
+  const files = session.changedFiles ?? [];
+  return (
+    <div className="files-group">
+      <div
+        className="files-group-header"
+        role="button"
+        tabIndex={-1}
+        title={session.title}
+        onClick={() => activateSession(session.id)}
+      >
+        <span className="files-group-title">{session.title}</span>
+        <span className="files-group-count">{files.length}</span>
+      </div>
+      {files.map((f) => (
+        <div className="file-row" key={`${session.id}:${f.path}`}>
+          <span className={`file-op op-${f.op.toLowerCase()}`}>{f.op}</span>
+          <span className="file-path" title={f.path}>
+            {f.path}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function ChangedFilesPanel() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const open = useUiStore((s) => s.filesOpen);
   const setFilesOpen = useUiStore((s) => s.setFilesOpen);
-  const active = sessions.find((s) => s.id === activeId);
 
   if (!open) return null;
   const onClose = () => setFilesOpen(false);
-  const files = active?.changedFiles ?? [];
+  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
+  const groups = sessionsInWorkspace(sessions, workspaceId).filter(
+    (s) => (s.changedFiles?.length ?? 0) > 0,
+  );
+  const total = workspaceChangedFileCount(sessions, workspaceId);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -27,20 +62,15 @@ export function ChangedFilesPanel() {
   return (
     <div className="files-panel" data-focus-region="files" onKeyDown={onKeyDown}>
       <div className="files-header">
-        <span>檔案變更 {files.length > 0 && `(${files.length})`}</span>
+        <span>檔案變更 {total > 0 && `(${total})`}</span>
         <button className="files-close" onClick={onClose} title="關閉">
           ×
         </button>
       </div>
       <div className="files-list">
-        {files.length === 0 && <div className="files-empty">尚無變更</div>}
-        {files.map((f) => (
-          <div className="file-row" key={f.path}>
-            <span className={`file-op op-${f.op.toLowerCase()}`}>{f.op}</span>
-            <span className="file-path" title={f.path}>
-              {f.path}
-            </span>
-          </div>
+        {groups.length === 0 && <div className="files-empty">尚無變更</div>}
+        {groups.map((s) => (
+          <SessionFileGroup key={s.id} session={s} />
         ))}
       </div>
     </div>
