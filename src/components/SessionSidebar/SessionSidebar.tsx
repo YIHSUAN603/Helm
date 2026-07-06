@@ -1,15 +1,15 @@
 // Session 側欄看板：兩層階層 — workspace（可摺疊群組）→ session。
-// 「⊞」新增 workspace（立即進入命名）；「+」開啟 launcher 選單建立 session
-// （落在作用中 session 的 workspace）。session 可拖曳到其他 workspace。
+// 「⊞」新增 workspace（立即進入命名）；新增 session 由各 workspace 群組
+// 自己的「+」launcher 負責（見 WorkspaceGroup）。session 可拖曳到其他 workspace。
 // Keyboard: roving focus over headers + items (arrows / Enter / Delete / F2),
 // Esc back to the terminal; the launcher menu is fully arrow-navigable.
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useWorkspaceStore } from "../../store/workspaces";
 import { groupSessions, DEFAULT_WORKSPACE_ID } from "../../store/workspaceGroups";
 import { useThemeStore } from "../../store/theme";
-import { newSession, newWorkspace } from "../../commands/actions";
-import { LauncherMenu } from "./LauncherMenu";
+import { useUiStore } from "../../store/ui";
+import { newWorkspace } from "../../commands/actions";
 import { WorkspaceGroup } from "./WorkspaceGroup";
 import "./SessionSidebar.css";
 
@@ -19,17 +19,11 @@ export function SessionSidebar() {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const theme = useThemeStore((s) => s.name);
   const toggleTheme = useThemeStore((s) => s.toggle);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const renamingId = useUiStore((s) => s.renamingWorkspaceId);
+  const setRenamingId = useUiStore((s) => s.setRenamingWorkspaceId);
   const listRef = useRef<HTMLDivElement>(null);
-  const plusRef = useRef<HTMLButtonElement>(null);
 
   const groups = groupSessions(workspaces, sessions);
-
-  const closeMenu = (refocus: boolean) => {
-    setMenuOpen(false);
-    if (refocus) plusRef.current?.focus();
-  };
 
   const addWorkspace = () => {
     setRenamingId(newWorkspace());
@@ -41,29 +35,8 @@ export function SessionSidebar() {
         <span className="sidebar-title">SESSIONS</span>
         <div className="sidebar-actions">
           <button className="icon-btn" title="新增 Workspace" onClick={addWorkspace}>
-            ⊞
+            +
           </button>
-          <div className="new-menu-wrap">
-            <button
-              ref={plusRef}
-              className="icon-btn"
-              title="新增 Session"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              +
-            </button>
-            {menuOpen && (
-              <LauncherMenu
-                onPick={(l) => {
-                  newSession(l);
-                  closeMenu(false);
-                }}
-                onClose={closeMenu}
-              />
-            )}
-          </div>
         </div>
       </div>
 

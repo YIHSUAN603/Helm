@@ -12,9 +12,7 @@ import {
 } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey } from "../../focus/listNav";
-import { LauncherMenu } from "./LauncherMenu";
 import { SessionItem, SIDEBAR_NAV_SELECTOR } from "./SessionItem";
-import type { AgentLauncher } from "../../agents/types";
 
 interface WorkspaceGroupProps {
   workspace: Workspace;
@@ -40,10 +38,8 @@ export function WorkspaceGroup({
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const renameWorkspace = useWorkspaceStore((s) => s.renameWorkspace);
   const moveSessionToWorkspace = useSessionStore((s) => s.moveSessionToWorkspace);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const pendingCount = sessions.filter((s) => s.pendingApproval).length;
-  const plusRef = useRef<HTMLButtonElement>(null);
   // Counter to ignore dragleave noise from child elements.
   const dragDepth = useRef(0);
 
@@ -75,15 +71,9 @@ export function WorkspaceGroup({
     else if (e.key === "Escape") onRenameEnd();
   };
 
-  const closeMenu = (refocus: boolean) => {
-    setMenuOpen(false);
-    if (refocus) plusRef.current?.focus();
-  };
-
-  const pickLauncher = (l: AgentLauncher) => {
-    newSession(l, w.id);
+  const addSession = () => {
+    newSession(undefined, w.id);
     expandWorkspace(w.id);
-    closeMenu(false);
   };
 
   const clearDrag = () => {
@@ -161,25 +151,18 @@ export function WorkspaceGroup({
             {pendingCount}
           </button>
         )}
-        {/* Clicks inside the menu (items / backdrop) must not toggle collapse. */}
-        <div
-          className="new-menu-wrap"
-          onClick={(e) => e.stopPropagation()}
+        <button
+          className="icon-btn hover-action"
+          title="在此 Workspace 新增 Shell"
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            addSession();
+          }}
           onDoubleClick={(e) => e.stopPropagation()}
         >
-          <button
-            ref={plusRef}
-            className="icon-btn hover-action"
-            title="在此 Workspace 新增 Session"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            tabIndex={-1}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            +
-          </button>
-          {menuOpen && <LauncherMenu onPick={pickLauncher} onClose={closeMenu} />}
-        </div>
+          +
+        </button>
         {deletable && (
           <button
             className="icon-btn hover-action"
