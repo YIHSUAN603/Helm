@@ -10,12 +10,12 @@ const DEFAULT_CURSOR_STYLE: CursorStyle = "block";
 const DEFAULT_CURSOR_BLINK = true;
 
 const KEYS = {
-  fontFamily: "aiterminal.fontFamily",
-  fontSize: "aiterminal.fontSize",
-  cursorStyle: "aiterminal.cursorStyle",
-  cursorBlink: "aiterminal.cursorBlink",
-  defaultShell: "aiterminal.defaultShell",
-  defaultCwd: "aiterminal.defaultCwd",
+  fontFamily: "helm.fontFamily",
+  fontSize: "helm.fontSize",
+  cursorStyle: "helm.cursorStyle",
+  cursorBlink: "helm.cursorBlink",
+  defaultShell: "helm.defaultShell",
+  defaultCwd: "helm.defaultCwd",
 } as const;
 
 interface SettingsState {

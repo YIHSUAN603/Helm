@@ -16,7 +16,7 @@ interface LanguageState {
   setName: (name: Language) => void;
 }
 
-const STORAGE_KEY = "aiterminal.language";
+const STORAGE_KEY = "helm.language";
 
 /** 沒有已存偏好時，依系統/瀏覽器語言猜一個預設值。 */
 function systemDefault(): Language {

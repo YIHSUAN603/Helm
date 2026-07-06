@@ -46,7 +46,7 @@ interface ThemeState {
   toggle: () => void;
 }
 
-const STORAGE_KEY = "aiterminal.theme";
+const STORAGE_KEY = "helm.theme";
 
 function initial(): ThemeName {
   const v = localStorage.getItem(STORAGE_KEY) as ThemeName | null;

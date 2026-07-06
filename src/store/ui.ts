@@ -3,7 +3,7 @@ import { create } from "zustand";
 
 export type ViewMode = "single" | "split";
 
-const STORAGE_KEY = "aiterminal.viewMode";
+const STORAGE_KEY = "helm.viewMode";
 
 function initial(): ViewMode {
   const v = localStorage.getItem(STORAGE_KEY);

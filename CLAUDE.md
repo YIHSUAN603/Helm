@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Helm (package name `aiterminal`) is a Tauri 2 + React 19 + TypeScript desktop terminal application. Its core feature is "agent awareness": each session is a PTY, and the frontend passively scans terminal output to detect the running CLI agent (Claude Code, Codex, etc.), derive its state (thinking / tool / waiting / done / error), and centrally surface pending approval prompts, cost/token usage, and file changes. It supports tmux-style split views.
+Helm (package name `helm`) is a Tauri 2 + React 19 + TypeScript desktop terminal application. Its core feature is "agent awareness": each session is a PTY, and the frontend passively scans terminal output to detect the running CLI agent (Claude Code, Codex, etc.), derive its state (thinking / tool / waiting / done / error), and centrally surface pending approval prompts, cost/token usage, and file changes. It supports tmux-style split views.
 
 > Comments and commit messages are written in English; code follows the naming and style conventions in `~/.claude/CLAUDE.md`.
 
@@ -69,7 +69,7 @@ The sidebar (`src/components/SessionSidebar/`) is two-level: collapsible **works
 
 ## Important Notes
 
-- **Windows support**: PTYs use ConPTY via `portable-pty`. The default shell is resolved in `pty.rs` as `AITERMINAL_SHELL` → `SHELL` → platform default (Windows: `pwsh.exe` if on PATH else `powershell.exe`, launched with `-NoLogo`; Unix: `/bin/zsh`). Home falls back `HOME` → `USERPROFILE`. The `agents.json` template in `config.rs` has per-platform demo commands (`#[cfg(windows)]` = PowerShell syntax).
+- **Windows support**: PTYs use ConPTY via `portable-pty`. The default shell is resolved in `pty.rs` as `HELM_SHELL` → `SHELL` → platform default (Windows: `pwsh.exe` if on PATH else `powershell.exe`, launched with `-NoLogo`; Unix: `/bin/zsh`). Home falls back `HOME` → `USERPROFILE`. The `agents.json` template in `config.rs` has per-platform demo commands (`#[cfg(windows)]` = PowerShell syntax).
 - **macOS Cmd shortcuts**: WKWebView swallows some Cmd key combinations when the webview has focus (in testing, ⌘D never reaches the DOM, and menu accelerators don't fire either) — this does not happen on Windows, where Ctrl combos reach the DOM normally. So shortcuts take two paths: the frontend DOM `keydown` (capture phase, ahead of xterm, see `App.tsx`) matches `KEYMAP` in `src/commands/keymap.ts` and dispatches via `runCommand` (`src/commands/registry.ts`); the native menu (`lib.rs`) emits `app://shortcut` events into the same `runCommand` for discoverability and mouse access. When changing shortcuts, update both places.
 - **Nothing is persisted across launches** (deliberate): sessions, workspaces, and the split layout all live in memory only. **Bootstrap** runs only once per app lifetime (the `bootstrapped` flag in `App.tsx`) and simply creates one fresh session in the default workspace. The only cross-launch state is user preferences in localStorage (theme, viewMode).
 - **Launching an agent** works by writing the command as user input into the PTY (`ptyWrite(id, "claude\r")`), preserving the full shell environment, rather than spawning the command directly.

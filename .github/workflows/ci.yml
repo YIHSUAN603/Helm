@@ -74,4 +74,4 @@ jobs:
         run: cargo test
         working-directory: src-tauri
         env:
-          AITERMINAL_SHELL: /bin/bash
+          HELM_SHELL: /bin/bash

@@ -42,11 +42,11 @@ fn find_on_path(exe: &str) -> bool {
     std::env::split_paths(&path).any(|dir| dir.join(exe).is_file())
 }
 
-/// 預設 shell（程式 + 參數）。解析順序：AITERMINAL_SHELL → SHELL → 平台預設。
+/// 預設 shell（程式 + 參數）。解析順序：HELM_SHELL → SHELL → 平台預設。
 /// Windows 平台預設：pwsh（PowerShell 7）優先，否則 Windows PowerShell，
 /// 並帶 -NoLogo 隱藏版權橫幅；Unix 預設 /bin/zsh。
 fn default_shell_command() -> (String, Vec<String>) {
-    for var in ["AITERMINAL_SHELL", "SHELL"] {
+    for var in ["HELM_SHELL", "SHELL"] {
         if let Ok(shell) = std::env::var(var) {
             if !shell.is_empty() {
                 return (shell, vec![]);
