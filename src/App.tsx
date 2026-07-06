@@ -7,7 +7,11 @@ import { ChangedFilesPanel } from "./components/ChangedFilesPanel/ChangedFilesPa
 import { PaneLabel } from "./components/PaneLabel/PaneLabel";
 import { SplitResizers } from "./components/SplitLayout/SplitResizers";
 import { notifyPendingApproval, useSessionStore } from "./store/sessions";
-import { clearApprovalSuppress, isApprovalSuppressed } from "./store/approvalSuppress";
+import {
+  clearApprovalSuppress,
+  isApprovalSuppressed,
+  markApprovalAnswered,
+} from "./store/approvalSuppress";
 import { useThemeStore } from "./store/theme";
 import { useUiStore } from "./store/ui";
 import { useLayoutStore } from "./store/layout";
@@ -85,6 +89,11 @@ function handleScan(id: string, text: string) {
       nonWaitingStreak.set(id, streak);
       return;
     }
+    // The dialog left the screen without a panel response — the user answered
+    // inside the terminal. Record it so a stale copy of the same prompt
+    // resurfacing (e.g. a resize reflow) cannot resurrect the approval,
+    // matching the explicit-response path in respondApproval.
+    markApprovalAnswered(id, sess.pendingApproval, Date.now());
   }
   nonWaitingStreak.delete(id);
   if (derived.state) {

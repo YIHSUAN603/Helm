@@ -28,6 +28,13 @@ export interface AgentStatePatterns {
    * 避免這些一次性提示佔用集中審批面板。
    */
   ignore?: string;
+  /**
+   * Agent 自己的輸入框（composer）列。作用中的審批對話框會取代輸入框，
+   * 所以若此 pattern 命中在最後一個 waiting 命中行「下方」的任何一行，
+   * 代表該選單是已回答後留在畫面上的殘影，抑制 waiting。
+   * 逐行、大小寫敏感比對。選填；未提供則行為不變。
+   */
+  inputBox?: string;
 }
 
 /**

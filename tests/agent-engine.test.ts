@@ -153,6 +153,45 @@ check(
   deriveState(GENERIC_PROFILE, "error happened\nProceed? (y/n)").state === "waiting",
 );
 
+// stale-menu veto：選單「下方」出現輸入框列 ⇒ 已回答的殘影，不判 waiting。
+// 作用中的審批對話框會取代輸入框，兩者不會同框出現在選單下方。
+check(
+  "claude 已回答殘影（下方有輸入框）不判 waiting",
+  deriveState(
+    claude,
+    "Do you want to proceed?\n❯ 1. Yes\n  2. No\n╭──────────╮\n│ >        │\n╰──────────╯\n  ? for shortcuts",
+  ).state !== "waiting",
+);
+check(
+  "claude 已回答殘影（僅 ? for shortcuts 提示）不判 waiting",
+  deriveState(claude, "❯ 1. Yes\n  2. No\n  ? for shortcuts").state !== "waiting",
+);
+check(
+  "claude 殘影不遮蔽真實狀態（下方 thinking 判 thinking）",
+  deriveState(
+    claude,
+    "❯ 1. Yes\n  2. No\n✻ Pondering… (esc to interrupt)\n│ > │",
+  ).state === "thinking",
+);
+check(
+  "claude 輸入框殘影在選單上方不影響作用中審批",
+  deriveState(
+    claude,
+    "│ > │\nDo you want to proceed?\n❯ 1. Yes\n  2. No",
+  ).state === "waiting",
+);
+check(
+  "claude 作用中對話框（框底線下無輸入框）仍判 waiting",
+  deriveState(
+    claude,
+    "│ Do you want to proceed?  │\n│ ❯ 1. Yes                 │\n│   2. No                  │\n╰──────────────────────────╯",
+  ).state === "waiting",
+);
+check(
+  "generic 無 inputBox pattern 行為不變",
+  deriveState(GENERIC_PROFILE, "Proceed? (y/n)\n│ > │").state === "waiting",
+);
+
 // prompt 擷取：選單式審批應回報上方的問題行（每筆審批可辨識），
 // 而不是各審批都相同的選項列「❯ 1. Yes」。
 {

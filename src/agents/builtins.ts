@@ -52,6 +52,10 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
       // 排除啟動/設定類的一次性提示（信任資料夾、選主題、登入等）。
       ignore:
         "trust\\s*(this folder|the files)|Security\\s*guide|choose.*text style|Select\\s*(theme|login)|Sign in|Log in|Welcome to Claude",
+      // 輸入框（composer）列：圓角框內的「│ > …」或閒置時的「? for shortcuts」
+      // 提示。作用中的審批對話框會取代輸入框，所以它出現在選單下方時，
+      // 該選單必為已回答的殘影（見 engine.deriveState 的 stale-menu veto）。
+      inputBox: "^\\s*│\\s*>(\\s|$)|\\?\\s*for shortcuts",
     },
     extract: {
       // 成本：/cost 指令輸出的「Total cost: $X」。
