@@ -1,5 +1,6 @@
 // split 版面的分隔線 overlay：依樹算出的幾何渲染，pointer 拖曳調整 ratio。
-// 拖曳中只改記憶體（不持久化），pointerup 才 commit；雙擊重設 0.5。
+// 雙擊重設 0.5。
+// 鍵盤：Tab 聚焦分隔線後，方向鍵微調 ratio、Enter 重設 0.5。
 import { useRef, useState } from "react";
 import { useLayoutStore, MIN_PANE_W, MIN_PANE_H } from "../../store/layout";
 import {
@@ -50,10 +51,10 @@ export function SplitResizers({ resizers }: { resizers: ResizerGeom[] }) {
       return Math.min(hi, Math.max(lo, (pos - startPx) / extentPx));
     };
     const onMove = (ev: PointerEvent) => {
-      layout.setRatio(r.splitId, ratioAt(ev), false);
+      layout.setRatio(r.splitId, ratioAt(ev));
     };
     const onUp = (ev: PointerEvent) => {
-      layout.setRatio(r.splitId, ratioAt(ev), true);
+      layout.setRatio(r.splitId, ratioAt(ev));
       cleanup();
     };
     const cleanup = () => {
@@ -72,12 +73,39 @@ export function SplitResizers({ resizers }: { resizers: ResizerGeom[] }) {
     target.addEventListener("pointercancel", onUp);
   };
 
+  // 鍵盤微調：分隔線方向對應的箭頭 ±KEY_STEP，Enter 重設 0.5。
+  const KEY_STEP = 0.02;
+  const keyDelta = (key: string, dir: string): number | null => {
+    if (dir === "row") {
+      if (key === "ArrowLeft") return -KEY_STEP;
+      if (key === "ArrowRight") return KEY_STEP;
+    } else {
+      if (key === "ArrowUp") return -KEY_STEP;
+      if (key === "ArrowDown") return KEY_STEP;
+    }
+    return null;
+  };
+  const onKeyDown = (e: React.KeyboardEvent, r: ResizerGeom) => {
+    const layout = useLayoutStore.getState();
+    const delta = keyDelta(e.key, r.dir);
+    if (delta !== null) {
+      e.preventDefault();
+      layout.setRatio(r.splitId, r.ratio + delta);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      layout.setRatio(r.splitId, 0.5);
+    }
+  };
+
   return (
     <div ref={areaRef} className="split-resizers">
       {resizers.map((r) => (
         <div
           key={r.splitId}
           className={`split-resizer ${r.dir} ${draggingId === r.splitId ? "dragging" : ""}`}
+          role="separator"
+          tabIndex={0}
+          aria-orientation={r.dir === "row" ? "vertical" : "horizontal"}
           style={{
             top: `${r.rect.top}%`,
             left: `${r.rect.left}%`,
@@ -85,8 +113,9 @@ export function SplitResizers({ resizers }: { resizers: ResizerGeom[] }) {
             height: r.dir === "row" ? `${r.rect.height}%` : undefined,
           }}
           onPointerDown={(e) => onPointerDown(e, r)}
+          onKeyDown={(e) => onKeyDown(e, r)}
           onDoubleClick={() =>
-            useLayoutStore.getState().setRatio(r.splitId, 0.5, true)
+            useLayoutStore.getState().setRatio(r.splitId, 0.5)
           }
         />
       ))}

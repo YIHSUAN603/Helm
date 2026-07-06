@@ -10,9 +10,10 @@ import { useSessionStore } from "./store/sessions";
 import { useThemeStore } from "./store/theme";
 import { useUiStore } from "./store/ui";
 import { useLayoutStore } from "./store/layout";
-import { computeLayout, pruneMissingSessions, type RectPct } from "./store/layoutTree";
-import { loadSessions, loadLayout } from "./ipc/persist";
-import { runShortcut } from "./shortcuts";
+import { computeLayout, type RectPct } from "./store/layoutTree";
+import { CommandPalette } from "./components/CommandPalette/CommandPalette";
+import { matchBinding } from "./commands/keymap";
+import { runCommand } from "./commands/registry";
 import { listen } from "@tauri-apps/api/event";
 import { ensureNotifyPermission } from "./ipc/notify";
 import { initRegistry, detectProfile, getProfile } from "./agents/registry";
@@ -100,28 +101,17 @@ function App() {
     [layoutRoot],
   );
 
-  // 快捷鍵：⌘\ 右分割、⌘⇧D 下分割、⌘⇧W 關閉 focused pane。
-  // capture phase：搶在 xterm 的按鍵處理之前。
+  // 全域快捷鍵：keymap 比對 → 命令派發。capture phase：搶在 xterm 的按鍵處理之前。
   // 注意：macOS WKWebView 會在原生層吞掉部分 Cmd 組合鍵（實測 ⌘D 到不了 DOM，
   // 選單 accelerator 在 webview 有焦點時也不會觸發），所以綁定必須挑實測可達
-  // DOM 的組合；選單項（見 lib.rs）提供可發現性與滑鼠入口。
+  // DOM 的組合（見 src/commands/keymap.ts）；選單項（見 lib.rs）提供可發現性與滑鼠入口。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      const key = e.key.toLowerCase();
-      if (key === "\\") {
-        e.preventDefault();
-        e.stopPropagation();
-        runShortcut("layout:split-right");
-      } else if (key === "d" && e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        runShortcut("layout:split-down");
-      } else if (key === "w" && e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        runShortcut("layout:close-pane");
-      }
+      const id = matchBinding(e);
+      if (!id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      runCommand(id);
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
@@ -133,19 +123,12 @@ function App() {
     (async () => {
       await initRegistry();
       void ensureNotifyPermission();
-      // 原生選單 accelerator → 版面快捷鍵（純瀏覽器環境會 reject，忽略）。
-      listen<string>("app://shortcut", (e) => runShortcut(e.payload)).catch(() => {});
-      const restored = await loadSessions();
-      const store = useSessionStore.getState();
-      if (restored.length > 0) store.restoreSessions(restored);
-      else store.createSession();
-      // 還原 split 版面樹：清掉指向已不存在 session 的 leaf。
-      const tree = await loadLayout();
-      const validIds = new Set(useSessionStore.getState().sessions.map((s) => s.id));
-      useLayoutStore.getState().restore(pruneMissingSessions(tree, validIds));
-      // split 模式但樹為空（首次或被 prune 光）→ 自動平衡排列。
+      // 原生選單 accelerator → 命令派發（純瀏覽器環境會 reject，忽略）。
+      listen<string>("app://shortcut", (e) => runCommand(e.payload)).catch(() => {});
+      // 每次啟動都是全新配置：一個預設 workspace + 一個新 session。
+      const id = useSessionStore.getState().createSession();
       if (useUiStore.getState().viewMode === "split") {
-        useLayoutStore.getState().ensureTree([...validIds]);
+        useLayoutStore.getState().ensureTree([id]);
       }
     })();
   }, []);
@@ -157,7 +140,7 @@ function App() {
         <Toolbar />
         {/* 同一組 pane 始終掛載；single/split 只靠 class + inline style 切換，避免重建終端。
             split 模式：版面樹只算幾何，rect 以 inline style 套在平鋪 pane 上（不在樹中的隱藏）。 */}
-        <div className={`terminal-area ${viewMode}`}>
+        <div className={`terminal-area ${viewMode}`} data-focus-region="terminal">
           {sessions.map((s) => {
             const rect = layout.leaves.get(s.id);
             return (
@@ -192,6 +175,7 @@ function App() {
           <ChangedFilesPanel />
         </div>
       </main>
+      <CommandPalette />
     </div>
   );
 }

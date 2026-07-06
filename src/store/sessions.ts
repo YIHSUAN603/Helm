@@ -1,9 +1,9 @@
 // 多 session 狀態管理 + agent 感知。
 import { create } from "zustand";
-import { persistSession, removePersistedSession } from "../ipc/persist";
 import { useLayoutStore } from "./layout";
 import { useUiStore } from "./ui";
 import { siblingFirstSession } from "./layoutTree";
+import { resolveTargetWorkspace } from "./workspaceGroups";
 import { notify } from "../ipc/notify";
 import { getProfile } from "../agents/registry";
 import type { AgentLauncher, AgentState } from "../agents/types";
@@ -15,12 +15,13 @@ export interface Session {
   title: string;
   status: SessionStatus; // 活動燈（無 agent 時使用）
   createdAt: number;
+  workspaceId: string; // 側欄分組（純視覺，不影響 PTY）
   // ---- agent 相關 ----
   agentId: string | null; // profile id（launcher 指定或被動偵測到）
   agentLabel?: string;
   agentState?: AgentState;
   pendingApproval?: string; // waiting 時的提示行
-  launchCommand?: string; // 啟動時送進 PTY 的指令（restore 用）
+  launchCommand?: string; // 啟動時送進 PTY 的指令
   // ---- 本次執行的用量/變更（不持久化，重跑歸零）----
   cost?: number;
   tokensIn?: number;
@@ -31,8 +32,9 @@ export interface Session {
 interface SessionState {
   sessions: Session[];
   activeId: string | null;
-  createSession: (launcher?: AgentLauncher) => string;
+  createSession: (launcher?: AgentLauncher, workspaceId?: string) => string;
   closeSession: (id: string) => void;
+  moveSessionToWorkspace: (sessionId: string, workspaceId: string) => void;
   setActive: (id: string) => void;
   setTitle: (id: string, title: string) => void;
   setStatus: (id: string, status: SessionStatus) => void;
@@ -44,7 +46,6 @@ interface SessionState {
     usage: { cost?: number; tokensIn?: number; tokensOut?: number },
   ) => void;
   addChangedFile: (id: string, file: { op: string; path: string }) => void;
-  restoreSessions: (sessions: Session[]) => void;
 }
 
 let counter = 0;
@@ -53,20 +54,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   sessions: [],
   activeId: null,
 
-  createSession: (launcher) => {
+  createSession: (launcher, workspaceId) => {
     const id = crypto.randomUUID();
     const profileId = launcher?.profileId ?? null;
+    const { sessions, activeId } = get();
     const session: Session = {
       id,
       title: launcher?.label ?? `Session ${++counter}`,
       status: "idle",
       createdAt: Date.now(),
+      workspaceId: workspaceId ?? resolveTargetWorkspace(sessions, activeId),
       agentId: profileId,
       agentLabel: profileId ? getProfile(profileId).label : undefined,
       launchCommand: launcher?.command || undefined,
     };
     set((s) => ({ sessions: [...s.sessions, session], activeId: id }));
-    void persistSession(session);
     return id;
   },
 
@@ -91,8 +93,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     ) {
       useLayoutStore.getState().attachSession(nextActive, null);
     }
-    void removePersistedSession(id);
   },
+
+  moveSessionToWorkspace: (sessionId, workspaceId) =>
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === sessionId ? { ...x, workspaceId } : x,
+      ),
+    })),
 
   setActive: (id) => set({ activeId: id }),
 
@@ -108,15 +116,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       ),
     })),
 
-  setDetectedAgent: (id, profileId, label) => {
+  setDetectedAgent: (id, profileId, label) =>
     set((s) => ({
       sessions: s.sessions.map((x) =>
         x.id === id && !x.agentId ? { ...x, agentId: profileId, agentLabel: label } : x,
       ),
-    }));
-    const sess = get().sessions.find((x) => x.id === id);
-    if (sess) void persistSession(sess);
-  },
+    })),
 
   setAgentState: (id, state, prompt) => {
     const prev = get().sessions.find((x) => x.id === id);
@@ -172,9 +177,4 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         return { ...x, changedFiles: next };
       }),
     })),
-
-  restoreSessions: (sessions) => {
-    counter = Math.max(counter, sessions.length);
-    set({ sessions, activeId: sessions[0]?.id ?? null });
-  },
 }));

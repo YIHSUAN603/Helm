@@ -45,8 +45,14 @@
   height: 3px;
 }
 .split-resizer:hover::after,
-.split-resizer.dragging::after {
-  background: #89b4fa;
+.split-resizer.dragging::after,
+.split-resizer:focus-visible::after {
+  background: var(--accent, #89b4fa);
+}
+
+/* 鍵盤聚焦時以中央線顯示，不需要外框 */
+.split-resizer:focus-visible {
+  outline: none;
 }
 
 /* 拖曳期間：全域關閉文字選取、鎖定 cursor（蓋過 xterm 的 text cursor）。 */

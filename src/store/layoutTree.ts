@@ -37,6 +37,8 @@ export interface ResizerGeom {
   rect: RectPct;
   /** 所屬 split 的完整 rect（拖曳時把游標位置換算成 ratio 用）。 */
   splitRect: RectPct;
+  /** 所屬 split 目前的 ratio（鍵盤微調的基準）。 */
+  ratio: number;
 }
 
 export const MIN_RATIO = 0.05;
@@ -120,6 +122,7 @@ export function computeLayout(root: LayoutNode): {
         dir: "row",
         rect: { top: rect.top, left: rect.left + wA, width: 0, height: rect.height },
         splitRect: rect,
+        ratio: r,
       });
     } else {
       const hA = rect.height * r;
@@ -130,28 +133,12 @@ export function computeLayout(root: LayoutNode): {
         dir: "column",
         rect: { top: rect.top + hA, left: rect.left, width: rect.width, height: 0 },
         splitRect: rect,
+        ratio: r,
       });
     }
   };
   walk(root, { top: 0, left: 0, width: 100, height: 100 });
   return { leaves, resizers };
-}
-
-/** 還原時清掉指向不存在 session 的 leaf（連鎖收合）。 */
-export function pruneMissingSessions(
-  root: LayoutNode | null,
-  validIds: Set<string>,
-): LayoutNode | null {
-  if (!root) return null;
-  if (root.type === "leaf") {
-    return validIds.has(root.sessionId) ? root : null;
-  }
-  const a = pruneMissingSessions(root.a, validIds);
-  const b = pruneMissingSessions(root.b, validIds);
-  if (a === null) return b;
-  if (b === null) return a;
-  if (a === root.a && b === root.b) return root;
-  return { ...root, a, b };
 }
 
 /** 用平衡樹自動排列（首次進 split 模式時模擬舊 grid 的平鋪效果）。 */
@@ -218,29 +205,4 @@ export function swapLeafSession(
   const b = a === root.a ? swapLeafSession(root.b, leafId, sessionId) : root.b;
   if (a === root.a && b === root.b) return root;
   return { ...root, a, b };
-}
-
-/** 還原持久化 JSON：驗證結構、clamp ratio；不合法回 null。 */
-export function sanitizeTree(value: unknown): LayoutNode | null {
-  if (!value || typeof value !== "object") return null;
-  const node = value as Record<string, unknown>;
-  if (node.type === "leaf") {
-    if (typeof node.sessionId !== "string") return null;
-    return { type: "leaf", id: typeof node.id === "string" ? node.id : nodeId(), sessionId: node.sessionId };
-  }
-  if (node.type === "split") {
-    if (node.dir !== "row" && node.dir !== "column") return null;
-    const a = sanitizeTree(node.a);
-    const b = sanitizeTree(node.b);
-    if (!a || !b) return null;
-    return {
-      type: "split",
-      id: typeof node.id === "string" ? node.id : nodeId(),
-      dir: node.dir,
-      ratio: clampRatio(typeof node.ratio === "number" ? node.ratio : 0.5),
-      a,
-      b,
-    };
-  }
-  return null;
 }

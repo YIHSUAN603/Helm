@@ -1,114 +1,86 @@
-// Session 側欄看板：列出所有 session、狀態燈、agent 標籤、切換/新增/關閉。
-// 「+」開啟 launcher 選單：一般 shell 或任何設定好的 agent。
-import { useState } from "react";
-import { useSessionStore, type Session } from "../../store/sessions";
+// Session 側欄看板：兩層階層 — workspace（可摺疊群組）→ session。
+// 「⊞」新增 workspace（立即進入命名）；「+」開啟 launcher 選單建立 session
+// （落在作用中 session 的 workspace）。session 可拖曳到其他 workspace。
+// Keyboard: roving focus over headers + items (arrows / Enter / Delete / F2),
+// Esc back to the terminal; the launcher menu is fully arrow-navigable.
+import { useRef, useState } from "react";
+import { useSessionStore } from "../../store/sessions";
+import { useWorkspaceStore } from "../../store/workspaces";
+import { groupSessions, DEFAULT_WORKSPACE_ID } from "../../store/workspaceGroups";
 import { useThemeStore } from "../../store/theme";
-import { useUiStore } from "../../store/ui";
-import { useLayoutStore } from "../../store/layout";
-import { listLaunchers } from "../../agents/registry";
+import { newSession, newWorkspace } from "../../commands/actions";
+import { LauncherMenu } from "./LauncherMenu";
+import { WorkspaceGroup } from "./WorkspaceGroup";
 import "./SessionSidebar.css";
-
-// 綜合狀態燈：有 agent 狀態優先，否則用活動狀態。
-function dotClass(s: Session): string {
-  if (s.agentState) return `agent-${s.agentState}`;
-  return s.status;
-}
-
-const stateLabel: Record<string, string> = {
-  "agent-thinking": "思考中",
-  "agent-tool": "執行中",
-  "agent-waiting": "等待審批",
-  "agent-done": "完成",
-  "agent-error": "錯誤",
-  busy: "執行中",
-  idle: "閒置",
-  exited: "已結束",
-};
 
 export function SessionSidebar() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
-  const setActive = useSessionStore((s) => s.setActive);
-  const createSession = useSessionStore((s) => s.createSession);
-  const closeSession = useSessionStore((s) => s.closeSession);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
   const theme = useThemeStore((s) => s.name);
   const toggleTheme = useThemeStore((s) => s.toggle);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const plusRef = useRef<HTMLButtonElement>(null);
 
-  const launchers = listLaunchers();
+  const groups = groupSessions(workspaces, sessions);
 
-  // split 模式：不在版面樹中的 session 換入目前 focused 的 leaf（tmux 式）。
-  const attachIfSplit = (id: string, focusedId: string | null) => {
-    if (useUiStore.getState().viewMode === "split") {
-      useLayoutStore.getState().attachSession(id, focusedId);
-    }
+  const closeMenu = (refocus: boolean) => {
+    setMenuOpen(false);
+    if (refocus) plusRef.current?.focus();
+  };
+
+  const addWorkspace = () => {
+    setRenamingId(newWorkspace());
   };
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" data-focus-region="sidebar">
       <div className="sidebar-header">
         <span className="sidebar-title">SESSIONS</span>
-        <div className="new-menu-wrap">
-          <button
-            className="icon-btn"
-            title="新增"
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            +
+        <div className="sidebar-actions">
+          <button className="icon-btn" title="新增 Workspace" onClick={addWorkspace}>
+            ⊞
           </button>
-          {menuOpen && (
-            <>
-              <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
-              <div className="launcher-menu">
-                {launchers.map((l) => (
-                  <button
-                    key={l.label}
-                    onClick={() => {
-                      const focusedId = activeId;
-                      const id = createSession(l);
-                      attachIfSplit(id, focusedId);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+          <div className="new-menu-wrap">
+            <button
+              ref={plusRef}
+              className="icon-btn"
+              title="新增 Session"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              +
+            </button>
+            {menuOpen && (
+              <LauncherMenu
+                onPick={(l) => {
+                  newSession(l);
+                  closeMenu(false);
+                }}
+                onClose={closeMenu}
+              />
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="session-list">
-        {sessions.map((s) => {
-          const cls = dotClass(s);
-          return (
-            <div
-              key={s.id}
-              className={`session-item ${s.id === activeId ? "active" : ""}`}
-              onClick={() => {
-                attachIfSplit(s.id, activeId);
-                setActive(s.id);
-              }}
-            >
-              <span className={`status-dot ${cls}`} title={stateLabel[cls] ?? ""} />
-              <span className="session-name" title={s.title}>
-                {s.title}
-              </span>
-              {s.agentLabel && <span className="agent-tag">{s.agentLabel}</span>}
-              <button
-                className="icon-btn close"
-                title="關閉"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeSession(s.id);
-                }}
-              >
-                ×
-              </button>
-            </div>
-          );
-        })}
+      <div className="session-list" ref={listRef}>
+        {groups.map((g) => (
+          <WorkspaceGroup
+            key={g.workspace.id}
+            workspace={g.workspace}
+            sessions={g.sessions}
+            activeId={activeId}
+            listRef={listRef}
+            deletable={g.workspace.id !== DEFAULT_WORKSPACE_ID}
+            renaming={renamingId === g.workspace.id}
+            onRenameStart={() => setRenamingId(g.workspace.id)}
+            onRenameEnd={() => setRenamingId(null)}
+          />
+        ))}
       </div>
 
       <div className="sidebar-footer">

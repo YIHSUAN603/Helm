@@ -75,7 +75,7 @@ export function Terminal({
 
     const term = new XTerm({
       fontFamily:
-        '"SF Mono", "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+        '"SF Mono", "Cascadia Mono", "Cascadia Code", Consolas, "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
       fontSize: 13,
       cursorBlink: true,
       allowProposedApi: true,

@@ -34,8 +34,34 @@ pub struct SpawnOptions {
     pub cwd: Option<String>,
 }
 
-fn default_shell() -> String {
-    std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+/// 在 PATH 中尋找可執行檔（Windows 預設 shell 偵測用）。
+fn find_on_path(exe: &str) -> bool {
+    let Ok(path) = std::env::var("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path).any(|dir| dir.join(exe).is_file())
+}
+
+/// 預設 shell（程式 + 參數）。解析順序：AITERMINAL_SHELL → SHELL → 平台預設。
+/// Windows 平台預設：pwsh（PowerShell 7）優先，否則 Windows PowerShell，
+/// 並帶 -NoLogo 隱藏版權橫幅；Unix 預設 /bin/zsh。
+fn default_shell_command() -> (String, Vec<String>) {
+    for var in ["AITERMINAL_SHELL", "SHELL"] {
+        if let Ok(shell) = std::env::var(var) {
+            if !shell.is_empty() {
+                return (shell, vec![]);
+            }
+        }
+    }
+    if cfg!(windows) {
+        let ps = if find_on_path("pwsh.exe") {
+            "pwsh.exe"
+        } else {
+            "powershell.exe"
+        };
+        return (ps.to_string(), vec!["-NoLogo".to_string()]);
+    }
+    ("/bin/zsh".to_string(), vec![])
 }
 
 /// 建立一條新的 PTY 並啟動 shell，同時開一條讀取執行緒把輸出以
@@ -56,8 +82,13 @@ pub fn pty_spawn(
         })
         .map_err(|e| format!("openpty failed: {e}"))?;
 
-    let shell = options.shell.unwrap_or_else(default_shell);
-    let mut cmd = CommandBuilder::new(shell);
+    // 使用者指定的 shell 視為單一程式（無參數）；未指定才用平台預設（可含參數）。
+    let (program, args) = match options.shell {
+        Some(shell) => (shell, vec![]),
+        None => default_shell_command(),
+    };
+    let mut cmd = CommandBuilder::new(program);
+    cmd.args(&args);
     cmd.env("TERM", "xterm-256color");
     if let Some(cwd) = options.cwd {
         cmd.cwd(cwd);
@@ -166,6 +197,43 @@ pub fn pty_kill(state: State<'_, PtyManager>, id: String) -> Result<(), String> 
     Ok(())
 }
 
+/// 使用者 home 目錄：Unix 用 HOME，Windows 用 USERPROFILE。
 fn dirs_home() -> Option<String> {
-    std::env::var("HOME").ok()
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use portable_pty::{native_pty_system, PtySize};
+
+    // 平台預設 shell 必須真的能在 PTY 裡啟動（Windows 上驗證 ConPTY + PowerShell）。
+    #[test]
+    fn default_shell_spawns_in_pty() {
+        let (program, args) = default_shell_command();
+        let pty = native_pty_system();
+        let pair = pty
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .expect("openpty should succeed");
+        let mut cmd = CommandBuilder::new(&program);
+        cmd.args(&args);
+        let mut child = pair
+            .slave
+            .spawn_command(cmd)
+            .unwrap_or_else(|e| panic!("default shell `{program}` should spawn: {e}"));
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    #[test]
+    fn home_dir_resolves() {
+        assert!(dirs_home().is_some(), "HOME or USERPROFILE should exist");
+    }
 }

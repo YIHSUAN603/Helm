@@ -30,6 +30,7 @@ body {
   --muted: #a6adc8;
   --hover: #1e1e2e;
   --active: #313244;
+  --accent: #89b4fa;
   color-scheme: dark;
 }
 
@@ -43,7 +44,14 @@ body {
   --muted: #6c6f85;
   --hover: #dce0e8;
   --active: #ccd0da;
+  --accent: #1e66f5;
   color-scheme: light;
+}
+
+/* 鍵盤操作的可見焦點框（滑鼠點擊不顯示） */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .app-body {
@@ -85,7 +93,7 @@ body {
   display: none; /* 不在版面樹中：隱藏但仍掛載（保留 PTY） */
 }
 .terminal-area.split .pane.focused {
-  border-color: #89b4fa;
+  border-color: var(--accent);
 }
 
 /* split 模式下，terminal 需要在 flex 剩餘空間內可縮放 */

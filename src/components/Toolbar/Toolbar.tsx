@@ -4,6 +4,7 @@ import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
 import { useLayoutStore } from "../../store/layout";
 import { ptyWrite } from "../../ipc/pty";
+import { focusActiveTerminal } from "../../focus/focusUtils";
 import "./Toolbar.css";
 
 type Target = "all" | "agents";
@@ -43,10 +44,11 @@ export function Toolbar() {
   const targetCount = targets().length;
 
   return (
-    <div className="toolbar">
+    <div className="toolbar" data-focus-region="toolbar">
       <div className="tb-view">
         <button
           className={viewMode === "single" ? "on" : ""}
+          aria-pressed={viewMode === "single"}
           onClick={() => setViewMode("single")}
           title="單一視圖"
         >
@@ -54,6 +56,7 @@ export function Toolbar() {
         </button>
         <button
           className={viewMode === "split" ? "on" : ""}
+          aria-pressed={viewMode === "split"}
           onClick={() => {
             // 首次進 split 且無版面樹：把現有 sessions 自動平衡排列。
             useLayoutStore.getState().ensureTree(sessions.map((s) => s.id));
@@ -75,7 +78,12 @@ export function Toolbar() {
           placeholder={`派工給 ${targetCount} 個 session…`}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") broadcast();
+            if (e.key === "Enter") {
+              broadcast();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              focusActiveTerminal();
+            }
           }}
         />
         <button className="tb-send" onClick={broadcast} disabled={!text.trim() || targetCount === 0}>
@@ -96,6 +104,7 @@ export function Toolbar() {
           </span>
           <button
             className={`tb-files ${filesOpen ? "on" : ""}`}
+            aria-pressed={filesOpen}
             onClick={toggleFiles}
             title="檔案變更"
           >

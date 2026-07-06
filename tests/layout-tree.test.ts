@@ -8,9 +8,7 @@ import {
   computeLayout,
   findLeafBySession,
   leaf,
-  pruneMissingSessions,
   removeLeafBySession,
-  sanitizeTree,
   setRatio,
   siblingFirstSession,
   splitLeaf,
@@ -117,19 +115,6 @@ function approx(a: number, b: number) {
   check("巢狀：水平 resizer 只跨右半", approx(h.rect.left, 50) && approx(h.rect.width, 50) && approx(h.rect.top, 50));
 }
 
-// pruneMissingSessions
-{
-  const l1 = leaf("s1");
-  let t: LayoutNode = splitLeaf(l1, l1.id, "row", "s2");
-  const leafS2 = findLeafBySession(t, "s2")!;
-  t = splitLeaf(t, leafS2.id, "column", "s3");
-  const pruned = pruneMissingSessions(t, new Set(["s1", "s3"]));
-  check("prune 移除 dangling leaf", collectSessionIds(pruned).join(",") === "s1,s3");
-  check("prune 全部無效 → null", pruneMissingSessions(t, new Set()) === null);
-  check("prune null → null", pruneMissingSessions(null, new Set(["x"])) === null);
-  check("prune 全部有效 → 原樹（引用相等）", pruneMissingSessions(t, new Set(["s1", "s2", "s3"])) === t);
-}
-
 // buildBalancedTree
 {
   check("balanced 空陣列 → null", buildBalancedTree([]) === null);
@@ -165,28 +150,6 @@ function approx(a: number, b: number) {
   check("sibling：不在樹中 → null", siblingFirstSession(t, "nope") === null);
   check("sibling：root leaf → null", siblingFirstSession(leaf("x"), "x") === null);
   check("sibling：null 樹 → null", siblingFirstSession(null, "x") === null);
-}
-
-// sanitizeTree：合法/損壞 JSON
-{
-  const l = leaf("s1");
-  const t = splitLeaf(l, l.id, "row", "s2");
-  const roundTrip = sanitizeTree(JSON.parse(JSON.stringify(t)));
-  check("sanitize round-trip 保留結構", collectSessionIds(roundTrip).join(",") === "s1,s2");
-  check("sanitize null → null", sanitizeTree(null) === null);
-  check("sanitize 垃圾物件 → null", sanitizeTree({ type: "what" }) === null);
-  check("sanitize 缺 sessionId → null", sanitizeTree({ type: "leaf" }) === null);
-  const badRatio = sanitizeTree({
-    type: "split", dir: "row", ratio: 99,
-    a: { type: "leaf", sessionId: "x" },
-    b: { type: "leaf", sessionId: "y" },
-  }) as SplitNode;
-  check("sanitize 非法 ratio 被 clamp", badRatio.ratio === 0.95);
-  check("sanitize 子樹損壞 → 整棵 null", sanitizeTree({
-    type: "split", dir: "row", ratio: 0.5,
-    a: { type: "leaf", sessionId: "x" },
-    b: { type: "nope" },
-  }) === null);
 }
 
 console.log(`\nlayout-tree: ${passed} checks passed`);

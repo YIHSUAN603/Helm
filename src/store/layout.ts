@@ -1,12 +1,10 @@
 // Split 版面樹的狀態管理。樹只算幾何，Terminal pane 本體由 App.tsx 平鋪渲染。
-// 結構變更（split/close/swap）立即持久化；ratio 只在拖曳結束（commit）時寫。
 import { create } from "zustand";
 import {
   buildBalancedTree,
   computeLayout,
   findLeafBySession,
   leaf,
-  pruneMissingSessions,
   removeLeafBySession,
   setRatio as setTreeRatio,
   splitLeaf,
@@ -14,7 +12,6 @@ import {
   type LayoutNode,
   type SplitDir,
 } from "./layoutTree";
-import { persistLayout } from "../ipc/persist";
 
 /** pane 最小尺寸（px），拖曳 clamp 與分割前檢查共用。 */
 export const MIN_PANE_W = 120;
@@ -38,17 +35,13 @@ interface LayoutState {
   attachSession: (sessionId: string, focusedSessionId: string | null) => void;
   /** session 關閉時收合對應 leaf（不在樹中則 no-op）。 */
   removeSession: (sessionId: string) => void;
-  setRatio: (splitId: string, ratio: number, commit: boolean) => void;
+  setRatio: (splitId: string, ratio: number) => void;
   /** 樹為空時用現有 sessions 自動平衡排列（首次切到 split 模式）。 */
   ensureTree: (sessionIds: string[]) => void;
-  restore: (root: LayoutNode | null) => void;
 }
 
 export const useLayoutStore = create<LayoutState>((set, get) => {
-  const commit = (root: LayoutNode | null) => {
-    set({ root });
-    void persistLayout(root);
-  };
+  const commit = (root: LayoutNode | null) => set({ root });
 
   return {
     root: null,
@@ -102,22 +95,17 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
       commit(removeLeafBySession(root, sessionId));
     },
 
-    setRatio: (splitId, ratio, commitNow) => {
+    setRatio: (splitId, ratio) => {
       const { root } = get();
       if (!root) return;
-      const next = setTreeRatio(root, splitId, ratio);
-      if (commitNow) commit(next);
-      else set({ root: next });
+      set({ root: setTreeRatio(root, splitId, ratio) });
     },
 
     ensureTree: (sessionIds) => {
       if (get().root) return;
       commit(buildBalancedTree(sessionIds));
     },
-
-    restore: (root) => set({ root }),
   };
 });
 
-export { pruneMissingSessions };
 export type { LayoutNode, SplitDir };

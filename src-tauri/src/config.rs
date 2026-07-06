@@ -4,6 +4,8 @@ use tauri::{AppHandle, Manager};
 
 // 預設範本：帶一個可直接玩的 demo launcher，示範「任何工具都能用 config 加進來」。
 // profiles 以 id 覆寫內建；launchers 會追加到側欄「+」選單。
+// demo 指令依平台選擇語法（Windows 預設 shell 為 PowerShell，Unix 為 zsh/bash）。
+#[cfg(not(windows))]
 const TEMPLATE: &str = r#"{
   "_readme": "在此新增自訂 agent。profiles 以 id 覆寫內建；launchers 會追加到側欄選單。command 會被當成輸入送進該 session 的 shell。",
   "profiles": [],
@@ -11,6 +13,20 @@ const TEMPLATE: &str = r#"{
     {
       "label": "Mock Agent (demo)",
       "command": "printf 'thinking...\\n'; sleep 1; printf 'edited: demo.txt\\n'; printf 'created: notes.md\\n'; printf 'Do you want to proceed? (y/n) '; read a; printf 'you answered: %s\\n' \"$a\"; printf 'Total cost: $0.0123\\n'; printf '512 input tokens, 340 output tokens\\n'",
+      "profileId": "generic"
+    }
+  ]
+}
+"#;
+
+#[cfg(windows)]
+const TEMPLATE: &str = r#"{
+  "_readme": "在此新增自訂 agent。profiles 以 id 覆寫內建；launchers 會追加到側欄選單。command 會被當成輸入送進該 session 的 shell。",
+  "profiles": [],
+  "launchers": [
+    {
+      "label": "Mock Agent (demo)",
+      "command": "Write-Host 'thinking...'; Start-Sleep 1; Write-Host 'edited: demo.txt'; Write-Host 'created: notes.md'; $a = Read-Host 'Do you want to proceed? (y/n)'; Write-Host \"you answered: $a\"; Write-Host 'Total cost: $0.0123'; Write-Host '512 input tokens, 340 output tokens'",
       "profileId": "generic"
     }
   ]

@@ -14,18 +14,22 @@ function initial(): ViewMode {
 interface UiState {
   viewMode: ViewMode;
   filesOpen: boolean;
+  paletteOpen: boolean;
   setViewMode: (m: ViewMode) => void;
   toggleFiles: () => void;
   setFilesOpen: (v: boolean) => void;
+  setPaletteOpen: (v: boolean) => void;
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
   viewMode: initial(),
   filesOpen: false,
+  paletteOpen: false,
   setViewMode: (m) => {
     localStorage.setItem(STORAGE_KEY, m);
     set({ viewMode: m });
   },
   toggleFiles: () => set({ filesOpen: !get().filesOpen }),
   setFilesOpen: (v) => set({ filesOpen: v }),
+  setPaletteOpen: (v) => set({ paletteOpen: v }),
 }));
