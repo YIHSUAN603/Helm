@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::Mutex;
 
-use base64::Engine;
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::Deserialize;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, State};
 
 /// 單一 PTY session 在 Rust 端持有的資源。
@@ -64,13 +64,16 @@ fn default_shell_command() -> (String, Vec<String>) {
     ("/bin/zsh".to_string(), vec![])
 }
 
-/// 建立一條新的 PTY 並啟動 shell，同時開一條讀取執行緒把輸出以
-/// `pty://output/<id>` 事件（base64 編碼的原始 bytes）串流到前端。
+/// 建立一條新的 PTY 並啟動 shell，同時開一條讀取執行緒把輸出串流到前端。
+/// Output goes through the invoke Channel as raw bytes (no base64, no JSON,
+/// ordered delivery); only the once-per-lifetime exit stays on an event
+/// (`pty://exit/<id>`).
 #[tauri::command]
 pub fn pty_spawn(
     app: AppHandle,
     state: State<'_, PtyManager>,
     options: SpawnOptions,
+    on_output: Channel<InvokeResponseBody>,
 ) -> Result<(), String> {
     let pty_system = native_pty_system();
     let pair = pty_system
@@ -126,18 +129,23 @@ pub fn pty_spawn(
     }
 
     // 讀取執行緒：把 PTY 輸出串流給前端。
+    // 64KB reads keep the message rate bounded under floods (the kernel PTY
+    // buffer batches producer writes between reads).
     let id = options.id.clone();
     std::thread::spawn(move || {
-        let output_event = format!("pty://output/{id}");
         let exit_event = format!("pty://exit/{id}");
-        let engine = base64::engine::general_purpose::STANDARD;
-        let mut buf = [0u8; 8192];
+        let mut buf = vec![0u8; 65536];
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => break, // EOF：子行程結束
                 Ok(n) => {
-                    let encoded = engine.encode(&buf[..n]);
-                    let _ = app.emit(&output_event, encoded);
+                    // Send failure means the webview side is gone; stop reading.
+                    if on_output
+                        .send(InvokeResponseBody::Raw(buf[..n].to_vec()))
+                        .is_err()
+                    {
+                        break;
+                    }
                 }
                 Err(_) => break,
             }

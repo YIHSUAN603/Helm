@@ -1,5 +1,5 @@
 // 前端呼叫 Rust PTY commands / 訂閱 PTY events 的封裝層。
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export interface SpawnOptions {
@@ -10,8 +10,19 @@ export interface SpawnOptions {
   cwd?: string;
 }
 
-export function ptySpawn(options: SpawnOptions): Promise<void> {
-  return invoke("pty_spawn", { options });
+/**
+ * Spawn a PTY; its output arrives on `onOutput` as raw bytes through an
+ * invoke Channel (ordered, no base64/JSON round-trip). The channel has no
+ * unlisten — it dies with the PTY (pty_kill ends the Rust reader thread).
+ */
+export function ptySpawn(
+  options: SpawnOptions,
+  onOutput: (bytes: Uint8Array) => void,
+): Promise<void> {
+  const channel = new Channel<ArrayBuffer | number[]>();
+  channel.onmessage = (data) =>
+    onOutput(data instanceof ArrayBuffer ? new Uint8Array(data) : Uint8Array.from(data));
+  return invoke("pty_spawn", { options, onOutput: channel });
 }
 
 export function ptyWrite(id: string, data: string): Promise<void> {
@@ -24,19 +35,6 @@ export function ptyResize(id: string, cols: number, rows: number): Promise<void>
 
 export function ptyKill(id: string): Promise<void> {
   return invoke("pty_kill", { id });
-}
-
-/** 訂閱某個 PTY 的輸出；callback 收到已解碼的原始 bytes。 */
-export function onPtyOutput(
-  id: string,
-  callback: (bytes: Uint8Array) => void,
-): Promise<UnlistenFn> {
-  return listen<string>(`pty://output/${id}`, (event) => {
-    const bin = atob(event.payload);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    callback(bytes);
-  });
 }
 
 /** 訂閱某個 PTY 的結束事件。 */

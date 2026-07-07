@@ -9,7 +9,6 @@ import "@xterm/xterm/css/xterm.css";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   onPtyExit,
-  onPtyOutput,
   ptyKill,
   ptyResize,
   ptySpawn,
@@ -217,17 +216,10 @@ function TerminalImpl({
     };
 
     let disposed = false;
-    let unlistenOutput: UnlistenFn | undefined;
     let unlistenExit: UnlistenFn | undefined;
     const decoder = new TextDecoder();
 
     (async () => {
-      unlistenOutput = await onPtyOutput(id, (bytes) => {
-        term.write(bytes);
-        onOutput();
-        // 串流解碼供逐行擷取（stream:true 處理跨 chunk 的多位元組字元）。
-        cbRef.current.onStream?.(decoder.decode(bytes, { stream: true }));
-      });
       unlistenExit = await onPtyExit(id, () => {
         term.write("\r\n\x1b[2m[process exited]\x1b[0m\r\n");
         cbRef.current.onExit?.();
@@ -235,7 +227,19 @@ function TerminalImpl({
       if (disposed) return;
       const effectiveShell = shell ?? (settings.defaultShell || undefined);
       const effectiveCwd = cwd ?? (settings.defaultCwd || undefined);
-      await ptySpawn({ id, cols: term.cols, rows: term.rows, cwd: effectiveCwd, shell: effectiveShell });
+      await ptySpawn(
+        { id, cols: term.cols, rows: term.rows, cwd: effectiveCwd, shell: effectiveShell },
+        (bytes) => {
+          // The channel has no unlisten: a message can land between React
+          // cleanup and the Rust reader noticing pty_kill, and term.write on
+          // a disposed xterm would throw.
+          if (disposed) return;
+          term.write(bytes);
+          onOutput();
+          // 串流解碼供逐行擷取（stream:true 處理跨 chunk 的多位元組字元）。
+          cbRef.current.onStream?.(decoder.decode(bytes, { stream: true }));
+        },
+      );
       // 啟動 agent：把指令當作使用者輸入送進 PTY（保留完整 shell 環境）。
       if (launchCommand) {
         await ptyWrite(id, `${launchCommand}\r`);
@@ -286,7 +290,6 @@ function TerminalImpl({
       resizeObserver.disconnect();
       titleDisposable.dispose();
       dataDisposable.dispose();
-      unlistenOutput?.();
       unlistenExit?.();
       void ptyKill(id);
       term.dispose();
