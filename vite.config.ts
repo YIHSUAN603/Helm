@@ -3,10 +3,30 @@ import react from "@vitejs/plugin-react";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
+// @ts-expect-error process is a nodejs global
+const tauriPlatform = process.env.TAURI_ENV_PLATFORM;
+// @ts-expect-error process is a nodejs global
+const tauriDebug = !!process.env.TAURI_ENV_DEBUG;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
+
+  build: {
+    // Target the actual WebView engine (WebView2 on Windows, WKWebView
+    // elsewhere) so no polyfills/transpilation for browsers we never run in.
+    target: tauriPlatform === "windows" ? "chrome105" : "safari13",
+    minify: tauriDebug ? false : ("esbuild" as const),
+    sourcemap: tauriDebug,
+    rollupOptions: {
+      output: {
+        // Keep the big, rarely-changing xterm stack out of the app chunk.
+        manualChunks: {
+          xterm: ["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-webgl"],
+        },
+      },
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
