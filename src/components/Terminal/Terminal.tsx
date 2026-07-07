@@ -1,7 +1,7 @@
 // xterm.js 終端面板：掛載後開一條 PTY，串接輸入/輸出/resize。
 // 多實例：隱藏時仍保留掛載（PTY 續跑、scrollback 保留），顯示時 refit。
 // agent 感知：輸出後 debounce 讀取已渲染的 buffer 文字餵給 onScan。
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -62,7 +62,7 @@ function readBufferText(term: XTerm): string {
   return out.join("\n");
 }
 
-export function Terminal({
+function TerminalImpl({
   id,
   focused,
   visible,
@@ -372,3 +372,19 @@ export function Terminal({
   // 版面（single/grid、顯示與否）由外層 pane 控制；這裡只填滿容器。
   return <div className="terminal-pane" ref={containerRef} />;
 }
+
+// The comparator ignores the callback props on purpose: they are read through
+// cbRef (refreshed on every actual render), and the parent Pane's callbacks
+// capture only the stable session id — so a skipped render can never leave a
+// stale callback behind, while parent re-renders with fresh closures no
+// longer cascade into every mounted terminal.
+export const Terminal = memo(
+  TerminalImpl,
+  (prev, next) =>
+    prev.id === next.id &&
+    prev.focused === next.focused &&
+    prev.visible === next.visible &&
+    prev.cwd === next.cwd &&
+    prev.shell === next.shell &&
+    prev.launchCommand === next.launchCommand,
+);

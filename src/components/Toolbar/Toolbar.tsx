@@ -1,7 +1,7 @@
 // 頂部工具列：broadcast 派工、以及成本/用量。
 // 派工以「畫面上可見的 session」為對象（active session 的分割群組，
 // 未分組時只有它自己）；Σ 成本、變更計數則限縮在聚焦 workspace 內。
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
 import { groupTreeOf, useLayoutStore } from "../../store/layout";
@@ -39,21 +39,29 @@ export function Toolbar() {
   const [text, setText] = useState("");
   const [target, setTarget] = useState<Target>("agents");
 
-  const active = sessions.find((s) => s.id === activeId);
-  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-  const totalCost = workspaceTotalCost(sessions, workspaceId);
-  const changedCount = workspaceChangedFileCount(sessions, workspaceId);
+  // Memoized: the local broadcast input re-renders the toolbar per keystroke;
+  // these aggregations only depend on the stores.
+  const { active, totalCost, changedCount } = useMemo(() => {
+    const workspaceId = resolveFocusedWorkspace(sessions, activeId);
+    return {
+      active: sessions.find((s) => s.id === activeId),
+      totalCost: workspaceTotalCost(sessions, workspaceId),
+      changedCount: workspaceChangedFileCount(sessions, workspaceId),
+    };
+  }, [sessions, activeId]);
 
   // 派工對象 = 畫面上可見的 session：active 的分割群組成員，未分組時只有它自己。
-  const groupRoot = groupTreeOf(trees, activeId);
-  const visibleIds = groupRoot
-    ? collectSessionIds(groupRoot)
-    : activeId
-      ? [activeId]
-      : [];
-  const visibleSessions = visibleIds
-    .map((id) => sessions.find((s) => s.id === id))
-    .filter((s) => s !== undefined);
+  const visibleSessions = useMemo(() => {
+    const groupRoot = groupTreeOf(trees, activeId);
+    const visibleIds = groupRoot
+      ? collectSessionIds(groupRoot)
+      : activeId
+        ? [activeId]
+        : [];
+    return visibleIds
+      .map((id) => sessions.find((s) => s.id === id))
+      .filter((s) => s !== undefined);
+  }, [trees, sessions, activeId]);
 
   const targets = () =>
     target === "agents" ? visibleSessions.filter((s) => s.agentId) : visibleSessions;

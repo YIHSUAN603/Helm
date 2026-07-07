@@ -1,5 +1,6 @@
 // 檔案變更面板：列出聚焦 workspace 內所有 session 動到的檔案，依 session 分組。
 // 點分組標頭可跳到該 session；Esc（面板內有焦點時）關閉並把焦點還給終端機。
+import { memo, useMemo } from "react";
 import { activateSession } from "../../commands/actions";
 import { useSessionStore, type Session } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
@@ -12,7 +13,9 @@ import { focusActiveTerminal } from "../../focus/focusUtils";
 import { useT } from "../../i18n";
 import "./ChangedFilesPanel.css";
 
-function SessionFileGroup({ session }: { session: Session }) {
+// Memoized: session refs are stable for untouched sessions, so streaming file
+// changes in one session re-render only that group.
+const SessionFileGroup = memo(function SessionFileGroup({ session }: { session: Session }) {
   const files = session.changedFiles ?? [];
   return (
     <div className="files-group">
@@ -36,22 +39,32 @@ function SessionFileGroup({ session }: { session: Session }) {
       ))}
     </div>
   );
+});
+
+// Gate component: while the panel is closed only the filesOpen flag is
+// subscribed, so session store ticks don't re-render anything here.
+export function ChangedFilesPanel() {
+  const open = useUiStore((s) => s.filesOpen);
+  if (!open) return null;
+  return <ChangedFilesPanelContent />;
 }
 
-export function ChangedFilesPanel() {
+function ChangedFilesPanelContent() {
   const t = useT();
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
-  const open = useUiStore((s) => s.filesOpen);
   const setFilesOpen = useUiStore((s) => s.setFilesOpen);
 
-  if (!open) return null;
   const onClose = () => setFilesOpen(false);
-  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-  const groups = sessionsInWorkspace(sessions, workspaceId).filter(
-    (s) => (s.changedFiles?.length ?? 0) > 0,
-  );
-  const total = workspaceChangedFileCount(sessions, workspaceId);
+  const { groups, total } = useMemo(() => {
+    const workspaceId = resolveFocusedWorkspace(sessions, activeId);
+    return {
+      groups: sessionsInWorkspace(sessions, workspaceId).filter(
+        (s) => (s.changedFiles?.length ?? 0) > 0,
+      ),
+      total: workspaceChangedFileCount(sessions, workspaceId),
+    };
+  }, [sessions, activeId]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {

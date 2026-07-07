@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type CSSProperties } from "react";
+import { memo, useEffect, useMemo, type CSSProperties } from "react";
 import { Terminal } from "./components/Terminal/Terminal";
 import { SessionSidebar } from "./components/SessionSidebar/SessionSidebar";
 import { ApprovalPanel } from "./components/ApprovalPanel/ApprovalPanel";
@@ -6,7 +6,7 @@ import { Toolbar } from "./components/Toolbar/Toolbar";
 import { ChangedFilesPanel } from "./components/ChangedFilesPanel/ChangedFilesPanel";
 import { PaneLabel } from "./components/PaneLabel/PaneLabel";
 import { SplitResizers } from "./components/SplitLayout/SplitResizers";
-import { notifyPendingPrompt, useSessionStore } from "./store/sessions";
+import { notifyPendingPrompt, useSessionStore, type Session } from "./store/sessions";
 import {
   clearApprovalSuppress,
   isApprovalSuppressed,
@@ -173,13 +173,50 @@ function handleStream(id: string, text: string) {
   }
 }
 
+// One tiled pane (label + terminal). Memoized so a store tick touching one
+// session re-renders only that session's pane: `session` refs are stable for
+// untouched sessions (store setters spread only the target) and `rect` refs
+// are stable while the layout tree is unchanged. Every callback lives here
+// and captures only the stable session id, module handlers, or store actions
+// resolved at call time — keeping Terminal's memo comparator safe.
+interface PaneProps {
+  session: Session;
+  rect: RectPct | undefined;
+  active: boolean;
+  solo: boolean;
+}
+
+const Pane = memo(function Pane({ session: s, rect, active, solo }: PaneProps) {
+  return (
+    <div
+      className={`pane ${active ? "focused" : ""}`}
+      data-active={active}
+      data-in-layout={rect ? "true" : "false"}
+      data-solo={solo}
+      style={rect ? rectStyle(rect) : undefined}
+      onMouseDown={() => useSessionStore.getState().setActive(s.id)}
+    >
+      <PaneLabel session={s} />
+      <Terminal
+        id={s.id}
+        focused={active}
+        visible={rect !== undefined}
+        launchCommand={s.launchCommand}
+        onTitle={(title) => useSessionStore.getState().setTitle(s.id, title)}
+        onBusy={() => useSessionStore.getState().setStatus(s.id, "busy")}
+        onIdle={() => useSessionStore.getState().setStatus(s.id, "idle")}
+        onExit={() => useSessionStore.getState().setStatus(s.id, "exited")}
+        onScan={(text) => handleScan(s.id, text)}
+        onStream={(text) => handleStream(s.id, text)}
+      />
+    </div>
+  );
+});
+
 function App() {
   const t = useT();
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
-  const setActive = useSessionStore((s) => s.setActive);
-  const setTitle = useSessionStore((s) => s.setTitle);
-  const setStatus = useSessionStore((s) => s.setStatus);
   const theme = useThemeStore((s) => s.name);
   const trees = useLayoutStore((s) => s.trees);
   // 只渲染 active session 所在群組的樹；其他 session 的 pane 拿不到
@@ -275,29 +312,13 @@ function App() {
               layout.leaves.get(s.id) ??
               (layoutRoot === null && s.id === activeId ? FULL_RECT : undefined);
             return (
-            <div
-              key={s.id}
-              className={`pane ${s.id === activeId ? "focused" : ""}`}
-              data-active={s.id === activeId}
-              data-in-layout={rect ? "true" : "false"}
-              data-solo={layoutRoot === null && s.id === activeId}
-              style={rect ? rectStyle(rect) : undefined}
-              onMouseDown={() => setActive(s.id)}
-            >
-              <PaneLabel session={s} />
-              <Terminal
-                id={s.id}
-                focused={s.id === activeId}
-                visible={rect !== undefined}
-                launchCommand={s.launchCommand}
-                onTitle={(t) => setTitle(s.id, t)}
-                onBusy={() => setStatus(s.id, "busy")}
-                onIdle={() => setStatus(s.id, "idle")}
-                onExit={() => setStatus(s.id, "exited")}
-                onScan={(text) => handleScan(s.id, text)}
-                onStream={(text) => handleStream(s.id, text)}
+              <Pane
+                key={s.id}
+                session={s}
+                rect={rect}
+                active={s.id === activeId}
+                solo={layoutRoot === null && s.id === activeId}
               />
-            </div>
             );
           })}
           {layoutRoot !== null && <SplitResizers resizers={layout.resizers} />}

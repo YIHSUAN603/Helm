@@ -3,7 +3,7 @@
 // 自己的「+」launcher 負責（見 WorkspaceGroup）。session 可拖曳到其他 workspace。
 // Keyboard: roving focus over headers + items (arrows / Enter / Delete / F2),
 // Esc back to the terminal; the launcher menu is fully arrow-navigable.
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useWorkspaceStore } from "../../store/workspaces";
 import { groupSessions, DEFAULT_WORKSPACE_ID } from "../../store/workspaceGroups";
@@ -18,13 +18,15 @@ export function SessionSidebar() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const renamingId = useUiStore((s) => s.renamingWorkspaceId);
   const setRenamingId = useUiStore((s) => s.setRenamingWorkspaceId);
   const settingsOpen = useUiStore((s) => s.settingsOpen);
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const groups = groupSessions(workspaces, sessions);
+  const groups = useMemo(
+    () => groupSessions(workspaces, sessions),
+    [workspaces, sessions],
+  );
 
   const addWorkspace = () => {
     setRenamingId(newWorkspace());
@@ -50,9 +52,6 @@ export function SessionSidebar() {
             activeId={activeId}
             listRef={listRef}
             deletable={g.workspace.id !== DEFAULT_WORKSPACE_ID}
-            renaming={renamingId === g.workspace.id}
-            onRenameStart={() => setRenamingId(g.workspace.id)}
-            onRenameEnd={() => setRenamingId(null)}
           />
         ))}
       </div>

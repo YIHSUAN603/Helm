@@ -3,6 +3,7 @@
 // 其他 workspace 的待審批由側欄徽章與桌面通知提示。
 // Buttons share respondApproval with the approval:* commands; Esc returns
 // focus to the terminal.
+import { useMemo } from "react";
 import {
   activateSession,
   respondAllApprovals,
@@ -23,8 +24,10 @@ export function ApprovalPanel() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
 
-  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-  const pending = pendingApprovalsInWorkspace(sessions, workspaceId);
+  const pending = useMemo(() => {
+    const workspaceId = resolveFocusedWorkspace(sessions, activeId);
+    return pendingApprovalsInWorkspace(sessions, workspaceId);
+  }, [sessions, activeId]);
   if (pending.length === 0) return null;
 
   const onKeyDown = (e: React.KeyboardEvent) => {

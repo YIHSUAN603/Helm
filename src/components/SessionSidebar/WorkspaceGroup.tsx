@@ -1,9 +1,10 @@
 // One collapsible workspace group: header (chevron / name / count / actions)
 // plus its session rows. The whole group is a drop target so a session can
 // be dragged in even when the group is collapsed.
-import { useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { useSessionStore, type Session } from "../../store/sessions";
 import { useWorkspaceStore, expandWorkspace } from "../../store/workspaces";
+import { useUiStore } from "../../store/ui";
 import type { Workspace } from "../../store/workspaceGroups";
 import {
   activateFirstPendingApproval,
@@ -21,27 +22,30 @@ interface WorkspaceGroupProps {
   activeId: string | null;
   listRef: React.RefObject<HTMLDivElement | null>;
   deletable: boolean;
-  renaming: boolean;
-  onRenameStart: () => void;
-  onRenameEnd: () => void;
 }
 
-export function WorkspaceGroup({
+// Memoized: rename state is subscribed from the ui store (not passed as
+// per-render closures) so unrelated sidebar re-renders skip whole groups.
+export const WorkspaceGroup = memo(function WorkspaceGroup({
   workspace: w,
   sessions,
   activeId,
   listRef,
   deletable,
-  renaming,
-  onRenameStart,
-  onRenameEnd,
 }: WorkspaceGroupProps) {
   const t = useT();
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const renameWorkspace = useWorkspaceStore((s) => s.renameWorkspace);
   const moveSessionToWorkspace = useSessionStore((s) => s.moveSessionToWorkspace);
+  const renaming = useUiStore((s) => s.renamingWorkspaceId === w.id);
+  const setRenamingId = useUiStore((s) => s.setRenamingWorkspaceId);
+  const onRenameStart = () => setRenamingId(w.id);
+  const onRenameEnd = () => setRenamingId(null);
   const [dragOver, setDragOver] = useState(false);
-  const pendingCount = sessions.filter((s) => s.pendingApproval).length;
+  const pendingCount = useMemo(
+    () => sessions.filter((s) => s.pendingApproval).length,
+    [sessions],
+  );
   // Counter to ignore dragleave noise from child elements.
   const dragDepth = useRef(0);
 
@@ -188,4 +192,4 @@ export function WorkspaceGroup({
       )}
     </div>
   );
-}
+});

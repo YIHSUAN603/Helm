@@ -1,7 +1,7 @@
 // pane 標題列：狀態燈、標題、agent 標籤 + 分割/關閉操作（所有窗格一律顯示）。
 // 分割按鈕單擊 → 新 plain shell；launcher 選單由右鍵（contextmenu）開啟，
 // 鍵盤等效為 ContextMenu 鍵或 Shift+F10。
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useSessionStore, type Session } from "../../store/sessions";
 import { useLayoutStore } from "../../store/layout";
 import type { SplitDir } from "../../store/layoutTree";
@@ -20,7 +20,9 @@ function isContextMenuKey(e: React.KeyboardEvent): boolean {
   return e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey);
 }
 
-export function PaneLabel({ session }: { session: Session }) {
+// Memoized: `session` refs are stable for untouched sessions, so other
+// sessions' state ticks skip this label entirely.
+export const PaneLabel = memo(function PaneLabel({ session }: { session: Session }) {
   const t = useT();
   const closeSession = useSessionStore((s) => s.closeSession);
   // 記住要用哪個方向開 launcher 選單；null = 選單關閉。
@@ -127,4 +129,4 @@ export function PaneLabel({ session }: { session: Session }) {
       )}
     </div>
   );
-}
+});

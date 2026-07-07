@@ -1,5 +1,8 @@
 // One session row: status dot, title, agent tag, close button.
 // Draggable so it can be dropped onto another workspace group.
+// Memoized: session refs are stable for untouched sessions, so one session's
+// state tick re-renders only its own row.
+import { memo } from "react";
 import { useSessionStore, type Session } from "../../store/sessions";
 import { activateSession } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
@@ -32,7 +35,11 @@ interface SessionItemProps {
   listRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export function SessionItem({ session: s, isActive, listRef }: SessionItemProps) {
+export const SessionItem = memo(function SessionItem({
+  session: s,
+  isActive,
+  listRef,
+}: SessionItemProps) {
   const t = useT();
   const closeSession = useSessionStore((x) => x.closeSession);
 
@@ -86,4 +93,4 @@ export function SessionItem({ session: s, isActive, listRef }: SessionItemProps)
       </button>
     </div>
   );
-}
+});
