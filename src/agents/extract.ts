@@ -23,6 +23,41 @@ function rx(src: string): RegExp | null {
   return re;
 }
 
+// Pre-filter: one combined regex decides whether a line can match any
+// extractor at all — the common case (no match) then costs one .test()
+// instead of up to four .exec()s. Cached per profile.extract object; a
+// null entry disables the pre-filter (falls back to the per-pattern path).
+interface PreFilters {
+  any: RegExp | null;
+  usage: RegExp | null;
+}
+const preFilterCache = new WeakMap<object, PreFilters>();
+
+// Each source is wrapped in (?:...) so top-level alternation in a
+// user-supplied pattern cannot leak across the joined "|". Individually
+// invalid sources are skipped (they can never match in num()/exec either).
+function compileCombined(sources: (string | undefined)[]): RegExp | null {
+  const parts = sources.filter((s): s is string => !!s && rx(s) !== null);
+  if (parts.length === 0) return null;
+  try {
+    return new RegExp(parts.map((s) => `(?:${s})`).join("|"), "i");
+  } catch {
+    return null;
+  }
+}
+
+function preFilters(e: NonNullable<AgentProfile["extract"]>): PreFilters {
+  let f = preFilterCache.get(e);
+  if (!f) {
+    f = {
+      any: compileCombined([e.cost, e.tokensIn, e.tokensOut, e.fileChange]),
+      usage: compileCombined([e.cost, e.tokensIn, e.tokensOut]),
+    };
+    preFilterCache.set(e, f);
+  }
+  return f;
+}
+
 // k/m/b 後綴 → 倍率（Claude Code footer 會顯示 2.1k tokens 這種縮寫）。
 const SUFFIX_MULTIPLIERS: Record<string, number> = {
   k: 1e3,
@@ -48,6 +83,8 @@ function num(src: string | undefined, line: string): number | undefined {
 export function extractFromLine(profile: AgentProfile, line: string): Extracted {
   const e = profile.extract;
   if (!e) return {};
+  const pre = preFilters(e).any;
+  if (pre && !pre.test(line)) return {};
   const out: Extracted = {};
 
   const cost = num(e.cost, line);
@@ -78,8 +115,10 @@ export type ExtractedUsage = Pick<Extracted, "cost" | "tokensIn" | "tokensOut">;
 export function extractUsageFromText(profile: AgentProfile, text: string): ExtractedUsage {
   const out: ExtractedUsage = {};
   if (!profile.extract) return out;
+  const pre = preFilters(profile.extract).usage;
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
+    if (pre && !pre.test(line)) continue;
     const cost = num(profile.extract.cost, line);
     if (cost !== undefined) out.cost = cost;
     const ti = num(profile.extract.tokensIn, line);

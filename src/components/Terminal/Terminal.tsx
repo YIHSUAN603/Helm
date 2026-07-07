@@ -24,6 +24,12 @@ import "./Terminal.css";
 const MAX_CONTEXT_LOSSES = 3;
 const CONTEXT_LOSS_RETRY_MS = 1000;
 
+// Agent-scan debounce. Hidden panes still scan (their approvals surface via
+// sidebar badges and desktop notifications) but at a relaxed cadence — the
+// extra latency is invisible there and the viewport regex sweep is not free.
+const SCAN_DEBOUNCE_VISIBLE_MS = 150;
+const SCAN_DEBOUNCE_HIDDEN_MS = 1000;
+
 interface TerminalProps {
   id: string;
   /** 是否為目前 focus 的 pane（邊框高亮 + 自動聚焦輸入）。 */
@@ -202,9 +208,12 @@ export function Terminal({
         cbRef.current.onIdle?.();
       }, 400);
       if (scanTimer) clearTimeout(scanTimer);
-      scanTimer = setTimeout(() => {
-        cbRef.current.onScan?.(readBufferText(term));
-      }, 150);
+      scanTimer = setTimeout(
+        () => {
+          cbRef.current.onScan?.(readBufferText(term));
+        },
+        visibleRef.current ? SCAN_DEBOUNCE_VISIBLE_MS : SCAN_DEBOUNCE_HIDDEN_MS,
+      );
     };
 
     let disposed = false;

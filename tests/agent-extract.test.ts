@@ -94,6 +94,40 @@ check(
     !("file" in usage),
   );
 }
+// Pre-filter 邊界：頂層 | 的 pattern 仍能擷取（(?:...) 包裹不會互相汙染）
+{
+  const alt = {
+    id: "alt",
+    label: "Alt",
+    states: {},
+    approve: "y",
+    reject: "n",
+    extract: { cost: "Total cost: \\$([\\d.]+)|Spent \\$([\\d.]+)" },
+  };
+  check(
+    "頂層交替 pattern 仍擷取 cost",
+    extractFromLine(alt, "Total cost: $2.50").cost === 2.5,
+  );
+  check(
+    "頂層交替 pattern 無關行回空",
+    Object.keys(extractFromLine(alt, "nothing to see")).length === 0,
+  );
+}
+// Pre-filter 邊界：單一 pattern 無效時，其餘有效 pattern 不受影響
+{
+  const broken = {
+    id: "broken",
+    label: "Broken",
+    states: {},
+    approve: "y",
+    reject: "n",
+    extract: { cost: "cost: \\$([\\d.]+)", fileChange: "([" },
+  };
+  check(
+    "無效 fileChange 不影響 cost 擷取",
+    extractFromLine(broken, "cost: $0.5").cost === 0.5,
+  );
+}
 check(
   "usage 無 extract 的 profile 回空",
   Object.keys(
