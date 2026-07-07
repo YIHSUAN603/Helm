@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, type CSSProperties } from "react";
+import { lazy, memo, Suspense, useEffect, useMemo, type CSSProperties } from "react";
 import { Terminal } from "./components/Terminal/Terminal";
 import { SessionSidebar } from "./components/SessionSidebar/SessionSidebar";
 import { ApprovalPanel } from "./components/ApprovalPanel/ApprovalPanel";
@@ -15,8 +15,7 @@ import {
 import { useThemeStore } from "./store/theme";
 import { groupTreeOf, useLayoutStore } from "./store/layout";
 import { computeLayout, type RectPct } from "./store/layoutTree";
-import { CommandPalette } from "./components/CommandPalette/CommandPalette";
-import { SettingsDialog } from "./components/SettingsDialog/SettingsDialog";
+import { useUiStore } from "./store/ui";
 import { matchBinding } from "./commands/keymap";
 import { resolvePrefixInput } from "./commands/prefix";
 import { usePrefixStore } from "./store/prefix";
@@ -62,6 +61,31 @@ async function checkAndInstallUpdate(): Promise<void> {
   } catch {
     setPhase("error", update.version);
   }
+}
+
+// Palette and settings live behind lazy() so their code stays out of the
+// startup chunk; first open pays a one-time local chunk load. Both also
+// self-gate on their ui-store flag, so mount-gating here is behavior-neutral.
+const CommandPalette = lazy(() =>
+  import("./components/CommandPalette/CommandPalette").then((m) => ({
+    default: m.CommandPalette,
+  })),
+);
+const SettingsDialog = lazy(() =>
+  import("./components/SettingsDialog/SettingsDialog").then((m) => ({
+    default: m.SettingsDialog,
+  })),
+);
+
+function LazyOverlays() {
+  const paletteOpen = useUiStore((s) => s.paletteOpen);
+  const settingsOpen = useUiStore((s) => s.settingsOpen);
+  return (
+    <Suspense fallback={null}>
+      {paletteOpen && <CommandPalette />}
+      {settingsOpen && <SettingsDialog />}
+    </Suspense>
+  );
 }
 
 // 未分組 session 的全幅 rect（與群組 leaf rect 走同一條 inline style 路徑）。
@@ -330,8 +354,7 @@ function App() {
         </div>
       </main>
       <WhichKey />
-      <CommandPalette />
-      <SettingsDialog />
+      <LazyOverlays />
     </div>
   );
 }
