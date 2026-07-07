@@ -1,9 +1,7 @@
 export const en: Record<string, string> = {
   // Toolbar
-  "toolbar.singleView": "Single view",
-  "toolbar.splitView": "Split view",
-  "toolbar.targetAgents": "Agents in workspace",
-  "toolbar.targetAll": "Sessions in workspace",
+  "toolbar.targetAgents": "Visible agents",
+  "toolbar.targetAll": "Visible sessions",
   "toolbar.broadcastPlaceholder": "Broadcast to {count} session(s)…",
   "toolbar.send": "Send",
   "toolbar.cost": "Cost this session",
@@ -113,7 +111,6 @@ export const en: Record<string, string> = {
   "command.prevSession": "Previous Session",
   "command.switchToIndex": "Switch to Session {n}",
   "command.newWorkspace": "New Workspace",
-  "command.toggleViewMode": "Toggle Single/Split View",
   "command.toggleFiles": "Changed Files Panel",
   "command.toggleTheme": "Toggle Theme",
   "command.openSettings": "Open Settings",

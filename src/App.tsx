@@ -13,13 +13,8 @@ import {
   markApprovalAnswered,
 } from "./store/approvalSuppress";
 import { useThemeStore } from "./store/theme";
-import { useUiStore } from "./store/ui";
-import { useLayoutStore } from "./store/layout";
+import { groupTreeOf, useLayoutStore } from "./store/layout";
 import { computeLayout, type RectPct } from "./store/layoutTree";
-import {
-  DEFAULT_WORKSPACE_ID,
-  resolveFocusedWorkspace,
-} from "./store/workspaceGroups";
 import { CommandPalette } from "./components/CommandPalette/CommandPalette";
 import { SettingsDialog } from "./components/SettingsDialog/SettingsDialog";
 import { matchBinding } from "./commands/keymap";
@@ -66,7 +61,10 @@ async function checkAndInstallUpdate(): Promise<void> {
   }
 }
 
-// split 模式下 leaf rect（百分比）→ pane 的 inline style。
+// 未分組 session 的全幅 rect（與群組 leaf rect 走同一條 inline style 路徑）。
+const FULL_RECT: RectPct = { top: 0, left: 0, width: 100, height: 100 };
+
+// leaf rect（百分比）→ pane 的 inline style。
 function rectStyle(rect: RectPct): CSSProperties {
   return {
     top: `${rect.top}%`,
@@ -164,13 +162,13 @@ function App() {
   const setTitle = useSessionStore((s) => s.setTitle);
   const setStatus = useSessionStore((s) => s.setStatus);
   const theme = useThemeStore((s) => s.name);
-  const viewMode = useUiStore((s) => s.viewMode);
   const trees = useLayoutStore((s) => s.trees);
-  // split 視圖只渲染 focused workspace 的樹；其他 workspace 的 pane 拿不到
+  // 只渲染 active session 所在群組的樹；其他 session 的 pane 拿不到
   // rect → data-in-layout="false" 隱藏（Terminal 保持掛載）。
-  const layoutRoot = trees[resolveFocusedWorkspace(sessions, activeId)] ?? null;
+  // active session 未分組時 layoutRoot 為 null → 該 pane 拿全幅 rect。
+  const layoutRoot = groupTreeOf(trees, activeId);
 
-  // split 版面樹 → 每個 leaf 的百分比 rect + 分隔線幾何（single 模式不用）。
+  // 群組樹 → 每個 leaf 的百分比 rect + 分隔線幾何。
   const layout = useMemo(
     () =>
       layoutRoot
@@ -214,10 +212,7 @@ function App() {
         }
       });
       // 每次啟動都是全新配置：一個預設 workspace + 一個新 session。
-      const id = useSessionStore.getState().createSession();
-      if (useUiStore.getState().viewMode === "split") {
-        useLayoutStore.getState().ensureTree(DEFAULT_WORKSPACE_ID, [id]);
-      }
+      useSessionStore.getState().createSession();
       void checkAndInstallUpdate();
     })();
   }, []);
@@ -227,18 +222,22 @@ function App() {
       <SessionSidebar />
       <main className="app-body">
         <Toolbar />
-        {/* 同一組 pane 始終掛載；single/split 只靠 class + inline style 切換，避免重建終端。
-            split 模式：版面樹只算幾何，rect 以 inline style 套在平鋪 pane 上（不在樹中的隱藏）。 */}
-        <div className={`terminal-area ${viewMode}`} data-focus-region="terminal">
+        {/* 同一組 pane 始終掛載；可見性只靠 data 屬性 + inline style 切換，避免重建終端。
+            群組樹只算幾何，rect 以 inline style 套在平鋪 pane 上（不在群組中的隱藏）；
+            未分組的 active session 拿全幅 rect（data-solo 只去除邊框，標題列一律顯示）。 */}
+        <div className="terminal-area" data-focus-region="terminal">
           {sessions.map((s) => {
-            const rect = layout.leaves.get(s.id);
+            const rect =
+              layout.leaves.get(s.id) ??
+              (layoutRoot === null && s.id === activeId ? FULL_RECT : undefined);
             return (
             <div
               key={s.id}
               className={`pane ${s.id === activeId ? "focused" : ""}`}
               data-active={s.id === activeId}
               data-in-layout={rect ? "true" : "false"}
-              style={viewMode === "split" && rect ? rectStyle(rect) : undefined}
+              data-solo={layoutRoot === null && s.id === activeId}
+              style={rect ? rectStyle(rect) : undefined}
               onMouseDown={() => setActive(s.id)}
             >
               <PaneLabel session={s} />
@@ -256,7 +255,7 @@ function App() {
             </div>
             );
           })}
-          {viewMode === "split" && <SplitResizers resizers={layout.resizers} />}
+          {layoutRoot !== null && <SplitResizers resizers={layout.resizers} />}
           {sessions.length === 0 && (
             <div className="empty-hint">{t("app.emptyHint")}</div>
           )}

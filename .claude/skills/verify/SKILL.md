@@ -7,10 +7,10 @@ description: How to verify Helm frontend changes end-to-end without the Tauri sh
 
 ## Surface
 
-Most Helm logic (stores, agent detection, split layout, sidebar) is pure frontend.
+Most Helm logic (stores, agent detection, split groups, sidebar) is pure frontend.
 `npm run dev` (vite only, port **1420**, strictPort) renders the full UI in a
 browser; PTY spawn and Tauri IPC reject silently, so terminals stay blank but
-sessions, workspaces, split view, toolbars, and panels all work. Only verify via
+sessions, workspaces, split groups, toolbars, and panels all work. Only verify via
 `npm run tauri dev` (manual) when the change touches Rust (`src-tauri/`), PTY
 streaming, or native menus.
 
@@ -29,10 +29,14 @@ Useful selectors (all stable class names):
 - Sidebar buttons (by title attr, Chinese): `新增 Workspace`,
   `在此 Workspace 新增 Session` (opens `.launcher-menu` →
   `button[role='menuitem']`), `刪除 Workspace（session 移到預設）`
-- Toolbar view buttons: `button[title='單一視圖']`, `button[title='分割視圖']`
 - Panes: `.pane` with `data-in-layout="true|false"` (false = hidden via CSS,
-  Terminal stays mounted), `data-active`, `.pane-title`; pane split buttons
+  Terminal stays mounted), `data-active`, `data-solo` (ungrouped fullscreen:
+  no border; the label bar with split/close buttons shows on every pane),
+  `.pane-title`; pane split buttons
   `button[title^='向右分割']` / `button[^='向下分割']` (hover the pane first)
+- There is no view-mode toggle: the visible layout is the active session's
+  split group, or a single solo pane when ungrouped. Splitting (Ctrl+\ /
+  Ctrl+Shift+D) creates the group; broadcast targets follow visible sessions.
 - Split resizers: `.split-resizer` (drag with mouse.down/move/up)
 
 Gotchas:

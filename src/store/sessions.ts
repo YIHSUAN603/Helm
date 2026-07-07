@@ -1,8 +1,7 @@
 // 多 session 狀態管理 + agent 感知。
 import { create } from "zustand";
-import { useLayoutStore } from "./layout";
-import { useUiStore } from "./ui";
-import { findLeafBySession, siblingFirstSession } from "./layoutTree";
+import { groupTreeOf, useLayoutStore } from "./layout";
+import { siblingFirstSession } from "./layoutTree";
 import { resolveFocusedWorkspace } from "./workspaceGroups";
 import { clearApprovalNotify, shouldNotifyApproval } from "./approvalNotify";
 import { clearApprovalSuppress } from "./approvalSuppress";
@@ -92,12 +91,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   closeSession: (id) => {
     const { sessions, activeId } = get();
-    // split 版面：先記下 sibling（focus 移交對象），再收合 leaf。
+    // 分割群組：先記下 sibling（focus 移交對象），再收合 leaf。
     const layout = useLayoutStore.getState();
-    const closingWs = sessions.find((s) => s.id === id)?.workspaceId;
-    const sibling = closingWs
-      ? siblingFirstSession(layout.trees[closingWs] ?? null, id)
-      : null;
+    const sibling = siblingFirstSession(groupTreeOf(layout.trees, id), id);
     layout.removeSession(id);
     const remaining = sessions.filter((s) => s.id !== id);
     let nextActive = activeId;
@@ -108,33 +104,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ sessions: remaining, activeId: nextActive });
     clearApprovalNotify(id);
     clearApprovalSuppress(id);
-    // split 模式下 nextActive 不在自己 workspace 的樹中（樹被關空、或落到
-    // 別的 workspace 的 detached session）→ 掛進去確保可見。
-    if (nextActive && useUiStore.getState().viewMode === "split") {
-      const nextWs = remaining.find((s) => s.id === nextActive)?.workspaceId;
-      const tree = nextWs ? useLayoutStore.getState().trees[nextWs] ?? null : null;
-      if (nextWs && !findLeafBySession(tree, nextActive)) {
-        useLayoutStore.getState().attachSession(nextWs, nextActive, null);
-      }
-    }
   },
 
   moveSessionToWorkspace: (sessionId, workspaceId) => {
-    const { sessions, activeId } = get();
+    const { sessions } = get();
     const target = sessions.find((s) => s.id === sessionId);
     if (!target || target.workspaceId === workspaceId) return;
-    // 維持「樹只含自己 workspace 的 session」不變量：先從舊樹收合。
+    // 維持「群組只含同 workspace 的 session」不變量：跨 workspace 即踢出群組。
     useLayoutStore.getState().removeSession(sessionId);
     set((s) => ({
       sessions: s.sessions.map((x) =>
         x.id === sessionId ? { ...x, workspaceId } : x,
       ),
     }));
-    // 搬的是 active session 時 focused workspace 跟著切換，active 必須可見；
-    // 非 active 的留在樹外（detached），點選時再換入，不打擾目的地版面。
-    if (sessionId === activeId && useUiStore.getState().viewMode === "split") {
-      useLayoutStore.getState().attachSession(workspaceId, sessionId, null);
-    }
   },
 
   setActive: (id) => set({ activeId: id }),

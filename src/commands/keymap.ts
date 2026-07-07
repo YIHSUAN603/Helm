@@ -32,7 +32,6 @@ export const KEYMAP: KeyBinding[] = [
   { code: "Digit7", mod: true, commandId: "session:switch-7" },
   { code: "Digit8", mod: true, commandId: "session:switch-8" },
   { code: "Digit9", mod: true, commandId: "session:switch-9" },
-  { key: "m", mod: true, shift: true, commandId: "view:toggle-mode" },
   { key: "f", mod: true, shift: true, commandId: "view:toggle-files" },
   { key: "l", mod: true, shift: true, commandId: "theme:toggle" },
   { key: "b", mod: true, shift: true, commandId: "broadcast:focus" },

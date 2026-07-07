@@ -1,9 +1,7 @@
 export const zhTW: Record<string, string> = {
   // Toolbar
-  "toolbar.singleView": "單一視圖",
-  "toolbar.splitView": "分割視圖",
-  "toolbar.targetAgents": "Workspace 內 agent",
-  "toolbar.targetAll": "Workspace 內 session",
+  "toolbar.targetAgents": "畫面上的 agent",
+  "toolbar.targetAll": "畫面上的 session",
   "toolbar.broadcastPlaceholder": "派工給 {count} 個 session…",
   "toolbar.send": "送出",
   "toolbar.cost": "本次成本",
@@ -113,7 +111,6 @@ export const zhTW: Record<string, string> = {
   "command.prevSession": "上一個 Session",
   "command.switchToIndex": "切換到第 {n} 個 Session",
   "command.newWorkspace": "新增 Workspace",
-  "command.toggleViewMode": "切換 單一/分割 視圖",
   "command.toggleFiles": "檔案變更面板",
   "command.toggleTheme": "切換主題",
   "command.openSettings": "開啟設定",

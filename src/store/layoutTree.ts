@@ -1,6 +1,7 @@
 // Split 版面樹的純運算（無 React/Zustand 依賴，可直接單元測試）。
 // 樹是二元分割：leaf 對應一個 session，split 依方向把空間分成兩份。
-// 不變量：一個 session 最多出現在一個 leaf。
+// 不變量：一個 session 最多出現在一棵群組樹的一個 leaf；
+// 同一群組的 session 屬於同一個 workspace。
 
 export type SplitDir = "row" | "column"; // row = 左右並排, column = 上下疊
 
@@ -141,26 +142,6 @@ export function computeLayout(root: LayoutNode): {
   return { leaves, resizers };
 }
 
-/** 用平衡樹自動排列（首次進 split 模式時模擬舊 grid 的平鋪效果）。 */
-export function buildBalancedTree(sessionIds: string[]): LayoutNode | null {
-  if (sessionIds.length === 0) return null;
-  // 交替方向對半分：視覺上接近均勻網格。
-  const build = (ids: string[], dir: SplitDir): LayoutNode => {
-    if (ids.length === 1) return leaf(ids[0]);
-    const mid = Math.ceil(ids.length / 2);
-    const next: SplitDir = dir === "row" ? "column" : "row";
-    return {
-      type: "split",
-      id: nodeId(),
-      dir,
-      ratio: mid / ids.length,
-      a: build(ids.slice(0, mid), next),
-      b: build(ids.slice(mid), next),
-    };
-  };
-  return build(sessionIds, "row");
-}
-
 export function collectSessionIds(root: LayoutNode | null): string[] {
   if (!root) return [];
   if (root.type === "leaf") return [root.sessionId];
@@ -192,39 +173,13 @@ export function siblingFirstSession(
   return siblingFirstSession(inA ? root.a : root.b, sessionId);
 }
 
-/**
- * 把 session 掛進樹：focused leaf 存在時換入（tmux 式），
- * 否則對第一個 leaf 分割（不踢掉既有 pane）；空樹則成為單一 leaf。
- * session 已在樹中時回傳原引用（no-op）。
- */
-export function attachSessionToTree(
-  root: LayoutNode | null,
+/** 找出包含該 session 的樹的 key（群組 id）；不在任何樹中回 null。 */
+export function findTreeBySession(
+  trees: Record<string, LayoutNode>,
   sessionId: string,
-  focusedSessionId: string | null,
-): LayoutNode {
-  if (!root) return leaf(sessionId);
-  if (findLeafBySession(root, sessionId)) return root;
-  const focused = focusedSessionId
-    ? findLeafBySession(root, focusedSessionId)
-    : null;
-  if (focused) {
-    return swapLeafSession(root, focused.id, sessionId);
+): string | null {
+  for (const [key, root] of Object.entries(trees)) {
+    if (findLeafBySession(root, sessionId)) return key;
   }
-  const first = findLeafBySession(root, collectSessionIds(root)[0]);
-  return splitLeaf(root, first!.id, "row", sessionId);
-}
-
-/** 把指定 leaf 的 session 換成另一個（tmux 式換入）。 */
-export function swapLeafSession(
-  root: LayoutNode,
-  leafId: string,
-  sessionId: string,
-): LayoutNode {
-  if (root.type === "leaf") {
-    return root.id === leafId ? { ...root, sessionId } : root;
-  }
-  const a = swapLeafSession(root.a, leafId, sessionId);
-  const b = a === root.a ? swapLeafSession(root.b, leafId, sessionId) : root.b;
-  if (a === root.a && b === root.b) return root;
-  return { ...root, a, b };
+  return null;
 }

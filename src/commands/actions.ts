@@ -4,8 +4,7 @@
 import { useSessionStore } from "../store/sessions";
 import { clearApprovalNotify } from "../store/approvalNotify";
 import { markApprovalAnswered } from "../store/approvalSuppress";
-import { useLayoutStore } from "../store/layout";
-import { useUiStore } from "../store/ui";
+import { groupTreeOf, useLayoutStore } from "../store/layout";
 import { useWorkspaceStore, expandWorkspace } from "../store/workspaces";
 import {
   DEFAULT_WORKSPACE_ID,
@@ -15,7 +14,7 @@ import {
   resolveFocusedWorkspace,
   sessionsInWorkspace,
 } from "../store/workspaceGroups";
-import { computeLayout, type SplitDir } from "../store/layoutTree";
+import { computeLayout, type LayoutNode, type SplitDir } from "../store/layoutTree";
 import { getProfile } from "../agents/registry";
 import { ptyWrite } from "../ipc/pty";
 import { focusActiveTerminal } from "../focus/focusUtils";
@@ -29,20 +28,12 @@ import type { AgentLauncher } from "../agents/types";
 
 /**
  * Make a session active (same semantics as clicking it in the sidebar)
- * and hand keyboard focus to its terminal.
+ * and hand keyboard focus to its terminal. The view follows the session:
+ * its split group's layout when grouped, fullscreen otherwise.
  */
 export function activateSession(id: string): void {
   const store = useSessionStore.getState();
   const target = store.sessions.find((s) => s.id === id);
-  if (target && useUiStore.getState().viewMode === "split") {
-    const layout = useLayoutStore.getState();
-    // First split-mode visit to this workspace: tile all its sessions.
-    layout.ensureTree(
-      target.workspaceId,
-      sessionsInWorkspace(store.sessions, target.workspaceId).map((s) => s.id),
-    );
-    layout.attachSession(target.workspaceId, id, store.activeId);
-  }
   store.setActive(id);
   // Keep the newly active session visible in the sidebar.
   if (target) expandWorkspace(target.workspaceId);
@@ -51,28 +42,23 @@ export function activateSession(id: string): void {
   requestAnimationFrame(() => focusActiveTerminal());
 }
 
-/** Create a session (optionally from a launcher) and focus its terminal. */
+/** Create an ungrouped session (optionally from a launcher) and focus its terminal. */
 export function newSession(launcher?: AgentLauncher, workspaceId?: string): void {
   const store = useSessionStore.getState();
-  const focusedId = store.activeId;
-  const targetWs = workspaceId ?? resolveFocusedWorkspace(store.sessions, focusedId);
-  const id = store.createSession(launcher, targetWs);
-  if (useUiStore.getState().viewMode === "split") {
-    useLayoutStore.getState().attachSession(targetWs, id, focusedId);
-  }
+  const targetWs = workspaceId ?? resolveFocusedWorkspace(store.sessions, store.activeId);
+  store.createSession(launcher, targetWs);
   requestAnimationFrame(() => focusActiveTerminal());
 }
 
-/** Split the active pane; splitting from single mode switches to split view. */
+/** Split the active pane, creating a new session in the active session's group. */
 export function splitActivePane(dir: SplitDir, launcher?: AgentLauncher): void {
   const store = useSessionStore.getState();
   const active = store.sessions.find((s) => s.id === store.activeId);
   if (!active) return;
   const layout = useLayoutStore.getState();
-  useUiStore.getState().setViewMode("split");
-  if (!layout.canSplitPane(active.workspaceId, active.id, dir)) return;
+  if (!layout.canSplitPane(active.id, dir)) return;
   const newId = store.createSession(launcher, active.workspaceId);
-  layout.splitPane(active.workspaceId, active.id, dir, newId);
+  layout.splitPane(active.id, dir, newId);
 }
 
 /** Session ids in sidebar visual order (grouped by workspace). */
@@ -111,7 +97,6 @@ export function removeWorkspace(id: string): void {
       sessionStore.moveSessionToWorkspace(s.id, DEFAULT_WORKSPACE_ID);
     }
   }
-  useLayoutStore.getState().dropTree(id);
   useWorkspaceStore.getState().deleteWorkspace(id);
 }
 
@@ -154,18 +139,17 @@ export function respondActiveApproval(approve: boolean): void {
   }
 }
 
-/** The focused workspace's layout tree (the one split view renders). */
-function focusedWorkspaceTree() {
-  const { sessions, activeId } = useSessionStore.getState();
-  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-  return useLayoutStore.getState().trees[workspaceId] ?? null;
+/** The active session's group tree (the one the view renders); null when ungrouped. */
+function activeGroupTree(): LayoutNode | null {
+  const { activeId } = useSessionStore.getState();
+  return groupTreeOf(useLayoutStore.getState().trees, activeId);
 }
 
-/** Move pane focus directionally or cyclically (split mode only). */
+/** Move pane focus directionally or cyclically (no-op when ungrouped). */
 export function focusPane(dir: NavDir | "next"): void {
-  const root = focusedWorkspaceTree();
+  const root = activeGroupTree();
   const active = useSessionStore.getState().activeId;
-  if (!root || !active || useUiStore.getState().viewMode !== "split") return;
+  if (!root || !active) return;
   const { leaves } = computeLayout(root);
   const next =
     dir === "next"
@@ -176,9 +160,9 @@ export function focusPane(dir: NavDir | "next"): void {
 
 /** Nudge the active pane's nearest matching split by one keyboard step. */
 export function resizeActivePane(dir: NavDir): void {
-  const root = focusedWorkspaceTree();
+  const root = activeGroupTree();
   const active = useSessionStore.getState().activeId;
-  if (!root || !active || useUiStore.getState().viewMode !== "split") return;
+  if (!root || !active) return;
   const target = resizeTarget(root, active, dir);
   if (target) {
     useLayoutStore.getState().setRatio(target.splitId, target.ratio);

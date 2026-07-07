@@ -1,4 +1,4 @@
-// pane 標題列：狀態燈、標題、agent 標籤 + 分割/關閉操作（split 模式顯示）。
+// pane 標題列：狀態燈、標題、agent 標籤 + 分割/關閉操作（所有窗格一律顯示）。
 // 分割按鈕單擊 → 新 plain shell；launcher 選單由右鍵（contextmenu）開啟，
 // 鍵盤等效為 ContextMenu 鍵或 Shift+F10。
 import { useEffect, useRef, useState } from "react";
@@ -35,11 +35,11 @@ export function PaneLabel({ session }: { session: Session }) {
 
   const splitTo = (dir: SplitDir, launcher?: AgentLauncher) => {
     const layout = useLayoutStore.getState();
-    if (!layout.canSplitPane(session.workspaceId, session.id, dir)) return;
+    if (!layout.canSplitPane(session.id, dir)) return;
     const newId = useSessionStore
       .getState()
       .createSession(launcher, session.workspaceId);
-    layout.splitPane(session.workspaceId, session.id, dir, newId);
+    layout.splitPane(session.id, dir, newId);
   };
 
   const openMenu = (e: React.SyntheticEvent, dir: SplitDir) => {

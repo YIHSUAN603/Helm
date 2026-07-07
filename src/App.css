@@ -180,20 +180,10 @@ body {
   position: relative;
 }
 
-/* ---- single 視圖：只顯示 active pane，鋪滿 ---- */
-.terminal-area.single .pane {
-  position: absolute;
-  inset: 0;
-}
-.terminal-area.single .pane[data-active="false"] {
-  display: none;
-}
-.terminal-area.single .pane-label {
-  display: none; /* 單一視圖不需標題列 */
-}
-
-/* ---- split 視圖：pane 依版面樹的百分比 rect 絕對定位（top/left/width/height 為 inline style） ---- */
-.terminal-area.split .pane {
+/* ---- pane 依 rect（百分比）絕對定位（top/left/width/height 為 inline style）；
+   未分組的 active session 拿全幅 rect，data-solo 只去除邊框（標題列一律顯示，
+   讓分割按鈕從一開始就可用） ---- */
+.terminal-area .pane {
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -201,15 +191,18 @@ body {
   border: 1px solid var(--border);
   overflow: hidden;
 }
-.terminal-area.split .pane[data-in-layout="false"] {
-  display: none; /* 不在版面樹中：隱藏但仍掛載（保留 PTY） */
+.terminal-area .pane[data-in-layout="false"] {
+  display: none; /* 不在可見版面中：隱藏但仍掛載（保留 PTY） */
 }
-.terminal-area.split .pane.focused {
+.terminal-area .pane.focused {
   border-color: var(--accent);
 }
+.terminal-area .pane[data-solo="true"] {
+  border: none;
+}
 
-/* split 模式下，terminal 需要在 flex 剩餘空間內可縮放 */
-.terminal-area.split .pane .terminal-pane {
+/* terminal 需要在 flex 剩餘空間內可縮放 */
+.terminal-area .pane .terminal-pane {
   flex: 1 1 auto;
   min-height: 0;
 }

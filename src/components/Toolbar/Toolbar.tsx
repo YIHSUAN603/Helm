@@ -1,13 +1,14 @@
-// 頂部工具列：視圖切換（single/split）、broadcast 派工、以及成本/用量。
-// 派工、Σ 成本、變更計數都限縮在聚焦 workspace 內。
+// 頂部工具列：broadcast 派工、以及成本/用量。
+// 派工以「畫面上可見的 session」為對象（active session 的分割群組，
+// 未分組時只有它自己）；Σ 成本、變更計數則限縮在聚焦 workspace 內。
 import { useState } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
-import { useLayoutStore } from "../../store/layout";
+import { groupTreeOf, useLayoutStore } from "../../store/layout";
+import { collectSessionIds } from "../../store/layoutTree";
 import { useUpdateStore } from "../../store/update";
 import {
   resolveFocusedWorkspace,
-  sessionsInWorkspace,
   workspaceChangedFileCount,
   workspaceTotalCost,
 } from "../../store/workspaceGroups";
@@ -29,8 +30,7 @@ export function Toolbar() {
   const t = useT();
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
-  const viewMode = useUiStore((s) => s.viewMode);
-  const setViewMode = useUiStore((s) => s.setViewMode);
+  const trees = useLayoutStore((s) => s.trees);
   const filesOpen = useUiStore((s) => s.filesOpen);
   const toggleFiles = useUiStore((s) => s.toggleFiles);
   const updatePhase = useUpdateStore((s) => s.phase);
@@ -41,12 +41,22 @@ export function Toolbar() {
 
   const active = sessions.find((s) => s.id === activeId);
   const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-  const workspaceSessions = sessionsInWorkspace(sessions, workspaceId);
   const totalCost = workspaceTotalCost(sessions, workspaceId);
   const changedCount = workspaceChangedFileCount(sessions, workspaceId);
 
+  // 派工對象 = 畫面上可見的 session：active 的分割群組成員，未分組時只有它自己。
+  const groupRoot = groupTreeOf(trees, activeId);
+  const visibleIds = groupRoot
+    ? collectSessionIds(groupRoot)
+    : activeId
+      ? [activeId]
+      : [];
+  const visibleSessions = visibleIds
+    .map((id) => sessions.find((s) => s.id === id))
+    .filter((s) => s !== undefined);
+
   const targets = () =>
-    target === "agents" ? workspaceSessions.filter((s) => s.agentId) : workspaceSessions;
+    target === "agents" ? visibleSessions.filter((s) => s.agentId) : visibleSessions;
 
   const broadcast = () => {
     const t = text.trim();
@@ -59,31 +69,6 @@ export function Toolbar() {
 
   return (
     <div className="toolbar" data-focus-region="toolbar">
-      <div className="tb-view">
-        <button
-          className={viewMode === "single" ? "on" : ""}
-          aria-pressed={viewMode === "single"}
-          onClick={() => setViewMode("single")}
-          title={t("toolbar.singleView")}
-        >
-          ▢
-        </button>
-        <button
-          className={viewMode === "split" ? "on" : ""}
-          aria-pressed={viewMode === "split"}
-          onClick={() => {
-            // 首次進 split 且無版面樹：把 focused workspace 的 sessions 自動平衡排列。
-            useLayoutStore
-              .getState()
-              .ensureTree(workspaceId, workspaceSessions.map((s) => s.id));
-            setViewMode("split");
-          }}
-          title={t("toolbar.splitView")}
-        >
-          ▦
-        </button>
-      </div>
-
       <div className="tb-broadcast">
         <select value={target} onChange={(e) => setTarget(e.target.value as Target)}>
           <option value="agents">{t("toolbar.targetAgents")}</option>

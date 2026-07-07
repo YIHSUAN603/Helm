@@ -13,33 +13,6 @@
   user-select: none;
 }
 
-.tb-view {
-  display: flex;
-  gap: 2px;
-}
-
-.tb-view button {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  width: 26px;
-  height: 24px;
-  cursor: pointer;
-}
-
-.tb-view button:first-child {
-  border-radius: 6px 0 0 6px;
-}
-.tb-view button:last-child {
-  border-radius: 0 6px 6px 0;
-}
-
-.tb-view button.on {
-  background: var(--active);
-  color: var(--fg);
-}
-
 .tb-broadcast {
   display: flex;
   align-items: center;

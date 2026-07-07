@@ -3,14 +3,13 @@
 // To add a keyboard-reachable action: add a Command here and, if it needs a
 // hotkey, a KeyBinding in keymap.ts (plus a menu item in lib.rs when useful).
 import { useSessionStore } from "../store/sessions";
-import { useLayoutStore } from "../store/layout";
+import { groupTreeOf, useLayoutStore } from "../store/layout";
 import { useUiStore } from "../store/ui";
 import { useThemeStore } from "../store/theme";
 import { collectSessionIds } from "../store/layoutTree";
 import {
   pendingApprovalsInWorkspace,
   resolveFocusedWorkspace,
-  sessionsInWorkspace,
 } from "../store/workspaceGroups";
 import { listLaunchers } from "../agents/registry";
 import { cycleFocusRegion, focusActiveTerminal } from "../focus/focusUtils";
@@ -46,30 +45,15 @@ function anyApproval(): boolean {
   return pendingApprovalsInWorkspace(sessions, workspaceId).length > 0;
 }
 
-function inSplitMode(): boolean {
-  return useUiStore.getState().viewMode === "split";
-}
-
-function splitLeafCount(): number {
-  const { sessions, activeId } = useSessionStore.getState();
-  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-  return collectSessionIds(useLayoutStore.getState().trees[workspaceId] ?? null)
+/** Leaves in the active session's split group (0 when ungrouped). */
+function activeGroupLeafCount(): number {
+  const { activeId } = useSessionStore.getState();
+  return collectSessionIds(groupTreeOf(useLayoutStore.getState().trees, activeId))
     .length;
 }
 
-function toggleViewMode(): void {
-  const ui = useUiStore.getState();
-  if (ui.viewMode === "split") {
-    ui.setViewMode("single");
-    return;
-  }
-  // First entry into split mode with no tree: auto-balance the focused
-  // workspace's sessions (split view only shows the focused workspace).
-  const { sessions, activeId } = useSessionStore.getState();
-  const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-  const ids = sessionsInWorkspace(sessions, workspaceId).map((s) => s.id);
-  useLayoutStore.getState().ensureTree(workspaceId, ids);
-  ui.setViewMode("split");
+function activeIsGrouped(): boolean {
+  return activeGroupLeafCount() >= 2;
 }
 
 const PANE_DIRS = [
@@ -92,7 +76,7 @@ function layoutCommands(): Command[] {
     title: t("command.focusPane", { dir: t(dirKey) }),
     category: t("category.layout"),
     keywords: "focus pane",
-    enabled: inSplitMode,
+    enabled: activeIsGrouped,
     run: () => focusPane(dir),
   }));
   const resize: Command[] = PANE_DIRS.map(([dir]) => ({
@@ -100,7 +84,7 @@ function layoutCommands(): Command[] {
     title: t(RESIZE_TITLE_KEYS[dir]),
     category: t("category.layout"),
     keywords: "resize pane",
-    enabled: inSplitMode,
+    enabled: activeIsGrouped,
     run: () => resizeActivePane(dir),
   }));
   return [...nav, ...resize];
@@ -161,7 +145,7 @@ function staticCommands(): Command[] {
       title: t("command.focusNextPane"),
       category: t("category.layout"),
       keywords: "next pane",
-      enabled: () => inSplitMode() && splitLeafCount() >= 2,
+      enabled: activeIsGrouped,
       run: () => focusPane("next"),
     },
     ...layoutCommands(),
@@ -197,13 +181,6 @@ function staticCommands(): Command[] {
       run: () => {
         newWorkspace();
       },
-    },
-    {
-      id: "view:toggle-mode",
-      title: t("command.toggleViewMode"),
-      category: t("category.view"),
-      keywords: "toggle view single split",
-      run: toggleViewMode,
     },
     {
       id: "view:toggle-files",

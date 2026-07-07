@@ -19,7 +19,6 @@ struct MenuLabels {
     focus_next_pane: &'static str,
     view: &'static str,
     palette: &'static str,
-    toggle_view: &'static str,
     toggle_files: &'static str,
     toggle_theme: &'static str,
 }
@@ -36,7 +35,6 @@ const LABELS_ZH_TW: MenuLabels = MenuLabels {
     focus_next_pane: "焦點：下一個 Pane",
     view: "檢視",
     palette: "命令面板",
-    toggle_view: "切換 單一/分割 視圖",
     toggle_files: "檔案變更面板",
     toggle_theme: "切換主題",
 };
@@ -53,7 +51,6 @@ const LABELS_EN: MenuLabels = MenuLabels {
     focus_next_pane: "Focus: Next Pane",
     view: "View",
     palette: "Command Palette",
-    toggle_view: "Toggle Single/Split View",
     toggle_files: "Changed Files Panel",
     toggle_theme: "Toggle Theme",
 };
@@ -97,11 +94,10 @@ fn build_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<tauri::Wry>
         .build()?;
 
     let palette = item("palette:open", l.palette, "CmdOrCtrl+Shift+P")?;
-    let toggle_view = item("view:toggle-mode", l.toggle_view, "CmdOrCtrl+Shift+M")?;
     let toggle_files = item("view:toggle-files", l.toggle_files, "CmdOrCtrl+Shift+F")?;
     let toggle_theme = item("theme:toggle", l.toggle_theme, "CmdOrCtrl+Shift+L")?;
     let view_menu = SubmenuBuilder::new(app, l.view)
-        .items(&[&palette, &toggle_view, &toggle_files, &toggle_theme])
+        .items(&[&palette, &toggle_files, &toggle_theme])
         .build()?;
 
     let menu = Menu::default(app)?;

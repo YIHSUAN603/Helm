@@ -58,10 +58,14 @@ error — or idle/running/exited for a plain shell) plus an agent badge if
 one is running. A workspace you're not currently viewing shows a badge with
 its pending-approval count — click it to jump straight to that approval.
 
-## Split view
+## Split groups
 
-Switch between **single** (one session at a time) and **split** (tiled
-panes) from the toolbar's ▢ / ▦ buttons, or `Ctrl/⌘+Shift+M`.
+Each session controls its own layout. A session normally fills the whole
+screen; splitting it creates a new session next to it and the two form a
+**split group** — switching to any member of the group shows the whole
+group's layout, while sessions outside it still show fullscreen. When a
+group is down to one pane it dissolves and that session goes back to
+fullscreen.
 
 - **Split a pane** — use the ◫ (split right) / ⊟ (split down) buttons on a
   pane's title bar, or `Ctrl/⌘+\` and `Ctrl/⌘+Shift+D`. Right-click a split
@@ -92,10 +96,11 @@ panes) from the toolbar's ▢ / ▦ buttons, or `Ctrl/⌘+Shift+M`.
 ## Broadcasting to multiple agents
 
 Type a message once in the toolbar's broadcast box, choose whether it goes
-to **agents only** or **every session** in the current workspace, and press
-Enter (or Send, or `Ctrl/⌘+Shift+B` to jump to the box) — it's typed into
-all of them at once. Handy for answering the same question across several
-agents in one go.
+to **agents only** or **every session** currently visible on screen (the
+active split group, or just the active session when it's fullscreen), and
+press Enter (or Send, or `Ctrl/⌘+Shift+B` to jump to the box) — it's typed
+into all of them at once. Handy for answering the same question across
+several agents in one go.
 
 ## Command Palette
 
@@ -116,7 +121,7 @@ with its keyboard shortcut. Type to filter, arrow keys plus Enter to run.
 | `Ctrl/⌘+Shift+]` / `[` | Next / previous session |
 | `Ctrl/⌘+1` … `9` | Jump to session 1–9 |
 
-**Panes & split view**
+**Panes & split groups**
 
 | Shortcut | Action |
 | --- | --- |
@@ -126,7 +131,6 @@ with its keyboard shortcut. Type to filter, arrow keys plus Enter to run.
 | `Ctrl/⌘+Shift+O` | Focus next pane |
 | `Ctrl/⌘+Alt+arrow` | Move focus between panes |
 | `Ctrl/⌘+Alt+Shift+arrow` | Resize the focused pane |
-| `Ctrl/⌘+Shift+M` | Toggle single/split view |
 
 **Approvals**
 
