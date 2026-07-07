@@ -32,8 +32,8 @@ below.
    real shell.
 4. When the agent needs your input, Helm shows an **approval prompt**
    automatically with **Approve**/**Reject** buttons (or the shortcuts
-   `Ctrl/⌘+Shift+Y` / `Ctrl/⌘+Shift+N`) — no need to switch to that tab and
-   read its output yourself.
+   `Ctrl+A y` / `Ctrl+A N`) — no need to switch to that tab and read its
+   output yourself.
 
 ## Organizing sessions
 
@@ -68,15 +68,15 @@ group is down to one pane it dissolves and that session goes back to
 fullscreen.
 
 - **Split a pane** — use the ◫ (split right) / ⊟ (split down) buttons on a
-  pane's title bar, or `Ctrl/⌘+\` and `Ctrl/⌘+Shift+D`. Right-click a split
-  button (or use the Command Palette) to choose which agent to launch in
-  the new pane instead of a plain shell.
-- **Close a pane** — the **×** on its title bar, or `Ctrl/⌘+Shift+W`.
+  pane's title bar, or `Ctrl+A %` (right) and `Ctrl+A "` (down), just like
+  tmux. Right-click a split button (or use the Command Palette) to choose
+  which agent to launch in the new pane instead of a plain shell.
+- **Close a pane** — the **×** on its title bar, or `Ctrl+A x`.
 - **Resize** — drag the divider between panes (double-click a divider to
-  reset it to 50/50), or `Ctrl/⌘+Alt+Shift+arrow` to resize the focused
-  pane in small steps.
-- **Move focus between panes** — `Ctrl/⌘+Alt+arrow`, or `Ctrl/⌘+Shift+O` to
-  cycle to the next one.
+  reset it to 50/50), or `Ctrl+A Ctrl+arrow` to resize the focused pane in
+  small steps.
+- **Move focus between panes** — `Ctrl+A arrow`, or `Ctrl+A o` to cycle to
+  the next one.
 
 ## Keeping track of your agents
 
@@ -90,7 +90,7 @@ fullscreen.
 - **Cost and tokens** — the toolbar shows the active session's running cost
   and input/output token counts, plus a workspace-wide total (Σ).
 - **Changed files** — click the toolbar's file-count button (or
-  `Ctrl/⌘+Shift+F`) to see every file an agent has touched in the current
+  `Ctrl+A f`) to see every file an agent has touched in the current
   workspace, grouped by session.
 
 ## Broadcasting to multiple agents
@@ -98,7 +98,7 @@ fullscreen.
 Type a message once in the toolbar's broadcast box, choose whether it goes
 to **agents only** or **every session** currently visible on screen (the
 active split group, or just the active session when it's fullscreen), and
-press Enter (or Send, or `Ctrl/⌘+Shift+B` to jump to the box) — it's typed
+press Enter (or Send, or `Ctrl+A b` to jump to the box) — it's typed
 into all of them at once. Handy for answering the same question across
 several agents in one go.
 
@@ -111,43 +111,56 @@ with its keyboard shortcut. Type to filter, arrow keys plus Enter to run.
 
 ## Keyboard shortcuts
 
-`Ctrl/⌘` means Ctrl on Windows/Linux, ⌘ on macOS.
+Helm uses **tmux-style prefix shortcuts**: press `Ctrl+A` (the prefix —
+literally Ctrl, on every platform including macOS), then a second key. While
+the prefix is active a hint panel lists every available key; press `Esc`
+(or wait a moment) to cancel. An unknown second key is swallowed, never
+typed into the terminal.
 
-**Sessions**
+Because the shell itself uses Ctrl+A for "beginning of line", press
+`Ctrl+A a` (or `Ctrl+A Ctrl+A`) to send a literal Ctrl+A through to the
+terminal.
 
-| Shortcut | Action |
+**Sessions** — after `Ctrl+A`, press:
+
+| Key | Action |
 | --- | --- |
-| `Ctrl/⌘+Shift+T` | New session |
-| `Ctrl/⌘+Shift+]` / `[` | Next / previous session |
-| `Ctrl/⌘+1` … `9` | Jump to session 1–9 |
+| `c` | New session |
+| `n` / `p` | Next / previous session |
+| `1` … `9` | Jump to session 1–9 |
+| `w` | New workspace |
 
-**Panes & split groups**
+**Panes & split groups** — after `Ctrl+A`, press:
 
-| Shortcut | Action |
+| Key | Action |
 | --- | --- |
-| `Ctrl/⌘+\` | Split pane right |
-| `Ctrl/⌘+Shift+D` | Split pane down |
-| `Ctrl/⌘+Shift+W` | Close focused pane |
-| `Ctrl/⌘+Shift+O` | Focus next pane |
-| `Ctrl/⌘+Alt+arrow` | Move focus between panes |
-| `Ctrl/⌘+Alt+Shift+arrow` | Resize the focused pane |
+| `%` | Split pane right |
+| `"` | Split pane down |
+| `x` | Close focused pane |
+| `o` | Focus next pane |
+| `arrow` | Move focus between panes |
+| `Ctrl+arrow` | Resize the focused pane |
 
-**Approvals**
+**Approvals** — after `Ctrl+A`, press:
 
-| Shortcut | Action |
+| Key | Action |
 | --- | --- |
-| `Ctrl/⌘+Shift+Y` | Approve the active session's prompt |
-| `Ctrl/⌘+Shift+N` | Reject the active session's prompt |
+| `y` | Approve the active session's prompt |
+| `N` (`Shift+n`) | Reject the active session's prompt |
 
-**Other**
+**Other** — after `Ctrl+A`, press:
 
-| Shortcut | Action |
+| Key | Action |
 | --- | --- |
-| `Ctrl/⌘+Shift+P` | Open Command Palette |
-| `Ctrl/⌘+Shift+F` | Toggle changed-files panel |
-| `Ctrl/⌘+Shift+L` | Toggle light/dark theme |
-| `Ctrl/⌘+Shift+B` | Focus the broadcast box |
-| `F6` / `Shift+F6` | Cycle focus between UI regions forward/back |
+| `f` | Toggle changed-files panel |
+| `t` | Toggle light/dark theme |
+| `s` | Open Settings |
+| `b` | Focus the broadcast box |
+| `Tab` / `Shift+Tab` | Cycle focus between UI regions forward/back |
+| `a` or `Ctrl+A` | Send a literal Ctrl+A to the terminal |
+
+The one direct (non-prefix) shortcut is `Ctrl/⌘+Shift+P` — open the
+Command Palette (Ctrl on Windows/Linux, ⌘ on macOS).
 
 ## Settings
 
