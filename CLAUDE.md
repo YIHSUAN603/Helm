@@ -30,10 +30,10 @@ There is no lint config; type checking relies on `tsc` (run by `npm run build`).
 ### Three layers
 
 1. **Rust backend** (`src-tauri/src/`) — exposes capabilities to the frontend via `#[tauri::command]`. All registered in `lib.rs`'s `invoke_handler`.
-   - `pty.rs` — one PTY per session (`portable-pty`). `pty_spawn` starts a reader thread that streams output to the frontend as base64 via `pty://output/<id>` events; emits `pty://exit/<id>` on exit.
+   - `pty.rs` — one PTY per session (`portable-pty`). `pty_spawn` takes an invoke `Channel` and starts a reader thread that streams output to the frontend as raw bytes over that channel (ordered, no base64/JSON); emits `pty://exit/<id>` on exit.
    - `config.rs` — reads `agents.json` from the app config dir; writes a template with a demo launcher if it doesn't exist.
 
-2. **IPC wrapper layer** (`src/ipc/`) — wraps Rust commands / events as TS functions. `pty.ts` handles base64 decoding; `notify.ts` handles desktop notifications.
+2. **IPC wrapper layer** (`src/ipc/`) — wraps Rust commands / events as TS functions. `pty.ts`'s `ptySpawn(options, onOutput)` wires the output channel (bytes arrive as `Uint8Array`); `notify.ts` handles desktop notifications.
 
 3. **React frontend** (`src/`) — UI + state (Zustand) + agent detection logic.
 
@@ -41,7 +41,7 @@ There is no lint config; type checking relies on `tsc` (run by `npm run build`).
 
 PTY output → `Terminal.tsx` writes to xterm and triggers two debounced pipelines (see `App.tsx`):
 
-- **`onScan`** (150ms debounce, reads the rendered text of xterm's **visible viewport**) → `handleScan` → `deriveState` derives agent state → updates the session store → on `waiting`, pops up `ApprovalPanel` + desktop notification. Deliberately reads only the visible viewport, not scrollback (a prompt that was answered and scrolled away should no longer count as an active approval).
+- **`onScan`** (debounced 150ms for visible panes / 1000ms for hidden ones, reads the rendered text of xterm's **visible viewport**) → `handleScan` → `deriveState` derives agent state → updates the session store → on `waiting`, pops up `ApprovalPanel` + desktop notification. Deliberately reads only the visible viewport, not scrollback (a prompt that was answered and scrolled away should no longer count as an active approval).
 - **`onStream`** (raw decoded output, line by line) → `handleStream` → `extractFromLine` extracts cost/token/file changes → updates the store → `ChangedFilesPanel`. Partial lines across chunks are buffered by `lineBuffers` in `App.tsx`.
 
 ### Agent profile system (data-driven, not tied to any specific tool)
