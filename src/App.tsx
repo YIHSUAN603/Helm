@@ -260,6 +260,7 @@ function App() {
               <Terminal
                 id={s.id}
                 focused={s.id === activeId}
+                visible={rect !== undefined}
                 launchCommand={s.launchCommand}
                 onTitle={(t) => setTitle(s.id, t)}
                 onBusy={() => setStatus(s.id, "busy")}
