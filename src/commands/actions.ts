@@ -172,3 +172,9 @@ export function resizeActivePane(dir: NavDir): void {
 export function focusBroadcastInput(): void {
   document.querySelector<HTMLElement>(".tb-broadcast input")?.focus();
 }
+
+/** screen-style C-a a / C-a C-a: write a literal Ctrl+A (0x01) to the active PTY. */
+export function sendPrefixLiteral(): void {
+  const { activeId } = useSessionStore.getState();
+  if (activeId) void ptyWrite(activeId, "\x01");
+}

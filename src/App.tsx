@@ -18,6 +18,9 @@ import { computeLayout, type RectPct } from "./store/layoutTree";
 import { CommandPalette } from "./components/CommandPalette/CommandPalette";
 import { SettingsDialog } from "./components/SettingsDialog/SettingsDialog";
 import { matchBinding } from "./commands/keymap";
+import { resolvePrefixInput } from "./commands/prefix";
+import { usePrefixStore } from "./store/prefix";
+import { WhichKey } from "./components/WhichKey/WhichKey";
 import { runCommand } from "./commands/registry";
 import { listen } from "@tauri-apps/api/event";
 import { ensureNotifyPermission } from "./ipc/notify";
@@ -193,20 +196,45 @@ function App() {
     [layoutRoot],
   );
 
-  // 全域快捷鍵：keymap 比對 → 命令派發。capture phase：搶在 xterm 的按鍵處理之前。
+  // 全域快捷鍵：tmux 風格 prefix（Ctrl+A）狀態機優先，pass 才落回 KEYMAP
+  // 直接綁定（現在只剩 ⌘⇧P）。capture phase：搶在 xterm 的按鍵處理之前，
+  // 武裝後的第二鍵無論比中與否都吞掉（tmux 行為），絕不進入終端。
   // 注意：macOS WKWebView 會在原生層吞掉部分 Cmd 組合鍵（實測 ⌘D 到不了 DOM，
-  // 選單 accelerator 在 webview 有焦點時也不會觸發），所以綁定必須挑實測可達
-  // DOM 的組合（見 src/commands/keymap.ts）；選單項（見 lib.rs）提供可發現性與滑鼠入口。
+  // 選單 accelerator 在 webview 有焦點時也不會觸發）——prefix 用 Ctrl 開頭
+  // 沒有這個問題；選單項（見 lib.rs）提供可發現性與滑鼠入口。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.isComposing) return; // IME 組字中不介入
+      const { armed, arm, disarm } = usePrefixStore.getState();
+      const action = resolvePrefixInput(armed, e);
+      if (action.type !== "pass") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (action.type === "arm") {
+          arm();
+        } else if (action.type === "run") {
+          disarm();
+          runCommand(action.commandId);
+        } else if (action.type === "cancel") {
+          disarm();
+        }
+        // "ignore"（單獨修飾鍵）：吞掉、保持武裝。
+        return;
+      }
       const id = matchBinding(e);
       if (!id) return;
       e.preventDefault();
       e.stopPropagation();
       runCommand(id);
     };
+    // 切走視窗（Cmd+Tab、點選單列）時解除武裝，避免回來時吃掉第一個按鍵。
+    const onBlur = () => usePrefixStore.getState().disarm();
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("blur", onBlur);
+    };
   }, []);
 
   useEffect(() => {
@@ -280,6 +308,7 @@ function App() {
           <ChangedFilesPanel />
         </div>
       </main>
+      <WhichKey />
       <CommandPalette />
       <SettingsDialog />
     </div>

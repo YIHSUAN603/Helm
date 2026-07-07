@@ -1,7 +1,9 @@
 // Central command registry: the single dispatch point for global hotkeys,
 // the command palette, and the native menu (app://shortcut events).
 // To add a keyboard-reachable action: add a Command here and, if it needs a
-// hotkey, a KeyBinding in keymap.ts (plus a menu item in lib.rs when useful).
+// hotkey, a PrefixBinding in prefix.ts (Ctrl+A sequences; plus a menu item
+// in lib.rs when useful). Direct bindings in keymap.ts are reserved for the
+// few shortcuts that must work without the prefix (currently only ⌘⇧P).
 import { useSessionStore } from "../store/sessions";
 import { groupTreeOf, useLayoutStore } from "../store/layout";
 import { useUiStore } from "../store/ui";
@@ -24,6 +26,7 @@ import {
   resizeActivePane,
   respondActiveApproval,
   respondAllApprovals,
+  sendPrefixLiteral,
   splitActivePane,
   switchToSessionIndex,
 } from "./actions";
@@ -267,6 +270,15 @@ function staticCommands(): Command[] {
       keywords: "focus terminal",
       enabled: hasActive,
       run: focusActiveTerminal,
+    },
+    {
+      // Keyboard-only escape hatch (C-a a): meaningless as a mouse action.
+      id: "terminal:send-prefix",
+      title: t("command.sendCtrlA"),
+      category: t("category.view"),
+      hidden: true,
+      enabled: hasActive,
+      run: sendPrefixLiteral,
     },
   ];
 }

@@ -63,39 +63,38 @@ fn labels_for(language: &str) -> &'static MenuLabels {
 }
 
 /// 建立（或重建）應用選單：提供可發現性與滑鼠入口。實際按鍵由前端 DOM keydown
-/// 處理（macOS 上 WKWebView 有焦點時選單 accelerator 不會觸發，這裡的
-/// accelerator 主要作為選單上的快捷鍵提示；webview 無焦點時仍可作用）。
+/// 處理：快捷鍵是 tmux 風格的 Ctrl+A 前綴序列（見 src/commands/prefix.ts），
+/// 選單 accelerator 表達不了兩鍵序列，因此序列以文字提示附在 label 上
+/// （各平台上前綴都是字面 Ctrl，提示無需分平台）。只有命令面板保留真正的
+/// accelerator（⌘⇧P；webview 無焦點時仍可作用）。
 /// 項目 id = 前端命令 id（見 src/commands/registry.ts）。
 fn build_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<tauri::Wry>> {
     let l = labels_for(language);
-    let item = |id: &str, label: &str, accel: &str| {
-        MenuItemBuilder::with_id(id, label)
-            .accelerator(accel)
-            .build(app)
+    // hint = Ctrl+A 序列的第二鍵，附在 label 後（語言無關）。
+    let item = |id: &str, label: &str, hint: &str| {
+        MenuItemBuilder::with_id(id, format!("{label} (Ctrl+A {hint})")).build(app)
     };
 
-    let new_session = item("session:new", l.new_session, "CmdOrCtrl+Shift+T")?;
-    let next_session = item("session:next", l.next_session, "CmdOrCtrl+Shift+]")?;
-    let prev_session = item("session:prev", l.prev_session, "CmdOrCtrl+Shift+[")?;
+    let new_session = item("session:new", l.new_session, "c")?;
+    let next_session = item("session:next", l.next_session, "n")?;
+    let prev_session = item("session:prev", l.prev_session, "p")?;
     let session_menu = SubmenuBuilder::new(app, l.session)
         .items(&[&new_session, &next_session, &prev_session])
         .build()?;
 
-    let split_right = item("layout:split-right", l.split_right, "CmdOrCtrl+\\")?;
-    let split_down = item("layout:split-down", l.split_down, "CmdOrCtrl+Shift+D")?;
-    let close_pane = item("layout:close-pane", l.close_pane, "CmdOrCtrl+Shift+W")?;
-    let focus_next_pane = item(
-        "layout:focus-next-pane",
-        l.focus_next_pane,
-        "CmdOrCtrl+Shift+O",
-    )?;
+    let split_right = item("layout:split-right", l.split_right, "%")?;
+    let split_down = item("layout:split-down", l.split_down, "\"")?;
+    let close_pane = item("layout:close-pane", l.close_pane, "x")?;
+    let focus_next_pane = item("layout:focus-next-pane", l.focus_next_pane, "o")?;
     let layout_menu = SubmenuBuilder::new(app, l.layout)
         .items(&[&split_right, &split_down, &close_pane, &focus_next_pane])
         .build()?;
 
-    let palette = item("palette:open", l.palette, "CmdOrCtrl+Shift+P")?;
-    let toggle_files = item("view:toggle-files", l.toggle_files, "CmdOrCtrl+Shift+F")?;
-    let toggle_theme = item("theme:toggle", l.toggle_theme, "CmdOrCtrl+Shift+L")?;
+    let palette = MenuItemBuilder::with_id("palette:open", l.palette)
+        .accelerator("CmdOrCtrl+Shift+P")
+        .build(app)?;
+    let toggle_files = item("view:toggle-files", l.toggle_files, "f")?;
+    let toggle_theme = item("theme:toggle", l.toggle_theme, "t")?;
     let view_menu = SubmenuBuilder::new(app, l.view)
         .items(&[&palette, &toggle_files, &toggle_theme])
         .build()?;

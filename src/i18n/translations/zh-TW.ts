@@ -131,4 +131,10 @@ export const zhTW: Record<string, string> = {
   "command.newSessionWith": "新增 Session：{label}",
   "command.splitRightWith": "向右分割：{label}",
   "command.splitDownWith": "向下分割：{label}",
+  "command.sendCtrlA": "送出 Ctrl+A 給終端機",
+
+  // Which-key overlay (prefix mode)
+  "whichKey.title": "Ctrl+A",
+  "whichKey.switchDigits": "切換到第 1–9 個 Session",
+  "whichKey.hint": "Esc 取消",
 };

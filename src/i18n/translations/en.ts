@@ -131,4 +131,10 @@ export const en: Record<string, string> = {
   "command.newSessionWith": "New Session: {label}",
   "command.splitRightWith": "Split Right: {label}",
   "command.splitDownWith": "Split Down: {label}",
+  "command.sendCtrlA": "Send Ctrl+A to Terminal",
+
+  // Which-key overlay (prefix mode)
+  "whichKey.title": "Ctrl+A",
+  "whichKey.switchDigits": "Switch to Session 1–9",
+  "whichKey.hint": "Esc to cancel",
 };
