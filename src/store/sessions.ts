@@ -129,41 +129,55 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   setActive: (id) => set({ activeId: id }),
 
-  setTitle: (id, title) =>
+  // Setters below early-return when nothing would change: they run at PTY
+  // output frequency (per chunk / per 150ms scan), and a no-op set() would
+  // still rebuild the sessions array and re-render every subscriber.
+  setTitle: (id, title) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    if (!cur || cur.title === title) return;
     set((s) => ({
       sessions: s.sessions.map((x) => (x.id === id ? { ...x, title } : x)),
-    })),
+    }));
+  },
 
-  setStatus: (id, status) =>
+  setStatus: (id, status) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    if (!cur || cur.status === status || cur.status === "exited") return;
+    set((s) => ({
+      sessions: s.sessions.map((x) => (x.id === id ? { ...x, status } : x)),
+    }));
+  },
+
+  setDetectedAgent: (id, profileId, label) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    if (!cur || cur.agentId) return;
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id && x.status !== "exited" ? { ...x, status } : x,
+        x.id === id ? { ...x, agentId: profileId, agentLabel: label } : x,
       ),
-    })),
-
-  setDetectedAgent: (id, profileId, label) =>
-    set((s) => ({
-      sessions: s.sessions.map((x) =>
-        x.id === id && !x.agentId ? { ...x, agentId: profileId, agentLabel: label } : x,
-      ),
-    })),
+    }));
+  },
 
   setAgentState: (id, state, prompt, kind = "approval") => {
     const prev = get().sessions.find((x) => x.id === id);
+    if (!prev) return;
+    const pendingApproval =
+      state === "waiting" && kind === "approval" ? prompt : undefined;
+    const pendingPrompt =
+      state === "waiting" && kind !== "approval" && prompt
+        ? { kind, text: prompt }
+        : undefined;
+    if (
+      prev.agentState === state &&
+      prev.pendingApproval === pendingApproval &&
+      prev.pendingPrompt?.kind === pendingPrompt?.kind &&
+      prev.pendingPrompt?.text === pendingPrompt?.text
+    ) {
+      return;
+    }
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id
-          ? {
-              ...x,
-              agentState: state,
-              pendingApproval:
-                state === "waiting" && kind === "approval" ? prompt : undefined,
-              pendingPrompt:
-                state === "waiting" && kind !== "approval" && prompt
-                  ? { kind, text: prompt }
-                  : undefined,
-            }
-          : x,
+        x.id === id ? { ...x, agentState: state, pendingApproval, pendingPrompt } : x,
       ),
     }));
     // Entered waiting → desktop notification, gated by focus + dedupe
@@ -183,32 +197,35 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       ),
     })),
 
-  setUsage: (id, usage) =>
+  setUsage: (id, usage) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    if (!cur) return;
+    const cost = usage.cost ?? cur.cost;
+    const tokensIn = usage.tokensIn ?? cur.tokensIn;
+    const tokensOut = usage.tokensOut ?? cur.tokensOut;
+    if (cost === cur.cost && tokensIn === cur.tokensIn && tokensOut === cur.tokensOut) {
+      return;
+    }
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id
-          ? {
-              ...x,
-              cost: usage.cost ?? x.cost,
-              tokensIn: usage.tokensIn ?? x.tokensIn,
-              tokensOut: usage.tokensOut ?? x.tokensOut,
-            }
-          : x,
+        x.id === id ? { ...x, cost, tokensIn, tokensOut } : x,
       ),
-    })),
+    }));
+  },
 
-  addChangedFile: (id, file) =>
+  addChangedFile: (id, file) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    if (!cur) return;
+    const files = cur.changedFiles ?? [];
+    const idx = files.findIndex((f) => f.path === file.path);
+    if (idx >= 0 && files[idx].op === file.op) return;
+    // 已存在 → 更新 op；否則追加（保留首次出現順序）。
+    const next =
+      idx >= 0 ? files.map((f, i) => (i === idx ? file : f)) : [...files, file];
     set((s) => ({
-      sessions: s.sessions.map((x) => {
-        if (x.id !== id) return x;
-        const files = x.changedFiles ?? [];
-        const idx = files.findIndex((f) => f.path === file.path);
-        // 已存在 → 更新 op；否則追加（保留首次出現順序）。
-        const next =
-          idx >= 0
-            ? files.map((f, i) => (i === idx ? file : f))
-            : [...files, file];
-        return { ...x, changedFiles: next };
-      }),
-    })),
+      sessions: s.sessions.map((x) =>
+        x.id === id ? { ...x, changedFiles: next } : x,
+      ),
+    }));
+  },
 }));

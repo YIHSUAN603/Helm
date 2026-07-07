@@ -193,9 +193,14 @@ export function Terminal({
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
     let scanTimer: ReturnType<typeof setTimeout> | undefined;
     const onOutput = () => {
-      cbRef.current.onBusy?.();
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => cbRef.current.onIdle?.(), 400);
+      // Leading-edge busy: onBusy fires once per busy period (first chunk),
+      // not per chunk — the idle timeout re-arms it.
+      if (idleTimer === undefined) cbRef.current.onBusy?.();
+      else clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        idleTimer = undefined;
+        cbRef.current.onIdle?.();
+      }, 400);
       if (scanTimer) clearTimeout(scanTimer);
       scanTimer = setTimeout(() => {
         cbRef.current.onScan?.(readBufferText(term));

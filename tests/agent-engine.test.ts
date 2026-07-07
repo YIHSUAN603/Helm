@@ -23,6 +23,11 @@ check(
   "stripAnsi 移除 OSC 標題序列",
   stripAnsi("\x1b]0;title\x07hello") === "hello",
 );
+{
+  // Fast path: no control chars → the exact same string comes back (\n \t kept).
+  const clean = "plain text\nwith\ttabs and ❯ unicode";
+  check("stripAnsi 乾淨文字原樣返回", stripAnsi(clean) === clean);
+}
 
 // generic：常見審批字樣
 {
