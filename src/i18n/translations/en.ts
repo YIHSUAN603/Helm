@@ -59,6 +59,11 @@ export const en: Record<string, string> = {
   "sidebar.state.idle": "Idle",
   "sidebar.state.exited": "Exited",
 
+  // Desktop notifications (titles by prompt kind)
+  "notify.approval": "{label} needs your approval",
+  "notify.question": "{label} has a question for you",
+  "notify.plan": "{label}'s plan awaits your confirmation",
+
   // Approval panel
   "approval.pending": "Pending approval",
   "approval.approveAll": "Approve all",

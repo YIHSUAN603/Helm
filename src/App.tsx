@@ -6,7 +6,7 @@ import { Toolbar } from "./components/Toolbar/Toolbar";
 import { ChangedFilesPanel } from "./components/ChangedFilesPanel/ChangedFilesPanel";
 import { PaneLabel } from "./components/PaneLabel/PaneLabel";
 import { SplitResizers } from "./components/SplitLayout/SplitResizers";
-import { notifyPendingApproval, useSessionStore } from "./store/sessions";
+import { notifyPendingPrompt, useSessionStore } from "./store/sessions";
 import {
   clearApprovalSuppress,
   isApprovalSuppressed,
@@ -27,7 +27,7 @@ import { useUpdateStore } from "./store/update";
 import { useLanguageStore } from "./store/language";
 import { initRegistry, detectProfile, getProfile } from "./agents/registry";
 import { deriveState, stripAnsi } from "./agents/engine";
-import { extractFromLine } from "./agents/extract";
+import { extractFromLine, extractUsageFromText } from "./agents/extract";
 import { useT } from "./i18n";
 import "./App.css";
 
@@ -91,21 +91,37 @@ function handleScan(id: string, text: string) {
     store.setDetectedAgent(id, p.id, p.label);
     profileId = p.id;
   }
-  const derived = deriveState(getProfile(profileId), text);
+  const profile = getProfile(profileId);
+  // 用量統計（cost/tokens）從已渲染的 viewport 擷取：Claude Code 的 footer
+  // 以游標移動原地重繪、沒有換行，stream 的逐行路徑永遠看不到它。
+  // 必須在下方 waiting/suppress 的早期 return 之前執行，否則審批期間統計會凍結。
+  if (profile.extract) {
+    const usage = extractUsageFromText(profile, text);
+    if (
+      usage.cost !== undefined ||
+      usage.tokensIn !== undefined ||
+      usage.tokensOut !== undefined
+    ) {
+      store.setUsage(id, usage);
+    }
+  }
+  const derived = deriveState(profile, text);
   if (derived.state === "waiting") {
     // Just-answered prompt still on screen (TUI mid-repaint): don't resurrect
-    // the approval the user already responded to. A different prompt passes.
+    // the prompt the user already responded to. A different prompt passes.
     if (isApprovalSuppressed(id, derived.prompt ?? "", Date.now())) {
       return;
     }
     nonWaitingStreak.delete(id);
-    store.setAgentState(id, derived.state, derived.prompt);
+    store.setAgentState(id, derived.state, derived.prompt, derived.kind);
     return;
   }
-  // Pending approval + non-waiting result: drop the first divergent scan as a
-  // possibly-stale redraw frame; apply only on the second consecutive one.
-  // This delays clearing, never setting, so real approvals are unaffected.
-  if (sess.pendingApproval) {
+  // Pending prompt (approval or question/plan) + non-waiting result: drop the
+  // first divergent scan as a possibly-stale redraw frame; apply only on the
+  // second consecutive one. This delays clearing, never setting, so real
+  // prompts are unaffected.
+  const pendingText = sess.pendingApproval ?? sess.pendingPrompt?.text;
+  if (pendingText) {
     const streak = (nonWaitingStreak.get(id) ?? 0) + 1;
     if (streak < 2) {
       nonWaitingStreak.set(id, streak);
@@ -113,14 +129,14 @@ function handleScan(id: string, text: string) {
     }
     // The dialog left the screen without a panel response — the user answered
     // inside the terminal. Record it so a stale copy of the same prompt
-    // resurfacing (e.g. a resize reflow) cannot resurrect the approval,
+    // resurfacing (e.g. a resize reflow) cannot resurrect the prompt,
     // matching the explicit-response path in respondApproval.
-    markApprovalAnswered(id, sess.pendingApproval, Date.now());
+    markApprovalAnswered(id, pendingText, Date.now());
   }
   nonWaitingStreak.delete(id);
   if (derived.state) {
     store.setAgentState(id, derived.state, derived.prompt);
-  } else if (sess.pendingApproval) {
+  } else if (pendingText) {
     store.clearApproval(id);
   }
 }
@@ -204,11 +220,11 @@ function App() {
       // 原生選單 accelerator → 命令派發（純瀏覽器環境會 reject，忽略）。
       listen<string>("app://shortcut", (e) => runCommand(e.payload)).catch(() => {});
       // Notifications are suppressed while the window is focused (the
-      // ApprovalPanel is visible then); on blur, send them for approvals
-      // still pending. Dedupe in notifyPendingApproval stops alt-tab spam.
+      // ApprovalPanel is visible then); on blur, send them for prompts
+      // still pending. Dedupe in notifyPendingPrompt stops alt-tab spam.
       window.addEventListener("blur", () => {
         for (const s of useSessionStore.getState().sessions) {
-          notifyPendingApproval(s);
+          notifyPendingPrompt(s);
         }
       });
       // 每次啟動都是全新配置：一個預設 workspace + 一個新 session。

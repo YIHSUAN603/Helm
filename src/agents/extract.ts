@@ -23,13 +23,25 @@ function rx(src: string): RegExp | null {
   return re;
 }
 
-// 抓第一個 capture group 的數字（去掉千分位逗號）。
+// k/m/b 後綴 → 倍率（Claude Code footer 會顯示 2.1k tokens 這種縮寫）。
+const SUFFIX_MULTIPLIERS: Record<string, number> = {
+  k: 1e3,
+  m: 1e6,
+  b: 1e9,
+};
+
+// 抓第一個 capture group 的數字（去掉千分位逗號，支援 k/m/b 後綴）。
 function num(src: string | undefined, line: string): number | undefined {
   if (!src) return undefined;
   const re = rx(src);
   const m = re?.exec(line);
   if (!m || !m[1]) return undefined;
-  const n = parseFloat(m[1].replace(/,/g, ""));
+  let raw = m[1].replace(/,/g, "");
+  const mult = SUFFIX_MULTIPLIERS[raw.slice(-1).toLowerCase()] ?? 1;
+  if (mult !== 1) {
+    raw = raw.slice(0, -1);
+  }
+  const n = parseFloat(raw) * mult;
   return Number.isFinite(n) ? n : undefined;
 }
 
@@ -54,6 +66,26 @@ export function extractFromLine(profile: AgentProfile, line: string): Extracted 
       const path = (m[2] ?? m[1] ?? "").trim();
       if (path) out.file = { op: op.trim(), path };
     }
+  }
+  return out;
+}
+
+export type ExtractedUsage = Pick<Extracted, "cost" | "tokensIn" | "tokensOut">;
+
+// 從整段已渲染文字（如 xterm viewport）擷取用量統計。
+// 只取 cost/tokens（idempotent 的「當前狀態」），不取 fileChange（append 事件，
+// 留在 stream 路徑處理）。逐行掃描，後面的行覆蓋前面的（footer 靠近底部）。
+export function extractUsageFromText(profile: AgentProfile, text: string): ExtractedUsage {
+  const out: ExtractedUsage = {};
+  if (!profile.extract) return out;
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue;
+    const cost = num(profile.extract.cost, line);
+    if (cost !== undefined) out.cost = cost;
+    const ti = num(profile.extract.tokensIn, line);
+    if (ti !== undefined) out.tokensIn = ti;
+    const to = num(profile.extract.tokensOut, line);
+    if (to !== undefined) out.tokensOut = to;
   }
   return out;
 }

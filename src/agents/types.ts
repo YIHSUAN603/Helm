@@ -9,6 +9,14 @@ export type AgentState =
   | "done" // 完成
   | "error"; // 錯誤
 
+/**
+ * waiting 提示的類型：
+ * - "approval"：動作核准選單（進 ApprovalPanel + 通知）。
+ * - "question"：agent 的多選項問題（AskUserQuestion 類，只發通知）。
+ * - "plan"：plan 模式的執行確認（只發通知）。
+ */
+export type PromptKind = "approval" | "question" | "plan";
+
 /** 各狀態的辨識 pattern（regex 來源字串，套用在近期清乾淨的輸出上）。 */
 export interface AgentStatePatterns {
   /**
@@ -35,6 +43,20 @@ export interface AgentStatePatterns {
    * 逐行、大小寫敏感比對。選填；未提供則行為不變。
    */
   inputBox?: string;
+  /**
+   * 通用選項列（"❯ 1. <任意文字>"），用於選項不含肯定關鍵字的問題選單
+   * （AskUserQuestion 類）。逐行、大小寫敏感，在去除對話框邊框後的行上比對；
+   * 只有當上方找得到問題行（含 "?"）時才判 waiting（kind = "question"），
+   * 避免散文中的編號清單誤判。選填；未提供則不偵測此類選單。
+   */
+  menuOption?: string;
+  /**
+   * plan 模式執行確認對話框的標記（例如 "Would you like to proceed?"）。
+   * 不參與 waiting 判定，只在 waiting 成立時把 kind 改判為 "plan"
+   * （plan 選單的 "❯ 1. Yes, ..." 也會命中 waiting pattern，故此標記優先）。
+   * 逐行、不分大小寫比對。選填。
+   */
+  planMode?: string;
 }
 
 /**

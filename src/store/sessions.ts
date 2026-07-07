@@ -7,7 +7,8 @@ import { clearApprovalNotify, shouldNotifyApproval } from "./approvalNotify";
 import { clearApprovalSuppress } from "./approvalSuppress";
 import { notify } from "../ipc/notify";
 import { getProfile } from "../agents/registry";
-import type { AgentLauncher, AgentState } from "../agents/types";
+import { t } from "../i18n";
+import type { AgentLauncher, AgentState, PromptKind } from "../agents/types";
 
 export type SessionStatus = "idle" | "busy" | "exited";
 
@@ -21,7 +22,10 @@ export interface Session {
   agentId: string | null; // profile id（launcher 指定或被動偵測到）
   agentLabel?: string;
   agentState?: AgentState;
-  pendingApproval?: string; // waiting 時的提示行
+  pendingApproval?: string; // waiting（kind = approval）時的提示行，進 ApprovalPanel
+  // waiting 且 kind 為 question/plan 時的提示：只發桌面通知，不進 ApprovalPanel
+  //（誤按 Approve 會隨便選中第一個選項）。
+  pendingPrompt?: { kind: "question" | "plan"; text: string };
   launchCommand?: string; // 啟動時送進 PTY 的指令
   // ---- 本次執行的用量/變更（不持久化，重跑歸零）----
   cost?: number;
@@ -40,7 +44,7 @@ interface SessionState {
   setTitle: (id: string, title: string) => void;
   setStatus: (id: string, status: SessionStatus) => void;
   setDetectedAgent: (id: string, profileId: string, label: string) => void;
-  setAgentState: (id: string, state: AgentState, prompt?: string) => void;
+  setAgentState: (id: string, state: AgentState, prompt?: string, kind?: PromptKind) => void;
   clearApproval: (id: string) => void;
   setUsage: (
     id: string,
@@ -52,19 +56,23 @@ interface SessionState {
 let counter = 0;
 
 /**
- * Send the desktop notification for a session's pending approval, unless the
- * app window is focused (the ApprovalPanel is already visible then) or the
- * dedupe gate suppresses it. The focus check runs FIRST so a suppressed
- * notification is not recorded and can still fire later from the blur
- * listener in App.tsx. Known trade-off: answering inside the terminal (not
- * via the panel) leaves the dedupe record, so an identical prompt within the
- * cooldown shows only in the panel, without a toast.
+ * Send the desktop notification for a session's pending prompt (approval /
+ * question / plan, title differs by kind), unless the app window is focused
+ * (an approval's panel is already visible then, and for question/plan the
+ * dialog itself is on screen) or the dedupe gate suppresses it. The focus
+ * check runs FIRST so a suppressed notification is not recorded and can
+ * still fire later from the blur listener in App.tsx. Known trade-off:
+ * answering inside the terminal (not via the panel) leaves the dedupe
+ * record, so an identical prompt within the cooldown shows only in the
+ * panel, without a toast.
  */
-export function notifyPendingApproval(sess: Session): void {
-  if (!sess.pendingApproval) return;
+export function notifyPendingPrompt(sess: Session): void {
+  const kind: PromptKind = sess.pendingPrompt?.kind ?? "approval";
+  const text = sess.pendingPrompt?.text ?? sess.pendingApproval;
+  if (!text) return;
   if (document.hasFocus()) return;
-  if (!shouldNotifyApproval(sess.id, sess.pendingApproval, Date.now())) return;
-  notify(`${sess.agentLabel ?? "Agent"} 需要你核准`, sess.pendingApproval);
+  if (!shouldNotifyApproval(sess.id, text, Date.now())) return;
+  notify(t(`notify.${kind}`, { label: sess.agentLabel ?? "Agent" }), text);
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -140,7 +148,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       ),
     })),
 
-  setAgentState: (id, state, prompt) => {
+  setAgentState: (id, state, prompt, kind = "approval") => {
     const prev = get().sessions.find((x) => x.id === id);
     set((s) => ({
       sessions: s.sessions.map((x) =>
@@ -148,23 +156,30 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           ? {
               ...x,
               agentState: state,
-              pendingApproval: state === "waiting" ? prompt : undefined,
+              pendingApproval:
+                state === "waiting" && kind === "approval" ? prompt : undefined,
+              pendingPrompt:
+                state === "waiting" && kind !== "approval" && prompt
+                  ? { kind, text: prompt }
+                  : undefined,
             }
           : x,
       ),
     }));
     // Entered waiting → desktop notification, gated by focus + dedupe
-    // (notifyPendingApproval) so state flapping cannot re-notify the same prompt.
+    // (notifyPendingPrompt) so state flapping cannot re-notify the same prompt.
     if (state === "waiting" && prev?.agentState !== "waiting") {
       const sess = get().sessions.find((x) => x.id === id);
-      if (sess) notifyPendingApproval(sess);
+      if (sess) notifyPendingPrompt(sess);
     }
   },
 
   clearApproval: (id) =>
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id ? { ...x, pendingApproval: undefined, agentState: undefined } : x,
+        x.id === id
+          ? { ...x, pendingApproval: undefined, pendingPrompt: undefined, agentState: undefined }
+          : x,
       ),
     })),
 

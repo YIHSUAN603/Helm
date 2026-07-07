@@ -1,7 +1,7 @@
 // Extractor 純函式測試（成本/tokens/檔案變更）。
 // 執行：node --experimental-strip-types tests/agent-extract.test.ts
 import assert from "node:assert";
-import { extractFromLine } from "../src/agents/extract.ts";
+import { extractFromLine, extractUsageFromText } from "../src/agents/extract.ts";
 import { BUILTIN_PROFILES, GENERIC_PROFILE } from "../src/agents/builtins.ts";
 
 const claude = BUILTIN_PROFILES.find((p) => p.id === "claude-code")!;
@@ -61,6 +61,47 @@ check(
 check(
   "claude Read 不算檔案變更",
   extractFromLine(claude, "⏺ Read(demo.txt)").file === undefined,
+);
+
+// k/m 縮寫（現行 Claude Code footer 格式）
+check(
+  "claude tokens ↓ k 縮寫",
+  extractFromLine(claude, "↓ 2.1k tokens").tokensOut === 2100,
+);
+check(
+  "claude tokens ↑ m 縮寫",
+  extractFromLine(claude, "↑ 1.2m tokens").tokensIn === 1_200_000,
+);
+check(
+  "claude footer 完整行擷取 tokens",
+  extractFromLine(claude, "✻ Thinking… (esc to interrupt · 12s · ↓ 1.5k tokens)")
+    .tokensOut === 1500,
+);
+
+// extractUsageFromText：整段 viewport 文字擷取用量
+{
+  const text = [
+    "⏺ Update(demo.txt)",
+    "Total cost: $1.42 (session)",
+    "↓ 800 tokens",
+    "✻ Thinking… (esc to interrupt · 12s · ↓ 1.5k tokens)",
+  ].join("\n");
+  const usage = extractUsageFromText(claude, text);
+  check("usage 擷取 cost", usage.cost === 1.42);
+  check("usage 後行覆蓋前行（footer 在底部）", usage.tokensOut === 1500);
+  check(
+    "usage 不含檔案變更",
+    !("file" in usage),
+  );
+}
+check(
+  "usage 無 extract 的 profile 回空",
+  Object.keys(
+    extractUsageFromText(
+      { id: "x", label: "X", states: {}, approve: "y", reject: "n" },
+      "↓ 1.5k tokens",
+    ),
+  ).length === 0,
 );
 
 console.log(`\n${passed} checks passed.`);

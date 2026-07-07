@@ -217,4 +217,62 @@ check(
   check("y/n 式提示行為不變（本身就是問題行）", !!d.prompt && d.prompt.includes("Overwrite config?"));
 }
 
+// 提示類型（kind）：問題選單（AskUserQuestion，任意選項文字）與 plan 執行確認。
+{
+  const d = deriveState(
+    claude,
+    "Which approach do you prefer?\n❯ 1. Use axios\n  2. Use fetch",
+  );
+  check("claude 問題選單（任意選項）判 waiting", d.state === "waiting");
+  check("claude 問題選單 kind = question", d.kind === "question");
+  check("claude 問題選單 prompt 用問題行", d.prompt === "Which approach do you prefer?");
+}
+{
+  const d = deriveState(
+    claude,
+    "│ Which library should we use?  │\n│ ❯ 1. axios                    │\n│   2. fetch                    │\n╰───────────────────────────────╯",
+  );
+  check("claude 有邊框的問題選單判 waiting", d.state === "waiting");
+  check("claude 有邊框的問題選單 kind = question", d.kind === "question");
+}
+check(
+  "claude 任意選單上方無問題行不判 waiting",
+  deriveState(claude, "Some intro text\n❯ 1. Use axios\n  2. Use fetch").state !== "waiting",
+);
+check(
+  "claude 問題選單下方有輸入框（殘影）不判 waiting",
+  deriveState(
+    claude,
+    "Which approach do you prefer?\n❯ 1. Use axios\n  2. Use fetch\n  ? for shortcuts",
+  ).state !== "waiting",
+);
+check(
+  "claude ignore 對問題選單同樣生效（選主題）",
+  deriveState(claude, "Select theme?\n❯ 1. Dark\n  2. Light").state !== "waiting",
+);
+{
+  const d = deriveState(
+    claude,
+    "Here is Claude's plan:\n│ Add two notification kinds │\nWould you like to proceed?\n❯ 1. Yes, and auto-accept edits\n  2. Yes, and manually approve edits\n  3. No, keep planning",
+  );
+  check("claude plan 執行確認判 waiting", d.state === "waiting");
+  check("claude plan 執行確認 kind = plan", d.kind === "plan");
+  check("claude plan 確認 prompt 用問題行", d.prompt === "Would you like to proceed?");
+}
+check(
+  "claude plan 標記無選單時不判 waiting",
+  deriveState(claude, "Would you like to proceed?").state !== "waiting",
+);
+{
+  const d = deriveState(
+    claude,
+    "Do you want to make this edit to demo.txt?\n❯ 1. Yes\n  2. No, tell Claude",
+  );
+  check("claude 動作核准 kind = approval（回歸）", d.kind === "approval");
+}
+check(
+  "generic 無新 pattern 時 kind 一律 approval",
+  deriveState(GENERIC_PROFILE, "Proceed? (y/n)").kind === "approval",
+);
+
 console.log(`\n${passed} checks passed.`);

@@ -59,6 +59,11 @@ export const zhTW: Record<string, string> = {
   "sidebar.state.idle": "閒置",
   "sidebar.state.exited": "已結束",
 
+  // Desktop notifications (titles by prompt kind)
+  "notify.approval": "{label} 需要你核准",
+  "notify.question": "{label} 有問題想問你",
+  "notify.plan": "{label} 的計畫等待你確認",
+
   // Approval panel
   "approval.pending": "待審批",
   "approval.approveAll": "全部批准",

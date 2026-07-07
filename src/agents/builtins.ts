@@ -56,13 +56,19 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
       // 提示。作用中的審批對話框會取代輸入框，所以它出現在選單下方時，
       // 該選單必為已回答的殘影（見 engine.deriveState 的 stale-menu veto）。
       inputBox: "^\\s*│\\s*>(\\s|$)|\\?\\s*for shortcuts",
+      // AskUserQuestion 這類任意選項的選單列；engine 要求上方有問題行才判
+      // waiting（kind = "question"），散文編號清單不會誤判。
+      menuOption: "^\\s*❯\\s*\\d+\\.\\s",
+      // plan 模式的執行確認對話框標記 → kind = "plan"（請對照實際 TUI 校準）。
+      planMode: "Would you like to proceed\\?|Here is Claude'?s plan",
     },
     extract: {
       // 成本：/cost 指令輸出的「Total cost: $X」。
       cost: "(?:total cost|cost)[:\\s]*\\$\\s?([0-9]+(?:\\.[0-9]+)?)",
-      // Token 用量顯示於底部：↑ 輸入 / ↓ 輸出（例：↑ 75 tokens、↓ 38 tokens）。
-      tokensIn: "↑\\s*([0-9,]+)\\s*tokens?",
-      tokensOut: "↓\\s*([0-9,]+)\\s*tokens?",
+      // Token 用量顯示於底部：↑ 輸入 / ↓ 輸出，可能帶 k/m 縮寫
+      // （例：↑ 75 tokens、↓ 2.1k tokens）。
+      tokensIn: "↑\\s*([0-9,]+(?:\\.[0-9]+)?[kmb]?)\\s*tokens?",
+      tokensOut: "↓\\s*([0-9,]+(?:\\.[0-9]+)?[kmb]?)\\s*tokens?",
       // 檔案變更：Update/Edit/Write/Create(路徑)（例：⏺ Update(demo.txt)）。
       fileChange: "\\b(Update|Edit|MultiEdit|Write|Create)\\(([^)]+)\\)",
     },
