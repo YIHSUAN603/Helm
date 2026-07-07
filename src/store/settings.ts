@@ -6,6 +6,62 @@ export type CursorStyle = "block" | "bar" | "underline";
 const DEFAULT_FONT_FAMILY =
   '"SF Mono", "Cascadia Mono", "Cascadia Code", Consolas, "JetBrains Mono", Menlo, Monaco, "Courier New", monospace';
 const DEFAULT_FONT_SIZE = 13;
+
+/** 字型下拉選單的預設選項，value 為含備援字型的完整 CSS font-family 字串 */
+export interface FontFamilyPreset {
+  id: string;
+  label: string;
+  value: string;
+}
+
+export const FONT_FAMILY_PRESETS: FontFamilyPreset[] = [
+  { id: "sf-mono", label: "SF Mono", value: DEFAULT_FONT_FAMILY },
+  {
+    id: "cascadia-code",
+    label: "Cascadia Code",
+    value: '"Cascadia Code", "Cascadia Mono", Consolas, "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  },
+  {
+    id: "cascadia-mono",
+    label: "Cascadia Mono",
+    value: '"Cascadia Mono", "Cascadia Code", Consolas, "JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  },
+  {
+    id: "jetbrains-mono",
+    label: "JetBrains Mono",
+    value: '"JetBrains Mono", "SF Mono", Consolas, Menlo, Monaco, "Courier New", monospace',
+  },
+  {
+    id: "fira-code",
+    label: "Fira Code",
+    value: '"Fira Code", "SF Mono", Consolas, Menlo, Monaco, "Courier New", monospace',
+  },
+  {
+    id: "source-code-pro",
+    label: "Source Code Pro",
+    value: '"Source Code Pro", "SF Mono", Consolas, Menlo, Monaco, "Courier New", monospace',
+  },
+  {
+    id: "menlo",
+    label: "Menlo",
+    value: 'Menlo, Monaco, "SF Mono", Consolas, "Courier New", monospace',
+  },
+  {
+    id: "monaco",
+    label: "Monaco",
+    value: 'Monaco, Menlo, "SF Mono", Consolas, "Courier New", monospace',
+  },
+  {
+    id: "consolas",
+    label: "Consolas",
+    value: 'Consolas, "Cascadia Mono", "SF Mono", Menlo, Monaco, "Courier New", monospace',
+  },
+  {
+    id: "courier-new",
+    label: "Courier New",
+    value: '"Courier New", Consolas, Menlo, Monaco, monospace',
+  },
+];
 const DEFAULT_CURSOR_STYLE: CursorStyle = "block";
 const DEFAULT_CURSOR_BLINK = true;
 

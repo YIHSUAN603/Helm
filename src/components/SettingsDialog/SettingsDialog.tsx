@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { useUiStore } from "../../store/ui";
 import { useThemeStore, THEME_NAMES, THEME_LABELS } from "../../store/theme";
-import { useSettingsStore, type CursorStyle } from "../../store/settings";
+import { useSettingsStore, FONT_FAMILY_PRESETS, type CursorStyle } from "../../store/settings";
 import { useLanguageStore, LANGUAGE_NAMES, LANGUAGE_LABELS } from "../../store/language";
 import { useUpdateStore } from "../../store/update";
 import { focusActiveTerminal } from "../../focus/focusUtils";
@@ -17,6 +17,8 @@ const CURSOR_STYLE_KEYS: Record<CursorStyle, string> = {
   underline: "settings.cursorStyleUnderline",
 };
 const CURSOR_STYLES: CursorStyle[] = ["block", "bar", "underline"];
+
+const CUSTOM_FONT_FAMILY_ID = "custom";
 
 export function SettingsDialog() {
   const open = useUiStore((s) => s.settingsOpen);
@@ -47,6 +49,9 @@ function SettingsDialogInner() {
   const setCursorBlink = useSettingsStore((s) => s.setCursorBlink);
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
   const setDefaultCwd = useSettingsStore((s) => s.setDefaultCwd);
+
+  const selectedFontPresetId =
+    FONT_FAMILY_PRESETS.find((p) => p.value === fontFamily)?.id ?? CUSTOM_FONT_FAMILY_ID;
 
   const updatePhase = useUpdateStore((s) => s.phase);
   const updateVersion = useUpdateStore((s) => s.version);
@@ -128,12 +133,32 @@ function SettingsDialogInner() {
 
           <label className="settings-row">
             <span>{t("settings.fontFamily")}</span>
-            <input
-              type="text"
-              value={fontFamily}
-              onChange={(e) => setFontFamily(e.target.value)}
-            />
+            <select
+              value={selectedFontPresetId}
+              onChange={(e) => {
+                const preset = FONT_FAMILY_PRESETS.find((p) => p.id === e.target.value);
+                if (preset) setFontFamily(preset.value);
+              }}
+            >
+              {FONT_FAMILY_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+              <option value={CUSTOM_FONT_FAMILY_ID}>{t("settings.fontFamilyCustom")}</option>
+            </select>
           </label>
+
+          {selectedFontPresetId === CUSTOM_FONT_FAMILY_ID && (
+            <label className="settings-row">
+              <span>{t("settings.fontFamilyCustomValue")}</span>
+              <input
+                type="text"
+                value={fontFamily}
+                onChange={(e) => setFontFamily(e.target.value)}
+              />
+            </label>
+          )}
 
           <label className="settings-row">
             <span>{t("settings.fontSize")}</span>

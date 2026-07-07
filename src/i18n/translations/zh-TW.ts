@@ -23,6 +23,8 @@ export const zhTW: Record<string, string> = {
   "settings.theme": "主題",
   "settings.language": "語言",
   "settings.fontFamily": "字型",
+  "settings.fontFamilyCustom": "自訂…",
+  "settings.fontFamilyCustomValue": "自訂字型",
   "settings.fontSize": "字型大小",
   "settings.cursorStyle": "游標樣式",
   "settings.cursorStyleBlock": "方塊",

@@ -23,6 +23,8 @@ export const en: Record<string, string> = {
   "settings.theme": "Theme",
   "settings.language": "Language",
   "settings.fontFamily": "Font",
+  "settings.fontFamilyCustom": "Custom…",
+  "settings.fontFamilyCustomValue": "Custom font family",
   "settings.fontSize": "Font size",
   "settings.cursorStyle": "Cursor style",
   "settings.cursorStyleBlock": "Block",
