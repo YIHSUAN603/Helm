@@ -234,6 +234,39 @@ check(
   deriveState(GENERIC_PROFILE, "│ > │").state === undefined,
 );
 
+// 純文字提問：composer 閒置 + 上方最後一句為問句 ⇒ waiting / kind = question
+// （只發桌面通知，不進 ApprovalPanel）。
+{
+  const d = deriveState(
+    claude,
+    "⏺ Which approach do you prefer?\n╭──────────╮\n│ >        │\n╰──────────╯\n  ? for shortcuts",
+  );
+  check("claude 純文字提問判 waiting", d.state === "waiting");
+  check("claude 純文字提問 kind = question", d.kind === "question");
+}
+{
+  const d = deriveState(
+    claude,
+    "⏺ 你想用哪一個方案？\n╭──────────╮\n│ >        │\n╰──────────╯\n  ? for shortcuts",
+  );
+  check("claude 全形問號提問判 waiting", d.state === "waiting");
+  check("claude 全形問號提問 kind = question", d.kind === "question");
+}
+check(
+  "claude 完成非問句訊息 + 閒置輸入框仍判 done（不誤判提問）",
+  deriveState(
+    claude,
+    "⏺ Updated the config as requested.\n╭──────────╮\n│ >        │\n╰──────────╯\n  ? for shortcuts",
+  ).state === "done",
+);
+check(
+  "claude 提問後印非問句結尾行（只看最後一條內容行）不判提問",
+  deriveState(
+    claude,
+    "⏺ Which do you prefer?\n  - Option A\n  - Option B\n│ > │\n  ? for shortcuts",
+  ).state === "done",
+);
+
 // prompt 擷取：選單式審批應回報上方的問題行（每筆審批可辨識），
 // 而不是各審批都相同的選項列「❯ 1. Yes」。
 {

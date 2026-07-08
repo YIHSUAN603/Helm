@@ -51,6 +51,12 @@ export interface AgentStatePatterns {
    */
   menuOption?: string;
   /**
+   * composer 閒置時，用來判斷 agent 是否「用純文字問了問題並停在輸入框等回覆」。
+   * 只在 composer 閒置分支、對輸入框上方最後一條內容行比對（逐行、大小寫敏感）。
+   * 命中 → waiting / kind = "question"（只發桌面通知）；未提供則行為不變（維持 done）。
+   */
+  question?: string;
+  /**
    * plan 模式執行確認對話框的標記（例如 "Would you like to proceed?"）。
    * 不參與 waiting 判定，只在 waiting 成立時把 kind 改判為 "plan"
    * （plan 選單的 "❯ 1. Yes, ..." 也會命中 waiting pattern，故此標記優先）。

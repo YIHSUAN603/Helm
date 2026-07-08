@@ -61,6 +61,9 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
       menuOption: "^\\s*❯\\s*\\d+\\.\\s",
       // plan 模式的執行確認對話框標記 → kind = "plan"（請對照實際 TUI 校準）。
       planMode: "Would you like to proceed\\?|Here is Claude'?s plan",
+      // 純文字提問：訊息最後一行以問號結尾（行尾錨定，避免句中問號誤判）。
+      // 只在 composer 閒置時比對輸入框上方最後一條內容行（見 engine.deriveState）。
+      question: "[?？]\\s*$",
     },
     extract: {
       // 成本：/cost 指令輸出的「Total cost: $X」。
