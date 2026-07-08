@@ -1,10 +1,12 @@
 // 設定對話框：主題、字型、游標、預設 shell/工作目錄。所有變更即時套用並寫入 localStorage。
 // 結構仿 CommandPalette：backdrop + 置中對話框，Esc/backdrop 點擊關閉並還原焦點。
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { useUiStore } from "../../store/ui";
 import { useThemeStore, THEME_NAMES, THEME_LABELS } from "../../store/theme";
 import { useSettingsStore, FONT_FAMILY_PRESETS, type CursorStyle } from "../../store/settings";
+import { firstFontFamily, toFontFamilyValue } from "../../store/fontFamily";
+import { listMonospaceFonts } from "../../ipc/fonts";
 import { useLanguageStore, LANGUAGE_NAMES, LANGUAGE_LABELS } from "../../store/language";
 import { useUpdateStore } from "../../store/update";
 import { focusActiveTerminal } from "../../focus/focusUtils";
@@ -50,8 +52,43 @@ function SettingsDialogInner() {
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
   const setDefaultCwd = useSettingsStore((s) => s.setDefaultCwd);
 
-  const selectedFontPresetId =
-    FONT_FAMILY_PRESETS.find((p) => p.value === fontFamily)?.id ?? CUSTOM_FONT_FAMILY_ID;
+  // 系統等寬字型清單；載入中(null)、清單為空或純瀏覽器環境時退回內建 preset。
+  const [systemFonts, setSystemFonts] = useState<string[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    listMonospaceFonts().then((fonts) => {
+      if (alive) {
+        setSystemFonts(fonts);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const fontOptions = useMemo(
+    () =>
+      systemFonts && systemFonts.length > 0
+        ? systemFonts.map((name) => ({
+            id: name,
+            label: name,
+            value: toFontFamilyValue(name),
+          }))
+        : FONT_FAMILY_PRESETS,
+    [systemFonts],
+  );
+
+  // 使用者主動選了「自訂…」時強制顯示自由輸入框（此時 fontFamily 可能仍匹配某個選項）。
+  const [forceCustomFont, setForceCustomFont] = useState(false);
+
+  // 選中判定：先精確比對，再以第一個字型名稱比對（讓舊的 preset 備援鏈值
+  // 能對到同名的系統字型），都沒中才落到「自訂」。
+  const storedFirstFamily = firstFontFamily(fontFamily).toLowerCase();
+  const selectedFontPresetId = forceCustomFont
+    ? CUSTOM_FONT_FAMILY_ID
+    : fontOptions.find((p) => p.value === fontFamily)?.id ??
+      fontOptions.find((p) => firstFontFamily(p.value).toLowerCase() === storedFirstFamily)?.id ??
+      CUSTOM_FONT_FAMILY_ID;
 
   const updatePhase = useUpdateStore((s) => s.phase);
   const updateVersion = useUpdateStore((s) => s.version);
@@ -136,11 +173,16 @@ function SettingsDialogInner() {
             <select
               value={selectedFontPresetId}
               onChange={(e) => {
-                const preset = FONT_FAMILY_PRESETS.find((p) => p.id === e.target.value);
+                if (e.target.value === CUSTOM_FONT_FAMILY_ID) {
+                  setForceCustomFont(true);
+                  return;
+                }
+                setForceCustomFont(false);
+                const preset = fontOptions.find((p) => p.id === e.target.value);
                 if (preset) setFontFamily(preset.value);
               }}
             >
-              {FONT_FAMILY_PRESETS.map((preset) => (
+              {fontOptions.map((preset) => (
                 <option key={preset.id} value={preset.id}>
                   {preset.label}
                 </option>

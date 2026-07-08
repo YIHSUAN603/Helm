@@ -1,4 +1,5 @@
 mod config;
+mod fonts;
 mod pty;
 
 use pty::PtyManager;
@@ -142,6 +143,7 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             config::read_agents_config,
+            fonts::list_monospace_fonts,
             set_menu_language,
         ])
         .run(tauri::generate_context!())
