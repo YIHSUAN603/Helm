@@ -2,12 +2,12 @@
 // 設計為多 session（id -> PtySession 的 map），Phase 1 可直接沿用。
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::Deserialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 /// 單一 PTY session 在 Rust 端持有的資源。
 struct PtySession {
@@ -21,6 +21,20 @@ struct PtySession {
 #[derive(Default)]
 pub struct PtyManager {
     sessions: Mutex<HashMap<String, PtySession>>,
+}
+
+/// 取得 session map 的鎖；容忍 poisoning（持鎖執行緒 panic 不該永久癱瘓
+/// 所有 PTY 指令，map 本身沒有需要跨語句維護的不變量）。
+fn lock_sessions(
+    sessions: &Mutex<HashMap<String, PtySession>>,
+) -> MutexGuard<'_, HashMap<String, PtySession>> {
+    sessions.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// 終止並回收子行程（kill 後 wait 避免殭屍；已結束的 child kill 失敗無害）。
+fn reap(mut session: PtySession) {
+    let _ = session.child.kill();
+    let _ = session.child.wait();
 }
 
 #[derive(Deserialize)]
@@ -124,7 +138,7 @@ pub fn pty_spawn(
     };
 
     {
-        let mut sessions = state.sessions.lock().unwrap();
+        let mut sessions = lock_sessions(&state.sessions);
         sessions.insert(options.id.clone(), session);
     }
 
@@ -150,6 +164,14 @@ pub fn pty_spawn(
                 Err(_) => break,
             }
         }
+        // 讀取結束（EOF / 讀取錯誤 / 前端斷線）：從 map 移除並回收子行程，
+        // 否則自然結束的 shell 會留下殭屍子行程、fd 洩漏在 map 裡直到
+        // pty_kill。pty_kill 先移除時這裡拿到 None，兩邊互不衝突。
+        let manager = app.state::<PtyManager>();
+        let session = lock_sessions(&manager.sessions).remove(&id);
+        if let Some(session) = session {
+            reap(session);
+        }
         let _ = app.emit(&exit_event, ());
     });
 
@@ -159,7 +181,7 @@ pub fn pty_spawn(
 /// 將鍵盤輸入寫入指定 PTY。
 #[tauri::command]
 pub fn pty_write(state: State<'_, PtyManager>, id: String, data: String) -> Result<(), String> {
-    let mut sessions = state.sessions.lock().unwrap();
+    let mut sessions = lock_sessions(&state.sessions);
     let session = sessions
         .get_mut(&id)
         .ok_or_else(|| format!("no pty session: {id}"))?;
@@ -182,7 +204,7 @@ pub fn pty_resize(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    let sessions = state.sessions.lock().unwrap();
+    let sessions = lock_sessions(&state.sessions);
     let session = sessions
         .get(&id)
         .ok_or_else(|| format!("no pty session: {id}"))?;
@@ -201,9 +223,10 @@ pub fn pty_resize(
 /// 終止並移除指定 PTY session。
 #[tauri::command]
 pub fn pty_kill(state: State<'_, PtyManager>, id: String) -> Result<(), String> {
-    let mut sessions = state.sessions.lock().unwrap();
-    if let Some(mut session) = sessions.remove(&id) {
-        let _ = session.child.kill();
+    // 鎖外 kill + wait：回收不得阻塞其他 PTY 指令。
+    let session = lock_sessions(&state.sessions).remove(&id);
+    if let Some(session) = session {
+        reap(session);
     }
     Ok(())
 }

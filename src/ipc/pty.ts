@@ -25,12 +25,16 @@ export function ptySpawn(
   return invoke("pty_spawn", { options, onOutput: channel });
 }
 
+// Write/resize reject with "no pty session" once the shell has exited (the
+// Rust reader thread removes the session on EOF); callers fire-and-forget
+// (`void ptyWrite(...)`), so swallow here — input to a dead session is a no-op,
+// not an error worth an unhandled rejection.
 export function ptyWrite(id: string, data: string): Promise<void> {
-  return invoke("pty_write", { id, data });
+  return invoke<void>("pty_write", { id, data }).catch(() => {});
 }
 
 export function ptyResize(id: string, cols: number, rows: number): Promise<void> {
-  return invoke("pty_resize", { id, cols, rows });
+  return invoke<void>("pty_resize", { id, cols, rows }).catch(() => {});
 }
 
 export function ptyKill(id: string): Promise<void> {
