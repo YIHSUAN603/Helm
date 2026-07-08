@@ -211,7 +211,8 @@ function SettingsDialogInner() {
               value={fontSize}
               onChange={(e) => {
                 const v = Number(e.target.value);
-                if (v > 0) setFontSize(v);
+                // 夾在宣告的 min/max 內：超界值會直接套進 xterm 並持久化。
+                if (v > 0) setFontSize(Math.min(32, Math.max(8, v)));
               }}
             />
           </label>
