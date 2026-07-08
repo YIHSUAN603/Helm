@@ -39,6 +39,9 @@ interface TerminalProps {
   shell?: string;
   /** 啟動後送進 PTY 的指令（例如啟動某個 agent）。 */
   launchCommand?: string;
+  /** 是否需要 onStream 文字（session 有 agent 且 profile 有 extract）；
+   *  false 時跳過每個 chunk 的 TextDecoder 解碼。 */
+  streamEnabled: boolean;
   onTitle?: (title: string) => void;
   onBusy?: () => void;
   onIdle?: () => void;
@@ -68,6 +71,7 @@ function TerminalImpl({
   cwd,
   shell,
   launchCommand,
+  streamEnabled,
   onTitle,
   onBusy,
   onIdle,
@@ -99,6 +103,11 @@ function TerminalImpl({
   // Latest-ref 模式（同 cbRef）：scan debounce 在事件路徑上讀取，不參與 render。
   // eslint-disable-next-line react-hooks/refs
   visibleRef.current = visible;
+  // Latest-ref 模式（同 cbRef）：PTY 輸出 callback 讀取。被動偵測到 agent 時
+  // 旗標才翻 true，memo comparator 必須比對 streamEnabled 才能刷新此 ref。
+  const streamEnabledRef = useRef(streamEnabled);
+  // eslint-disable-next-line react-hooks/refs
+  streamEnabledRef.current = streamEnabled;
 
   // Drop the WebGL context and every pending attach/retry; xterm falls back
   // to the DOM renderer until attachWebgl() runs again.
@@ -234,7 +243,8 @@ function TerminalImpl({
 
     let disposed = false;
     let unlistenExit: UnlistenFn | undefined;
-    const decoder = new TextDecoder();
+    let decoder = new TextDecoder();
+    let streamWasEnabled = false;
 
     (async () => {
       unlistenExit = await onPtyExit(id, () => {
@@ -253,8 +263,20 @@ function TerminalImpl({
           if (disposed) return;
           term.write(bytes);
           onOutput();
-          // 串流解碼供逐行擷取（stream:true 處理跨 chunk 的多位元組字元）。
-          cbRef.current.onStream?.(decoder.decode(bytes, { stream: true }));
+          // 串流解碼供逐行擷取（stream:true 處理跨 chunk 的多位元組字元），
+          // 只在需要時做：無 agent 的 session 解碼結果會被 handleStream 丟棄。
+          // 旗標升起（被動偵測到 agent）時重建 decoder，丟棄停用期間可能殘留
+          // 的跨 chunk 狀態；首個 chunk 若始於多位元組字元中段最多產生一個
+          // 替換字元，usage/fileChange 行都在啟用之後才出現，實際無影響。
+          if (streamEnabledRef.current) {
+            if (!streamWasEnabled) {
+              streamWasEnabled = true;
+              decoder = new TextDecoder();
+            }
+            cbRef.current.onStream?.(decoder.decode(bytes, { stream: true }));
+          } else {
+            streamWasEnabled = false;
+          }
         },
       );
       // 啟動 agent：把指令當作使用者輸入送進 PTY（保留完整 shell 環境）。
@@ -397,7 +419,9 @@ function TerminalImpl({
 // cbRef (refreshed on every actual render), and the parent Pane's callbacks
 // capture only the stable session id — so a skipped render can never leave a
 // stale callback behind, while parent re-renders with fresh closures no
-// longer cascade into every mounted terminal.
+// longer cascade into every mounted terminal. streamEnabled is also read via
+// a ref on the event path, but it MUST participate here: skipping the render
+// would leave streamEnabledRef stale and stream extraction permanently off.
 export const Terminal = memo(
   TerminalImpl,
   (prev, next) =>
@@ -406,5 +430,6 @@ export const Terminal = memo(
     prev.visible === next.visible &&
     prev.cwd === next.cwd &&
     prev.shell === next.shell &&
-    prev.launchCommand === next.launchCommand,
+    prev.launchCommand === next.launchCommand &&
+    prev.streamEnabled === next.streamEnabled,
 );

@@ -191,6 +191,9 @@ interface PaneProps {
 }
 
 const Pane = memo(function Pane({ session: s, rect, active, solo }: PaneProps) {
+  // 沒有 agent（或 profile 無 extract）的 session 不需要 stream 文字：
+  // Terminal 據此跳過每個 chunk 的 TextDecoder 解碼（handleStream 反正會丟棄）。
+  const streamEnabled = s.agentId !== null && !!getProfile(s.agentId).extract;
   return (
     <div
       className={`pane ${active ? "focused" : ""}`}
@@ -206,6 +209,7 @@ const Pane = memo(function Pane({ session: s, rect, active, solo }: PaneProps) {
         focused={active}
         visible={rect !== undefined}
         launchCommand={s.launchCommand}
+        streamEnabled={streamEnabled}
         onTitle={(title) => useSessionStore.getState().setTitle(s.id, title)}
         onBusy={() => useSessionStore.getState().setStatus(s.id, "busy")}
         onIdle={() => useSessionStore.getState().setStatus(s.id, "idle")}
