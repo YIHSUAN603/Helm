@@ -13,17 +13,30 @@ const nonWaitingStreaks = new Map<string, number>();
 export const LINE_BUFFER_MAX = 4000;
 
 /**
+ * stream 每 chunk 最多處理的行數，超過只取尾端：洪水輸出（cat 大檔、build
+ * log）一個 64KB chunk 可含上萬短行，逐行 stripAnsi + regex 會同步卡住
+ * main thread。cost/token 行是「最新覆蓋」語意，取尾端天然正確；fileChange
+ * 是逐檔的人速輸出，單一 chunk 塞超過這個行數的檔案變更行並不現實。
+ */
+export const STREAM_MAX_LINES_PER_CHUNK = 200;
+
+/**
  * Append a raw chunk to the session's partial-line buffer and return the
  * complete lines; the trailing partial line stays buffered (capped at
- * LINE_BUFFER_MAX, keeping the tail) for the next chunk.
+ * LINE_BUFFER_MAX, keeping the tail) for the next chunk. With maxLines set,
+ * only the trailing maxLines lines are returned (see STREAM_MAX_LINES_PER_CHUNK).
  */
-export function consumeLines(sessionId: string, chunk: string): string[] {
+export function consumeLines(
+  sessionId: string,
+  chunk: string,
+  maxLines = Infinity,
+): string[] {
   let buf = (lineBuffers.get(sessionId) ?? "") + chunk;
   const lines = buf.split("\n");
   buf = lines.pop() ?? "";
   if (buf.length > LINE_BUFFER_MAX) buf = buf.slice(-LINE_BUFFER_MAX);
   lineBuffers.set(sessionId, buf);
-  return lines;
+  return lines.length > maxLines ? lines.slice(-maxLines) : lines;
 }
 
 /** Count one more consecutive non-waiting scan and return the new streak. */

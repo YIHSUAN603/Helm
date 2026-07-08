@@ -3,6 +3,7 @@
 import assert from "node:assert";
 import {
   LINE_BUFFER_MAX,
+  STREAM_MAX_LINES_PER_CHUNK,
   bumpNonWaitingStreak,
   clearScanState,
   consumeLines,
@@ -42,6 +43,26 @@ check(
   `殘餘半行截斷到 ${LINE_BUFFER_MAX} 並保留尾端`,
   capped.length === LINE_BUFFER_MAX && capped.endsWith("TAIL"),
 );
+
+// maxLines：超過上限只取尾端（洪水輸出限流）
+check(
+  "超過 maxLines 只取尾端且順序保留",
+  JSON.stringify(consumeLines("s8", "1\n2\n3\n4\n", 2)) === JSON.stringify(["3", "4"]),
+);
+check(
+  "行數等於 maxLines 不截斷",
+  JSON.stringify(consumeLines("s8", "1\n2\n", 2)) === JSON.stringify(["1", "2"]),
+);
+consumeLines("s8", "a\nb\nc\npartial", 1);
+check(
+  "截斷不影響殘餘半行 buffer（下一 chunk 接續）",
+  JSON.stringify(consumeLines("s8", "-end\n", 1)) === JSON.stringify(["partial-end"]),
+);
+check(
+  "省略 maxLines 行為不變",
+  JSON.stringify(consumeLines("s8", "1\n2\n3\n")) === JSON.stringify(["1", "2", "3"]),
+);
+check("STREAM_MAX_LINES_PER_CHUNK 為正整數", STREAM_MAX_LINES_PER_CHUNK > 0);
 
 // 非 waiting 連續計數
 check("streak 從 1 起算", bumpNonWaitingStreak("s5") === 1);

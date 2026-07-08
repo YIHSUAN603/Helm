@@ -13,6 +13,7 @@ import {
   markApprovalAnswered,
 } from "./store/approvalSuppress";
 import {
+  STREAM_MAX_LINES_PER_CHUNK,
   bumpNonWaitingStreak,
   clearScanState,
   consumeLines,
@@ -166,7 +167,9 @@ function handleStream(id: string, text: string) {
   const profile = getProfile(sess.agentId);
   if (!profile.extract) return;
 
-  for (const raw of consumeLines(id, text)) {
+  // onStream 在 PTY data callback 內同步執行：行數上限擋住洪水輸出把逐行
+  // 擷取的固定成本放大到卡住繪製（見 STREAM_MAX_LINES_PER_CHUNK 的取捨說明）。
+  for (const raw of consumeLines(id, text, STREAM_MAX_LINES_PER_CHUNK)) {
     const line = stripAnsi(raw);
     if (!line.trim()) continue;
     const ex = extractFromLine(profile, line);
