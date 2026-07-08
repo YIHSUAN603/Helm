@@ -1,6 +1,6 @@
 // 顯示語言，記在 localStorage。
 import { create } from "zustand";
-import { setMenuLanguage } from "../ipc/menu";
+import { setMenuLanguage } from "../ipc/menu.ts";
 
 export type Language = "zh-TW" | "en";
 
