@@ -178,6 +178,18 @@ function TerminalImpl({
       allowProposedApi: true,
       theme: xtermThemes[useThemeStore.getState().name],
     });
+    // xterm.js 不對映 Ctrl+/ → 0x1F(^_);補上讓 nvim 的 <C-/> 綁定可用。
+    term.attachCustomKeyEventHandler((e) => {
+      if (
+        e.type === "keydown" &&
+        e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey &&
+        e.key === "/"
+      ) {
+        term.input("\x1f");
+        return false; // 已處理,不讓 xterm 預設邏輯再碰
+      }
+      return true;
+    });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(container);
