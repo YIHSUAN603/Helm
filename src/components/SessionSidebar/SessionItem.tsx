@@ -4,6 +4,7 @@
 // state tick re-renders only its own row.
 import { memo } from "react";
 import { useSessionStore, type Session } from "../../store/sessions";
+import type { SplitClusterInfo } from "../../store/workspaceGroups";
 import { activateSession } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey } from "../../focus/listNav";
@@ -31,12 +32,14 @@ const stateLabelKeys: Record<string, string> = {
 
 interface SessionItemProps {
   session: Session;
+  cluster: SplitClusterInfo;
   isActive: boolean;
   listRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const SessionItem = memo(function SessionItem({
   session: s,
+  cluster,
   isActive,
   listRef,
 }: SessionItemProps) {
@@ -70,6 +73,8 @@ export const SessionItem = memo(function SessionItem({
       role="button"
       tabIndex={isActive ? 0 : -1}
       data-region-entry={isActive ? "true" : undefined}
+      data-cluster-pos={cluster.position}
+      data-cluster-group={cluster.groupId ?? undefined}
       draggable
       onDragStart={onDragStart}
       onClick={() => activateSession(s.id)}

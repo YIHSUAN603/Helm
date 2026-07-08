@@ -3,6 +3,7 @@
 import assert from "node:assert";
 import {
   DEFAULT_WORKSPACE_ID,
+  clusterBySplitGroup,
   flattenGroupedIds,
   groupSessions,
   pendingApprovalsInWorkspace,
@@ -126,6 +127,58 @@ function sess(
   const flat = flattenGroupedIds(groupSessions(workspaces, sessions));
   check("flatten follows group order then insertion order", flat.join(",") === "s1,s3,s2");
   check("flatten empty groups → empty array", flattenGroupedIds(groupSessions(workspaces, [])).length === 0);
+}
+
+// clusterBySplitGroup: reordering + position tagging
+{
+  const s = (id: string) => ({ id });
+
+  // Interleaved group members get pulled together at the first member's spot.
+  {
+    const sessions = [s("a"), s("b"), s("c"), s("d")];
+    const groupIdOf = (id: string) => (id === "a" || id === "c" ? "g1" : null);
+    const result = clusterBySplitGroup(sessions, groupIdOf);
+    check(
+      "interleaved group members become contiguous, stable order otherwise",
+      result.map((r) => r.session.id).join(",") === "a,c,b,d",
+    );
+    check(
+      "ungrouped sessions tagged solo",
+      result.find((r) => r.session.id === "b")!.cluster.position === "solo" &&
+        result.find((r) => r.session.id === "b")!.cluster.groupId === null,
+    );
+    check(
+      "2-member cluster tagged first/last (no middle)",
+      result.find((r) => r.session.id === "a")!.cluster.position === "first" &&
+        result.find((r) => r.session.id === "c")!.cluster.position === "last",
+    );
+  }
+
+  // 3-member cluster: first/middle/last.
+  {
+    const sessions = [s("x"), s("y"), s("z")];
+    const groupIdOf = () => "g2";
+    const result = clusterBySplitGroup(sessions, groupIdOf);
+    check(
+      "3-member cluster tagged first/middle/last in order",
+      result.map((r) => r.cluster.position).join(",") === "first,middle,last",
+    );
+    check(
+      "all members share the same groupId",
+      result.every((r) => r.cluster.groupId === "g2"),
+    );
+  }
+
+  // All ungrouped: order unchanged, all solo.
+  {
+    const sessions = [s("p"), s("q")];
+    const result = clusterBySplitGroup(sessions, () => null);
+    check(
+      "no groups → original order preserved",
+      result.map((r) => r.session.id).join(",") === "p,q",
+    );
+    check("no groups → all solo", result.every((r) => r.cluster.position === "solo"));
+  }
 }
 
 console.log(`\nworkspace-groups: ${passed} checks passed`);

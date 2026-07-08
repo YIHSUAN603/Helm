@@ -83,3 +83,49 @@ export function flattenGroupedIds(
 ): string[] {
   return groups.flatMap((g) => g.sessions.map((s) => s.id));
 }
+
+/** A session's position within its split-group cluster, for connector-line rendering. */
+export interface SplitClusterInfo {
+  /** Split-group id the session belongs to, or null if ungrouped. */
+  groupId: string | null;
+  /** solo = ungrouped; first/middle/last = position within its cluster block. */
+  position: "solo" | "first" | "middle" | "last";
+}
+
+/**
+ * Reorder sessions so members of the same split-group tree sit contiguously
+ * (stable: a group's members keep their relative order, placed at the first
+ * member's position), and tag each with its cluster info for sidebar rendering.
+ */
+export function clusterBySplitGroup<S extends { id: string }>(
+  sessions: S[],
+  groupIdOf: (sessionId: string) => string | null,
+): { session: S; cluster: SplitClusterInfo }[] {
+  const buckets = new Map<string, S[]>();
+  for (const s of sessions) {
+    const groupId = groupIdOf(s.id);
+    if (groupId === null) continue;
+    const bucket = buckets.get(groupId);
+    if (bucket) bucket.push(s);
+    else buckets.set(groupId, [s]);
+  }
+
+  const placed = new Set<string>();
+  const result: { session: S; cluster: SplitClusterInfo }[] = [];
+  for (const s of sessions) {
+    if (placed.has(s.id)) continue;
+    const groupId = groupIdOf(s.id);
+    if (groupId === null) {
+      placed.add(s.id);
+      result.push({ session: s, cluster: { groupId: null, position: "solo" } });
+      continue;
+    }
+    const members = buckets.get(groupId)!;
+    members.forEach((member, i) => {
+      placed.add(member.id);
+      const position = i === 0 ? "first" : i === members.length - 1 ? "last" : "middle";
+      result.push({ session: member, cluster: { groupId, position } });
+    });
+  }
+  return result;
+}

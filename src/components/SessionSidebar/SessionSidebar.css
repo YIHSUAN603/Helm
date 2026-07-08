@@ -124,6 +124,7 @@
 }
 
 .session-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -131,6 +132,39 @@
   border-radius: 6px;
   cursor: pointer;
   color: var(--fg);
+}
+
+/* Split-group cluster: shared tint + a left-edge connector bracket joining rows. */
+.session-item[data-cluster-pos="first"],
+.session-item[data-cluster-pos="middle"],
+.session-item[data-cluster-pos="last"] {
+  background: var(--split-cluster-tint, rgba(137, 180, 250, 0.07));
+}
+
+.session-item[data-cluster-pos="first"]::before,
+.session-item[data-cluster-pos="middle"]::before,
+.session-item[data-cluster-pos="last"]::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  width: 2px;
+  background: var(--muted);
+  border-radius: 1px;
+}
+
+.session-item[data-cluster-pos="first"]::before {
+  top: 50%;
+  bottom: 0;
+}
+
+.session-item[data-cluster-pos="middle"]::before {
+  top: 0;
+  bottom: 0;
+}
+
+.session-item[data-cluster-pos="last"]::before {
+  top: 0;
+  bottom: 50%;
 }
 
 .session-item:hover {

@@ -5,7 +5,7 @@ import { memo, useMemo, useRef, useState } from "react";
 import { useSessionStore, type Session } from "../../store/sessions";
 import { useWorkspaceStore, expandWorkspace } from "../../store/workspaces";
 import { useUiStore } from "../../store/ui";
-import type { Workspace } from "../../store/workspaceGroups";
+import type { SplitClusterInfo, Workspace } from "../../store/workspaceGroups";
 import {
   activateFirstPendingApproval,
   newSession,
@@ -18,7 +18,7 @@ import { useT } from "../../i18n";
 
 interface WorkspaceGroupProps {
   workspace: Workspace;
-  sessions: Session[];
+  sessions: { session: Session; cluster: SplitClusterInfo }[];
   activeId: string | null;
   listRef: React.RefObject<HTMLDivElement | null>;
   deletable: boolean;
@@ -43,7 +43,7 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
   const onRenameEnd = () => setRenamingId(null);
   const [dragOver, setDragOver] = useState(false);
   const pendingCount = useMemo(
-    () => sessions.filter((s) => s.pendingApproval).length,
+    () => sessions.filter(({ session: s }) => s.pendingApproval).length,
     [sessions],
   );
   // Counter to ignore dragleave noise from child elements.
@@ -185,8 +185,14 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
       </div>
       {!w.collapsed && (
         <div className="workspace-sessions">
-          {sessions.map((s) => (
-            <SessionItem key={s.id} session={s} isActive={s.id === activeId} listRef={listRef} />
+          {sessions.map(({ session: s, cluster }) => (
+            <SessionItem
+              key={s.id}
+              session={s}
+              cluster={cluster}
+              isActive={s.id === activeId}
+              listRef={listRef}
+            />
           ))}
         </div>
       )}

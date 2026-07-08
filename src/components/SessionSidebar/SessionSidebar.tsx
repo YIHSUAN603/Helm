@@ -6,7 +6,9 @@
 import { useMemo, useRef } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useWorkspaceStore } from "../../store/workspaces";
-import { groupSessions, DEFAULT_WORKSPACE_ID } from "../../store/workspaceGroups";
+import { groupSessions, clusterBySplitGroup, DEFAULT_WORKSPACE_ID } from "../../store/workspaceGroups";
+import { useLayoutStore } from "../../store/layout";
+import { findTreeBySession } from "../../store/layoutTree";
 import { useUiStore } from "../../store/ui";
 import { newWorkspace } from "../../commands/actions";
 import { WorkspaceGroup } from "./WorkspaceGroup";
@@ -18,15 +20,19 @@ export function SessionSidebar() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const trees = useLayoutStore((s) => s.trees);
   const setRenamingId = useUiStore((s) => s.setRenamingWorkspaceId);
   const settingsOpen = useUiStore((s) => s.settingsOpen);
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const groups = useMemo(
-    () => groupSessions(workspaces, sessions),
-    [workspaces, sessions],
-  );
+  const groups = useMemo(() => {
+    const groupIdOf = (id: string) => findTreeBySession(trees, id);
+    return groupSessions(workspaces, sessions).map((g) => ({
+      workspace: g.workspace,
+      sessions: clusterBySplitGroup(g.sessions, groupIdOf),
+    }));
+  }, [workspaces, sessions, trees]);
 
   const addWorkspace = () => {
     setRenamingId(newWorkspace());

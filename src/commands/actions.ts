@@ -8,13 +8,14 @@ import { groupTreeOf, useLayoutStore } from "../store/layout";
 import { useWorkspaceStore, expandWorkspace } from "../store/workspaces";
 import {
   DEFAULT_WORKSPACE_ID,
+  clusterBySplitGroup,
   flattenGroupedIds,
   groupSessions,
   pendingApprovalsInWorkspace,
   resolveFocusedWorkspace,
   sessionsInWorkspace,
 } from "../store/workspaceGroups";
-import { computeLayout, type LayoutNode, type SplitDir } from "../store/layoutTree";
+import { computeLayout, findTreeBySession, type LayoutNode, type SplitDir } from "../store/layoutTree";
 import { getProfile } from "../agents/registry";
 import { ptyWrite } from "../ipc/pty";
 import { focusActiveTerminal } from "../focus/focusUtils";
@@ -61,11 +62,17 @@ export function splitActivePane(dir: SplitDir, launcher?: AgentLauncher): void {
   layout.splitPane(active.id, dir, newId);
 }
 
-/** Session ids in sidebar visual order (grouped by workspace). */
+/** Session ids in sidebar visual order (grouped by workspace, then split-group cluster). */
 function sessionIdsInSidebarOrder(): string[] {
   const { workspaces } = useWorkspaceStore.getState();
   const { sessions } = useSessionStore.getState();
-  return flattenGroupedIds(groupSessions(workspaces, sessions));
+  const { trees } = useLayoutStore.getState();
+  const groupIdOf = (id: string) => findTreeBySession(trees, id);
+  const groups = groupSessions(workspaces, sessions).map((g) => ({
+    workspace: g.workspace,
+    sessions: clusterBySplitGroup(g.sessions, groupIdOf).map((c) => c.session),
+  }));
+  return flattenGroupedIds(groups);
 }
 
 /** Activate the next (+1) or previous (-1) session in sidebar order. */
