@@ -131,6 +131,42 @@ function TerminalImpl({
 
     const titleDisposable = term.onTitleChange((t) => cbRef.current.onTitle?.(t));
 
+    // Alternate-screen paint fix (nvim/LazyVim and other full-screen TUIs).
+    // The content reaches xterm's buffer AND its DOM correctly (verified: the
+    // same frame renders fine in Chromium), but macOS WKWebView fails to
+    // composite the terminal's DOM subtree while the alternate screen is
+    // active — the pane stays blank across both the WebGL and DOM renderers,
+    // so it is an alt-screen-specific WKWebView compositing bug, not a
+    // renderer bug. Refit on the buffer switch, then after every rendered
+    // alternate-screen frame force WKWebView to re-rasterize by toggling a
+    // compositing hint on the screen element (rAF-throttled to one nudge per
+    // frame). onBufferChange alone is not enough: it fires at the instant of
+    // the swap, before the TUI has drawn anything.
+    const bufferDisposable = term.buffer.onBufferChange(() => {
+      requestAnimationFrame(() => {
+        try {
+          fitAddon.fit();
+        } catch {
+          /* ignore */
+        }
+      });
+    });
+    let nudgeScheduled = false;
+    const renderDisposable = term.onRender(() => {
+      if (nudgeScheduled || term.buffer.active.type !== "alternate") return;
+      nudgeScheduled = true;
+      requestAnimationFrame(() => {
+        nudgeScheduled = false;
+        const screen = container.querySelector<HTMLElement>(".xterm-screen");
+        if (!screen) return;
+        screen.style.transform = "translateZ(0)";
+        void screen.offsetHeight; // force reflow between the toggles
+        requestAnimationFrame(() => {
+          screen.style.transform = "";
+        });
+      });
+    });
+
     // 活動燈 + agent 掃描（皆 debounce）。
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
     let scanTimer: ReturnType<typeof setTimeout> | undefined;
@@ -235,6 +271,8 @@ function TerminalImpl({
       if (ptyResizeTimer) clearTimeout(ptyResizeTimer);
       resizeObserver.disconnect();
       titleDisposable.dispose();
+      bufferDisposable.dispose();
+      renderDisposable.dispose();
       dataDisposable.dispose();
       unlistenExit?.();
       void ptyKill(id);
