@@ -22,7 +22,7 @@ export default defineConfig(async () => ({
       output: {
         // Keep the big, rarely-changing xterm stack out of the app chunk.
         manualChunks: {
-          xterm: ["@xterm/xterm", "@xterm/addon-fit"],
+          xterm: ["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-canvas"],
         },
       },
     },

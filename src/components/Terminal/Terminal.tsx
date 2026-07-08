@@ -4,6 +4,7 @@
 import { memo, useEffect, useRef } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { CanvasAddon } from "@xterm/addon-canvas";
 import "@xterm/xterm/css/xterm.css";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
@@ -84,9 +85,11 @@ function TerminalImpl({
   // eslint-disable-next-line react-hooks/refs
   cbRef.current = { onTitle, onBusy, onIdle, onExit, onScan, onStream };
 
-  // Renderer: xterm's DOM renderer only. The WebGL addon (0.19 / xterm 6.x)
-  // painted the alternate-screen buffer blank on macOS WKWebView — full-screen
-  // TUIs like nvim showed an empty pane — so acceleration is deliberately off.
+  // Renderer: xterm 5.x + the canvas addon (DOM renderer as fallback). xterm
+  // 6.x rendered full-screen TUIs (nvim's alternate screen) blank on macOS
+  // WKWebView regardless of WebGL/DOM renderer or forced repaints; 5.x + canvas
+  // is the WKWebView-proven stack. If loadAddon throws, xterm keeps its
+  // built-in DOM renderer.
   const visibleRef = useRef(visible);
   // Latest-ref 模式（同 cbRef）：scan debounce 在事件路徑上讀取，不參與 render。
   // eslint-disable-next-line react-hooks/refs
@@ -125,23 +128,20 @@ function TerminalImpl({
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(container);
+    try {
+      term.loadAddon(new CanvasAddon());
+    } catch {
+      /* fall back to the built-in DOM renderer */
+    }
     fitAddon.fit();
     termRef.current = term;
     fitRef.current = fitAddon;
 
     const titleDisposable = term.onTitleChange((t) => cbRef.current.onTitle?.(t));
 
-    // Alternate-screen paint fix (nvim/LazyVim and other full-screen TUIs).
-    // The content reaches xterm's buffer AND its DOM correctly (verified: the
-    // same frame renders fine in Chromium), but macOS WKWebView fails to
-    // composite the terminal's DOM subtree while the alternate screen is
-    // active — the pane stays blank across both the WebGL and DOM renderers,
-    // so it is an alt-screen-specific WKWebView compositing bug, not a
-    // renderer bug. Refit on the buffer switch, then after every rendered
-    // alternate-screen frame force WKWebView to re-rasterize by toggling a
-    // compositing hint on the screen element (rAF-throttled to one nudge per
-    // frame). onBufferChange alone is not enough: it fires at the instant of
-    // the swap, before the TUI has drawn anything.
+    // Switching to/from the alternate screen (nvim and other full-screen TUIs)
+    // can change the usable cell grid; refit on the swap so cols/rows stay
+    // correct.
     const bufferDisposable = term.buffer.onBufferChange(() => {
       requestAnimationFrame(() => {
         try {
@@ -149,21 +149,6 @@ function TerminalImpl({
         } catch {
           /* ignore */
         }
-      });
-    });
-    let nudgeScheduled = false;
-    const renderDisposable = term.onRender(() => {
-      if (nudgeScheduled || term.buffer.active.type !== "alternate") return;
-      nudgeScheduled = true;
-      requestAnimationFrame(() => {
-        nudgeScheduled = false;
-        const screen = container.querySelector<HTMLElement>(".xterm-screen");
-        if (!screen) return;
-        screen.style.transform = "translateZ(0)";
-        void screen.offsetHeight; // force reflow between the toggles
-        requestAnimationFrame(() => {
-          screen.style.transform = "";
-        });
       });
     });
 
@@ -272,7 +257,6 @@ function TerminalImpl({
       resizeObserver.disconnect();
       titleDisposable.dispose();
       bufferDisposable.dispose();
-      renderDisposable.dispose();
       dataDisposable.dispose();
       unlistenExit?.();
       void ptyKill(id);
