@@ -4,7 +4,6 @@
 import { memo, useEffect, useRef } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
@@ -18,11 +17,6 @@ import { useThemeStore, xtermThemes } from "../../store/theme";
 import { useSettingsStore } from "../../store/settings";
 import "./Terminal.css";
 
-// WebGL context-loss recovery: retry budget per visible period, and how long
-// to wait before re-attaching (gives the GPU driver time after a reset).
-const MAX_CONTEXT_LOSSES = 3;
-const CONTEXT_LOSS_RETRY_MS = 1000;
-
 // Agent-scan debounce. Hidden panes still scan (their approvals surface via
 // sidebar badges and desktop notifications) but at a relaxed cadence — the
 // extra latency is invisible there and the viewport regex sweep is not free.
@@ -33,7 +27,7 @@ interface TerminalProps {
   id: string;
   /** 是否為目前 focus 的 pane（邊框高亮 + 自動聚焦輸入）。 */
   focused: boolean;
-  /** Pane is CSS-visible (`data-in-layout="true"`); drives WebGL renderer attach/detach. */
+  /** Pane is CSS-visible (`data-in-layout="true"`); drives refit on show. */
   visible: boolean;
   cwd?: string;
   shell?: string;
@@ -90,15 +84,9 @@ function TerminalImpl({
   // eslint-disable-next-line react-hooks/refs
   cbRef.current = { onTitle, onBusy, onIdle, onExit, onScan, onStream };
 
-  // WebGL renderer lifecycle: only visible panes hold a GPU context
-  // (WebView2 caps live WebGL contexts at ~16; hidden panes fall back to the
-  // DOM renderer, which costs nothing while display:none). All state lives in
-  // refs so the helpers below never close over stale values.
-  const webglRef = useRef<WebglAddon | null>(null);
-  const contextLossDisposableRef = useRef<{ dispose(): void } | null>(null);
-  const lossCountRef = useRef(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const attachRafRef = useRef(0);
+  // Renderer: xterm's DOM renderer only. The WebGL addon (0.19 / xterm 6.x)
+  // painted the alternate-screen buffer blank on macOS WKWebView — full-screen
+  // TUIs like nvim showed an empty pane — so acceleration is deliberately off.
   const visibleRef = useRef(visible);
   // Latest-ref 模式（同 cbRef）：scan debounce 在事件路徑上讀取，不參與 render。
   // eslint-disable-next-line react-hooks/refs
@@ -108,76 +96,6 @@ function TerminalImpl({
   const streamEnabledRef = useRef(streamEnabled);
   // eslint-disable-next-line react-hooks/refs
   streamEnabledRef.current = streamEnabled;
-
-  // Drop the WebGL context and every pending attach/retry; xterm falls back
-  // to the DOM renderer until attachWebgl() runs again.
-  function detachWebgl() {
-    if (attachRafRef.current) {
-      cancelAnimationFrame(attachRafRef.current);
-      attachRafRef.current = 0;
-    }
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = undefined;
-    }
-    contextLossDisposableRef.current?.dispose();
-    contextLossDisposableRef.current = null;
-    try {
-      webglRef.current?.dispose();
-    } catch {
-      /* ignore */
-    }
-    webglRef.current = null;
-  }
-
-  // Idempotent: attaches the WebGL renderer only when the pane is visible,
-  // laid out (non-zero size), and not already accelerated.
-  function attachWebgl() {
-    const term = termRef.current;
-    const container = containerRef.current;
-    if (webglRef.current || !term || !container || !visibleRef.current) {
-      return;
-    }
-    if (container.clientWidth === 0 || container.clientHeight === 0) {
-      return;
-    }
-    const addon = new WebglAddon();
-    // Subscribe before loading: per xterm docs the addon must be disposed
-    // as soon as the context is lost.
-    contextLossDisposableRef.current = addon.onContextLoss(() => handleContextLoss());
-    try {
-      term.loadAddon(addon);
-      webglRef.current = addon;
-    } catch {
-      // WebGL unavailable: stay on the DOM renderer. Count it as a loss so
-      // the retry path does not hammer a hard-failing GPU.
-      contextLossDisposableRef.current?.dispose();
-      contextLossDisposableRef.current = null;
-      try {
-        addon.dispose();
-      } catch {
-        /* ignore */
-      }
-      lossCountRef.current += 1;
-    }
-  }
-
-  // GPU reset (sleep/resume, driver crash): dispose the dead context and
-  // re-attach after a delay, bounded so a broken GPU settles on the DOM
-  // renderer instead of retrying forever. The budget resets on next show.
-  function handleContextLoss() {
-    lossCountRef.current += 1;
-    detachWebgl();
-    if (lossCountRef.current >= MAX_CONTEXT_LOSSES) {
-      return;
-    }
-    retryTimerRef.current = setTimeout(() => {
-      retryTimerRef.current = undefined;
-      if (visibleRef.current) {
-        attachWebgl();
-      }
-    }, CONTEXT_LOSS_RETRY_MS);
-  }
 
   useEffect(() => {
     const container = containerRef.current;
@@ -210,13 +128,6 @@ function TerminalImpl({
     fitAddon.fit();
     termRef.current = term;
     fitRef.current = fitAddon;
-
-    // WebGL is owned by the visibility effect; this rAF covers term rebuilds
-    // (deps change) where that effect does not re-run. Double-fire on first
-    // mount is harmless — attachWebgl() is idempotent.
-    const initialAttachRaf = requestAnimationFrame(() => {
-      attachWebgl();
-    });
 
     const titleDisposable = term.onTitleChange((t) => cbRef.current.onTitle?.(t));
 
@@ -322,10 +233,6 @@ function TerminalImpl({
       if (scanTimer) clearTimeout(scanTimer);
       if (fitRaf) cancelAnimationFrame(fitRaf);
       if (ptyResizeTimer) clearTimeout(ptyResizeTimer);
-      cancelAnimationFrame(initialAttachRaf);
-      // term.dispose() would dispose the addon too, but explicit detach also
-      // clears our retry timers and listener refs.
-      detachWebgl();
       resizeObserver.disconnect();
       titleDisposable.dispose();
       dataDisposable.dispose();
@@ -354,35 +261,18 @@ function TerminalImpl({
     });
   }, [focused, id]);
 
-  // Visible ⇢ fit (display just flipped, dimensions are valid by rAF time)
-  // then attach the WebGL renderer; hidden ⇢ release the GPU context.
+  // Visible ⇢ refit (display just flipped from none; dimensions are valid by
+  // rAF time). The DOM renderer needs no attach/detach across visibility.
   useEffect(() => {
-    if (!visible) {
-      detachWebgl();
-      return;
-    }
-    // Fresh retry budget each time the pane is shown, so a pane that gave up
-    // after repeated context losses gets another chance without a restart.
-    lossCountRef.current = 0;
-    attachRafRef.current = requestAnimationFrame(() => {
-      attachRafRef.current = 0;
+    if (!visible) return;
+    const raf = requestAnimationFrame(() => {
       try {
         fitRef.current?.fit();
       } catch {
         /* ignore */
       }
-      attachWebgl();
     });
-    return () => {
-      if (attachRafRef.current) {
-        cancelAnimationFrame(attachRafRef.current);
-        attachRafRef.current = 0;
-      }
-      if (retryTimerRef.current) {
-        clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = undefined;
-      }
-    };
+    return () => cancelAnimationFrame(raf);
   }, [visible]);
 
   useEffect(() => {
