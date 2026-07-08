@@ -6,7 +6,7 @@ import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
 import { groupTreeOf, useLayoutStore } from "../../store/layout";
 import { collectSessionIds } from "../../store/layoutTree";
-import { useUpdateStore } from "../../store/update";
+import { installPendingUpdate, useUpdateStore } from "../../store/update";
 import {
   resolveFocusedWorkspace,
   workspaceChangedFileCount,
@@ -35,6 +35,8 @@ export function Toolbar() {
   const toggleFiles = useUiStore((s) => s.toggleFiles);
   const updatePhase = useUpdateStore((s) => s.phase);
   const updateVersion = useUpdateStore((s) => s.version);
+  const updateDismissed = useUpdateStore((s) => s.dismissed);
+  const dismissUpdate = useUpdateStore((s) => s.dismiss);
 
   const [text, setText] = useState("");
   const [target, setTarget] = useState<Target>("agents");
@@ -101,6 +103,18 @@ export function Toolbar() {
       </div>
 
       <div className="tb-spacer" />
+
+      {updatePhase === "available" && !updateDismissed && (
+        <div className="tb-update-banner">
+          <span>{t("update.available", { version: updateVersion ?? "" })}</span>
+          <button className="tb-update-install" onClick={() => void installPendingUpdate()}>
+            {t("update.installNow")}
+          </button>
+          <button className="tb-update-later" onClick={dismissUpdate}>
+            {t("update.later")}
+          </button>
+        </div>
+      )}
 
       {(updatePhase === "downloading" || updatePhase === "relaunching") && (
         <span className="tb-update" title={t(`update.${updatePhase}`, { version: updateVersion ?? "" })}>

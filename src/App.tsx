@@ -24,7 +24,7 @@ import { runCommand } from "./commands/registry";
 import { listen } from "@tauri-apps/api/event";
 import { ensureNotifyPermission } from "./ipc/notify";
 import { setMenuLanguage } from "./ipc/menu";
-import { checkForUpdate, downloadAndInstallUpdate } from "./ipc/update";
+import { checkForUpdate } from "./ipc/update";
 import { useUpdateStore } from "./store/update";
 import { useLanguageStore } from "./store/language";
 import { initRegistry, detectProfile, getProfile } from "./agents/registry";
@@ -45,22 +45,16 @@ const lineBuffers = new Map<string, string>();
 // flapping is what caused the notification storm).
 const nonWaitingStreak = new Map<string, number>();
 
-// 啟動時自動檢查並安裝更新，找到新版本就直接下載、安裝、重啟，無需使用者互動。
-async function checkAndInstallUpdate(): Promise<void> {
-  const { setPhase } = useUpdateStore.getState();
+// 啟動時檢查更新；找到新版本只記錄下來提示使用者決定，不自動下載安裝。
+async function checkForUpdateOnStartup(): Promise<void> {
+  const { setPhase, setAvailable } = useUpdateStore.getState();
   setPhase("checking");
   const update = await checkForUpdate();
   if (!update) {
     setPhase("up-to-date");
     return;
   }
-  try {
-    setPhase("downloading", update.version);
-    await downloadAndInstallUpdate(update);
-    setPhase("relaunching", update.version);
-  } catch {
-    setPhase("error", update.version);
-  }
+  setAvailable(update);
 }
 
 // Palette and settings live behind lazy() so their code stays out of the
@@ -318,7 +312,7 @@ function App() {
       });
       // 每次啟動都是全新配置：一個預設 workspace + 一個新 session。
       useSessionStore.getState().createSession();
-      void checkAndInstallUpdate();
+      void checkForUpdateOnStartup();
     })();
   }, []);
 

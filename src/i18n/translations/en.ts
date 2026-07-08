@@ -39,6 +39,9 @@ export const en: Record<string, string> = {
   // Update
   "update.checking": "Checking for updates…",
   "update.upToDate": "Up to date",
+  "update.available": "Update {version} available",
+  "update.installNow": "Update & restart",
+  "update.later": "Later",
   "update.downloading": "Downloading update {version}…",
   "update.relaunching": "Restarting to apply update {version}…",
   "update.error": "Update check failed",

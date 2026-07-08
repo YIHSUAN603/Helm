@@ -8,7 +8,7 @@ import { useSettingsStore, FONT_FAMILY_PRESETS, type CursorStyle } from "../../s
 import { firstFontFamily, toFontFamilyValue } from "../../store/fontFamily";
 import { listMonospaceFonts } from "../../ipc/fonts";
 import { useLanguageStore, LANGUAGE_NAMES, LANGUAGE_LABELS } from "../../store/language";
-import { useUpdateStore } from "../../store/update";
+import { installPendingUpdate, useUpdateStore } from "../../store/update";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { useT } from "../../i18n";
 import "./SettingsDialog.css";
@@ -266,11 +266,23 @@ function SettingsDialogInner() {
 
           <div className="settings-row">
             <span>{t("settings.updateStatus")}</span>
-            <span>
-              {updatePhase === "idle" || updatePhase === "checking"
-                ? t("update.checking")
-                : t(`update.${updatePhase}`, { version: updateVersion ?? "" })}
-            </span>
+            {updatePhase === "available" ? (
+              <span className="settings-update">
+                {t("update.available", { version: updateVersion ?? "" })}
+                <button
+                  className="settings-update-install"
+                  onClick={() => void installPendingUpdate()}
+                >
+                  {t("update.installNow")}
+                </button>
+              </span>
+            ) : (
+              <span>
+                {updatePhase === "idle" || updatePhase === "checking"
+                  ? t("update.checking")
+                  : t(`update.${updatePhase}`, { version: updateVersion ?? "" })}
+              </span>
+            )}
           </div>
         </div>
       </div>

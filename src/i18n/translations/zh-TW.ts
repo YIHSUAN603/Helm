@@ -39,6 +39,9 @@ export const zhTW: Record<string, string> = {
   // Update
   "update.checking": "檢查更新中…",
   "update.upToDate": "已是最新版本",
+  "update.available": "有新版本 {version}",
+  "update.installNow": "更新並重啟",
+  "update.later": "稍後",
   "update.downloading": "下載更新 {version} 中…",
   "update.relaunching": "更新 {version} 完成，重啟中…",
   "update.error": "檢查更新失敗",
