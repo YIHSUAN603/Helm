@@ -1,9 +1,11 @@
 // One session row: status dot, title, agent tag, close button.
 // Draggable so it can be dropped onto another workspace group.
-// Memoized: session refs are stable for untouched sessions, so one session's
+// Memoized: projected session refs (sidebarProjection) are stable for
+// untouched sessions and cluster info arrives as primitives, so one session's
 // state tick re-renders only its own row.
 import { memo } from "react";
-import { useSessionStore, type Session } from "../../store/sessions";
+import { useSessionStore } from "../../store/sessions";
+import type { SidebarSession } from "../../store/sidebarProjection";
 import type { SplitClusterInfo } from "../../store/workspaceGroups";
 import { activateSession } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
@@ -14,7 +16,7 @@ import { useT } from "../../i18n";
 export const SIDEBAR_NAV_SELECTOR = ".workspace-header, .session-item";
 
 // 綜合狀態燈：有 agent 狀態優先，否則用活動狀態。
-function dotClass(s: Session): string {
+function dotClass(s: SidebarSession): string {
   if (s.agentState) return `agent-${s.agentState}`;
   return s.status;
 }
@@ -31,15 +33,17 @@ const stateLabelKeys: Record<string, string> = {
 };
 
 interface SessionItemProps {
-  session: Session;
-  cluster: SplitClusterInfo;
+  session: SidebarSession;
+  clusterPos: SplitClusterInfo["position"];
+  clusterGroupId: string | null;
   isActive: boolean;
   listRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const SessionItem = memo(function SessionItem({
   session: s,
-  cluster,
+  clusterPos,
+  clusterGroupId,
   isActive,
   listRef,
 }: SessionItemProps) {
@@ -73,8 +77,8 @@ export const SessionItem = memo(function SessionItem({
       role="button"
       tabIndex={isActive ? 0 : -1}
       data-region-entry={isActive ? "true" : undefined}
-      data-cluster-pos={cluster.position}
-      data-cluster-group={cluster.groupId ?? undefined}
+      data-cluster-pos={clusterPos}
+      data-cluster-group={clusterGroupId ?? undefined}
       draggable
       onDragStart={onDragStart}
       onClick={() => activateSession(s.id)}

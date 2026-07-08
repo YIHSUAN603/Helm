@@ -2,7 +2,8 @@
 // plus its session rows. The whole group is a drop target so a session can
 // be dragged in even when the group is collapsed.
 import { memo, useMemo, useRef, useState } from "react";
-import { useSessionStore, type Session } from "../../store/sessions";
+import { useSessionStore } from "../../store/sessions";
+import type { SidebarSession } from "../../store/sidebarProjection";
 import { useWorkspaceStore, expandWorkspace } from "../../store/workspaces";
 import { useUiStore } from "../../store/ui";
 import type { SplitClusterInfo, Workspace } from "../../store/workspaceGroups";
@@ -18,7 +19,7 @@ import { useT } from "../../i18n";
 
 interface WorkspaceGroupProps {
   workspace: Workspace;
-  sessions: { session: Session; cluster: SplitClusterInfo }[];
+  sessions: { session: SidebarSession; cluster: SplitClusterInfo }[];
   activeId: string | null;
   listRef: React.RefObject<HTMLDivElement | null>;
   deletable: boolean;
@@ -189,7 +190,8 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
             <SessionItem
               key={s.id}
               session={s}
-              cluster={cluster}
+              clusterPos={cluster.position}
+              clusterGroupId={cluster.groupId}
               isActive={s.id === activeId}
               listRef={listRef}
             />

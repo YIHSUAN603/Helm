@@ -5,6 +5,7 @@
 // Esc back to the terminal; the launcher menu is fully arrow-navigable.
 import { useMemo, useRef } from "react";
 import { useSessionStore } from "../../store/sessions";
+import { projectSidebarSessions } from "../../store/sidebarProjection";
 import { useWorkspaceStore } from "../../store/workspaces";
 import { groupSessions, clusterBySplitGroup, DEFAULT_WORKSPACE_ID } from "../../store/workspaceGroups";
 import { useLayoutStore } from "../../store/layout";
@@ -17,7 +18,8 @@ import "./SessionSidebar.css";
 
 export function SessionSidebar() {
   const t = useT();
-  const sessions = useSessionStore((s) => s.sessions);
+  // 投影 selector：usage tick 等非顯示欄位的變更回傳同一個參照，側欄零重繪。
+  const sessions = useSessionStore((s) => projectSidebarSessions(s.sessions));
   const activeId = useSessionStore((s) => s.activeId);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const trees = useLayoutStore((s) => s.trees);
