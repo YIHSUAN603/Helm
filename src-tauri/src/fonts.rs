@@ -11,7 +11,7 @@ fn scan_monospace_families() -> Vec<String> {
         .filter(|f| f.monospaced)
         .filter_map(|f| f.families.first().map(|(name, _)| name.clone()))
         .collect();
-    names.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    names.sort_by_key(|a| a.to_lowercase());
     names.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
     names
 }
