@@ -4,9 +4,11 @@ import assert from "node:assert";
 import {
   LINE_BUFFER_MAX,
   STREAM_MAX_LINES_PER_CHUNK,
+  bumpEmptyScanStreak,
   bumpNonWaitingStreak,
   clearScanState,
   consumeLines,
+  resetEmptyScanStreak,
   resetNonWaitingStreak,
 } from "../src/store/scanState.ts";
 
@@ -71,14 +73,24 @@ resetNonWaitingStreak("s5");
 check("reset 後重新起算", bumpNonWaitingStreak("s5") === 1);
 check("不同 session 各自計數", bumpNonWaitingStreak("s6") === 1);
 
-// clearScanState：兩種狀態一起清掉
+// 空掃描連續計數（無任何狀態命中 ⇒ 清除殘留 agentState 的門檻）
+check("empty streak 從 1 起算", bumpEmptyScanStreak("s9") === 1);
+check("empty streak 遞增", bumpEmptyScanStreak("s9") === 2);
+resetEmptyScanStreak("s9");
+check("empty streak reset 後重新起算", bumpEmptyScanStreak("s9") === 1);
+check("empty streak 不同 session 各自計數", bumpEmptyScanStreak("s10") === 1);
+check("empty/nonWaiting streak 互不干擾", bumpNonWaitingStreak("s9") === 1);
+
+// clearScanState：三種狀態一起清掉
 consumeLines("s7", "partial");
 bumpNonWaitingStreak("s7");
+bumpEmptyScanStreak("s7");
 clearScanState("s7");
 check(
   "clear 後 buffer 歸零",
   JSON.stringify(consumeLines("s7", "line\n")) === JSON.stringify(["line"]),
 );
 check("clear 後 streak 歸零", bumpNonWaitingStreak("s7") === 1);
+check("clear 後 empty streak 歸零", bumpEmptyScanStreak("s7") === 1);
 
 console.log(`scan-state: ${passed} checks passed`);

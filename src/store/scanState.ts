@@ -8,6 +8,7 @@
 
 const lineBuffers = new Map<string, string>();
 const nonWaitingStreaks = new Map<string, number>();
+const emptyScanStreaks = new Map<string, number>();
 
 /** 殘餘半行長度上限：長時間無換行的輸出不能讓 buffer 無限成長。 */
 export const LINE_BUFFER_MAX = 4000;
@@ -51,8 +52,26 @@ export function resetNonWaitingStreak(sessionId: string): void {
   nonWaitingStreaks.delete(sessionId);
 }
 
+/**
+ * Count one more consecutive no-state scan and return the new streak. Scans
+ * that derive no state at all (agent quit back to the shell) must clear a
+ * stale agentState, but only after two in a row — a single empty frame may be
+ * a mid-redraw transient.
+ */
+export function bumpEmptyScanStreak(sessionId: string): number {
+  const streak = (emptyScanStreaks.get(sessionId) ?? 0) + 1;
+  emptyScanStreaks.set(sessionId, streak);
+  return streak;
+}
+
+/** Reset the streak (a scan derived a concrete state, or the stale state was cleared). */
+export function resetEmptyScanStreak(sessionId: string): void {
+  emptyScanStreaks.delete(sessionId);
+}
+
 /** Forget the session's buffers (session close / housekeeping). */
 export function clearScanState(sessionId: string): void {
   lineBuffers.delete(sessionId);
   nonWaitingStreaks.delete(sessionId);
+  emptyScanStreaks.delete(sessionId);
 }

@@ -197,6 +197,43 @@ check(
   deriveState(GENERIC_PROFILE, "Proceed? (y/n)\n│ > │").state === "waiting",
 );
 
+// composer 閒置規則：輸入框可見且無 spinner ⇒ done。viewport 殘留的
+// ⏺ 工具行 / "failed" 散文不得把燈號釘在 tool/error；工作中（含工具執行）
+// spinner／esc to interrupt 恆在，thinking 命中即否決此規則。
+check(
+  "claude 完成後殘留 ⏺ 行 + 閒置輸入框判 done",
+  deriveState(
+    claude,
+    "⏺ Update(demo.txt)\n╭──────────╮\n│ >        │\n╰──────────╯\n  ? for shortcuts",
+  ).state === "done",
+);
+check(
+  "claude 工具執行中（spinner 在場）仍判 tool",
+  deriveState(
+    claude,
+    "⏺ Running 1 shell command…\n✻ Pondering… (esc to interrupt)\n│ > │",
+  ).state === "tool",
+);
+check(
+  "claude 思考中（spinner + 輸入框同框）仍判 thinking",
+  deriveState(claude, "✻ Thinking…\n│ > │").state === "thinking",
+);
+check(
+  "claude 全新 composer（無任何殘影）判 done",
+  deriveState(claude, "│ > \n  ? for shortcuts").state === "done",
+);
+check(
+  "claude 閒置輸入框旁殘留 failed 散文判 done（不釘 error）",
+  deriveState(
+    claude,
+    "⏺ Bash(npm test)\n1 test failed\n│ > │\n  ? for shortcuts",
+  ).state === "done",
+);
+check(
+  "generic 無 inputBox pattern 不受 composer 規則影響（無匹配回空）",
+  deriveState(GENERIC_PROFILE, "│ > │").state === undefined,
+);
+
 // prompt 擷取：選單式審批應回報上方的問題行（每筆審批可辨識），
 // 而不是各審批都相同的選項列「❯ 1. Yes」。
 {

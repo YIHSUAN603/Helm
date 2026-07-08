@@ -14,9 +14,11 @@ import {
 } from "./store/approvalSuppress";
 import {
   STREAM_MAX_LINES_PER_CHUNK,
+  bumpEmptyScanStreak,
   bumpNonWaitingStreak,
   clearScanState,
   consumeLines,
+  resetEmptyScanStreak,
   resetNonWaitingStreak,
 } from "./store/scanState";
 import { useThemeStore } from "./store/theme";
@@ -124,6 +126,7 @@ function handleScan(id: string, text: string) {
     }
   }
   const derived = deriveState(profile, text);
+  if (derived.state) resetEmptyScanStreak(id);
   if (derived.state === "waiting") {
     // Just-answered prompt still on screen (TUI mid-repaint): don't resurrect
     // the prompt the user already responded to. A different prompt passes.
@@ -151,6 +154,11 @@ function handleScan(id: string, text: string) {
   if (derived.state) {
     store.setAgentState(id, derived.state, derived.prompt);
   } else if (pendingText) {
+    store.clearApproval(id);
+  } else if (sess.agentState !== undefined && bumpEmptyScanStreak(id) >= 2) {
+    // No pattern matched twice in a row: the agent quit back to the shell.
+    // Clear the stale agentState so the dot falls back to the activity status.
+    resetEmptyScanStreak(id);
     store.clearApproval(id);
   }
 }
@@ -216,7 +224,12 @@ const Pane = memo(function Pane({ session: s, rect, active, solo }: PaneProps) {
         onTitle={(title) => useSessionStore.getState().setTitle(s.id, title)}
         onBusy={() => useSessionStore.getState().setStatus(s.id, "busy")}
         onIdle={() => useSessionStore.getState().setStatus(s.id, "idle")}
-        onExit={() => useSessionStore.getState().setStatus(s.id, "exited")}
+        onExit={() => {
+          // Clear any leftover agent state so dotClass falls through to the
+          // "exited" status dot (agentState takes precedence over status).
+          useSessionStore.getState().clearApproval(s.id);
+          useSessionStore.getState().setStatus(s.id, "exited");
+        }}
         onScan={(text) => handleScan(s.id, text)}
         onStream={(text) => handleStream(s.id, text)}
       />
