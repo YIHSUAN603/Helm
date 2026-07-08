@@ -26,6 +26,9 @@ jobs:
       # tsc type-check + vite build
       - run: npm run build
 
+      # eslint (flat config; counterpart of the rust job's clippy)
+      - run: npm run lint
+
       # node:test suites in tests/*.test.ts
       - run: npm test
 

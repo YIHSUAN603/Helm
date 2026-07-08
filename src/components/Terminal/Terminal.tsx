@@ -81,6 +81,9 @@ function TerminalImpl({
   const themeName = useThemeStore((s) => s.name);
 
   const cbRef = useRef({ onTitle, onBusy, onIdle, onExit, onScan, onStream });
+  // Latest-ref 模式（刻意在 render 期同步更新）：PTY 事件可能在 render 與
+  // effect flush 之間到達，改在 effect 內指派會讀到過期 callback。
+  // eslint-disable-next-line react-hooks/refs
   cbRef.current = { onTitle, onBusy, onIdle, onExit, onScan, onStream };
 
   // WebGL renderer lifecycle: only visible panes hold a GPU context
@@ -93,6 +96,8 @@ function TerminalImpl({
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const attachRafRef = useRef(0);
   const visibleRef = useRef(visible);
+  // Latest-ref 模式（同 cbRef）：scan debounce 在事件路徑上讀取，不參與 render。
+  // eslint-disable-next-line react-hooks/refs
   visibleRef.current = visible;
 
   // Drop the WebGL context and every pending attach/retry; xterm falls back
