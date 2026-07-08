@@ -6,6 +6,9 @@ export type CursorStyle = "block" | "bar" | "underline";
 const DEFAULT_FONT_FAMILY =
   '"SF Mono", "Cascadia Mono", "Cascadia Code", Consolas, "JetBrains Mono", Menlo, Monaco, "Courier New", monospace';
 const DEFAULT_FONT_SIZE = 13;
+/** 字級範圍：setter 與 SettingsDialog 的 number input 共用同一組界線。 */
+export const FONT_SIZE_MIN = 8;
+export const FONT_SIZE_MAX = 32;
 
 /** 字型下拉選單的預設選項，value 為含備援字型的完整 CSS font-family 字串 */
 export interface FontFamilyPreset {
@@ -121,8 +124,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ fontFamily: v });
   },
   setFontSize: (v) => {
-    localStorage.setItem(KEYS.fontSize, String(v));
-    set({ fontSize: v });
+    // 界線防護：越界/NaN 不能寫進 localStorage 再套到 xterm。
+    if (!Number.isFinite(v)) return;
+    const size = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, v));
+    localStorage.setItem(KEYS.fontSize, String(size));
+    set({ fontSize: size });
   },
   setCursorStyle: (v) => {
     localStorage.setItem(KEYS.cursorStyle, v);

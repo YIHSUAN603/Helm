@@ -7,7 +7,7 @@ import { useUiStore } from "../../store/ui";
 import { listCommands, runCommand } from "../../commands/registry";
 import { filterCommands } from "../../commands/filter";
 import { shortcutLabel } from "../../commands/keymap";
-import { focusActiveTerminal } from "../../focus/focusUtils";
+import { focusActiveTerminal, trapTabKey } from "../../focus/focusUtils";
 import type { Command } from "../../commands/types";
 import { useT } from "../../i18n";
 import "./CommandPalette.css";
@@ -78,6 +78,8 @@ function PaletteDialog() {
     } else if (e.key === "Enter") {
       e.preventDefault();
       runSelected(results[sel]);
+    } else if (e.key === "Tab") {
+      trapTabKey(e, e.currentTarget as HTMLElement);
     }
   };
 

@@ -4,12 +4,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { useUiStore } from "../../store/ui";
 import { useThemeStore, THEME_NAMES, THEME_LABELS } from "../../store/theme";
-import { useSettingsStore, FONT_FAMILY_PRESETS, type CursorStyle } from "../../store/settings";
+import {
+  useSettingsStore,
+  FONT_FAMILY_PRESETS,
+  FONT_SIZE_MAX,
+  FONT_SIZE_MIN,
+  type CursorStyle,
+} from "../../store/settings";
 import { firstFontFamily, toFontFamilyValue } from "../../store/fontFamily";
 import { listMonospaceFonts } from "../../ipc/fonts";
 import { useLanguageStore, LANGUAGE_NAMES, LANGUAGE_LABELS } from "../../store/language";
 import { installPendingUpdate, useUpdateStore } from "../../store/update";
-import { focusActiveTerminal } from "../../focus/focusUtils";
+import { focusActiveTerminal, trapTabKey } from "../../focus/focusUtils";
 import { useT } from "../../i18n";
 import "./SettingsDialog.css";
 
@@ -118,6 +124,8 @@ function SettingsDialogInner() {
       e.preventDefault();
       e.stopPropagation();
       close();
+    } else if (e.key === "Tab") {
+      trapTabKey(e, e.currentTarget as HTMLElement);
     }
   };
 
@@ -206,13 +214,13 @@ function SettingsDialogInner() {
             <span>{t("settings.fontSize")}</span>
             <input
               type="number"
-              min={8}
-              max={32}
+              min={FONT_SIZE_MIN}
+              max={FONT_SIZE_MAX}
               value={fontSize}
               onChange={(e) => {
                 const v = Number(e.target.value);
-                // 夾在宣告的 min/max 內：超界值會直接套進 xterm 並持久化。
-                if (v > 0) setFontSize(Math.min(32, Math.max(8, v)));
+                // setFontSize 會夾在 FONT_SIZE_MIN/MAX 內；輸入中的空字串（NaN）略過。
+                if (v > 0) setFontSize(v);
               }}
             />
           </label>

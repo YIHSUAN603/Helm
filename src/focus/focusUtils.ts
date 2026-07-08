@@ -8,6 +8,37 @@ export type FocusRegion = (typeof REGION_ORDER)[number];
 
 const FOCUSABLE = 'button, input, select, [tabindex="0"]';
 
+/** 可成為 Tab 停留點的元素（modal focus trap 用；排除 disabled 與 tabindex=-1）。 */
+const MODAL_FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Modal focus trap：aria-modal 只是語意宣告，Tab 仍會把焦點帶出對話框到
+ * 底層終端機；在容器內首尾邊界 wrap。呼叫端先判斷 e.key === "Tab"。
+ * 參數用結構型別，React 與原生 KeyboardEvent 都可傳入。
+ */
+export function trapTabKey(
+  e: { shiftKey: boolean; preventDefault(): void },
+  container: HTMLElement,
+): void {
+  const focusables = Array.from(
+    container.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE),
+  ).filter((el) => el.offsetParent !== null); // 略過 display:none 的元素
+  if (focusables.length === 0) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey) {
+    if (active === first || !container.contains(active)) {
+      e.preventDefault();
+      last.focus();
+    }
+  } else if (active === last || !container.contains(active)) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
 /** Focus the active pane's xterm hidden textarea (where typing goes). */
 export function focusActiveTerminal(): void {
   const el = document.querySelector<HTMLElement>(
