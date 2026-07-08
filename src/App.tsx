@@ -12,6 +12,12 @@ import {
   isApprovalSuppressed,
   markApprovalAnswered,
 } from "./store/approvalSuppress";
+import {
+  bumpNonWaitingStreak,
+  clearScanState,
+  consumeLines,
+  resetNonWaitingStreak,
+} from "./store/scanState";
 import { useThemeStore } from "./store/theme";
 import { groupTreeOf, useLayoutStore } from "./store/layout";
 import { computeLayout, type RectPct } from "./store/layoutTree";
@@ -35,15 +41,6 @@ import "./App.css";
 
 // 只在整個 app 生命週期做一次啟動流程。
 let bootstrapped = false;
-
-// 每個 session 的殘餘半行，逐行擷取用。
-const lineBuffers = new Map<string, string>();
-
-// Consecutive non-waiting scans per session while an approval is pending.
-// The TUI redraws constantly and a scan can catch a mid-redraw frame with the
-// menu row absent; a single divergent scan must not clear the approval (that
-// flapping is what caused the notification storm).
-const nonWaitingStreak = new Map<string, number>();
 
 // 啟動時檢查更新；找到新版本只記錄下來提示使用者決定，不自動下載安裝。
 async function checkForUpdateOnStartup(): Promise<void> {
@@ -100,8 +97,7 @@ function handleScan(id: string, text: string) {
   const store = useSessionStore.getState();
   const sess = store.sessions.find((x) => x.id === id);
   if (!sess) {
-    lineBuffers.delete(id);
-    nonWaitingStreak.delete(id);
+    clearScanState(id);
     clearApprovalSuppress(id);
     return;
   }
@@ -133,7 +129,7 @@ function handleScan(id: string, text: string) {
     if (isApprovalSuppressed(id, derived.prompt ?? "", Date.now())) {
       return;
     }
-    nonWaitingStreak.delete(id);
+    resetNonWaitingStreak(id);
     store.setAgentState(id, derived.state, derived.prompt, derived.kind);
     return;
   }
@@ -143,18 +139,14 @@ function handleScan(id: string, text: string) {
   // prompts are unaffected.
   const pendingText = sess.pendingApproval ?? sess.pendingPrompt?.text;
   if (pendingText) {
-    const streak = (nonWaitingStreak.get(id) ?? 0) + 1;
-    if (streak < 2) {
-      nonWaitingStreak.set(id, streak);
-      return;
-    }
+    if (bumpNonWaitingStreak(id) < 2) return;
     // The dialog left the screen without a panel response — the user answered
     // inside the terminal. Record it so a stale copy of the same prompt
     // resurfacing (e.g. a resize reflow) cannot resurrect the prompt,
     // matching the explicit-response path in respondApproval.
     markApprovalAnswered(id, pendingText, Date.now());
   }
-  nonWaitingStreak.delete(id);
+  resetNonWaitingStreak(id);
   if (derived.state) {
     store.setAgentState(id, derived.state, derived.prompt);
   } else if (pendingText) {
@@ -167,20 +159,14 @@ function handleStream(id: string, text: string) {
   const store = useSessionStore.getState();
   const sess = store.sessions.find((x) => x.id === id);
   if (!sess) {
-    lineBuffers.delete(id);
+    clearScanState(id);
     return;
   }
   if (!sess.agentId) return;
   const profile = getProfile(sess.agentId);
   if (!profile.extract) return;
 
-  let buf = (lineBuffers.get(id) ?? "") + text;
-  const lines = buf.split("\n");
-  buf = lines.pop() ?? "";
-  if (buf.length > 4000) buf = buf.slice(-4000);
-  lineBuffers.set(id, buf);
-
-  for (const raw of lines) {
+  for (const raw of consumeLines(id, text)) {
     const line = stripAnsi(raw);
     if (!line.trim()) continue;
     const ex = extractFromLine(profile, line);

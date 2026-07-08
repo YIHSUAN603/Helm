@@ -5,6 +5,7 @@ import { siblingFirstSession } from "./layoutTree";
 import { resolveFocusedWorkspace } from "./workspaceGroups";
 import { clearApprovalNotify, shouldNotifyApproval } from "./approvalNotify";
 import { clearApprovalSuppress } from "./approvalSuppress";
+import { clearScanState } from "./scanState";
 import { notify } from "../ipc/notify";
 import { getProfile } from "../agents/registry";
 import { t } from "../i18n";
@@ -57,20 +58,24 @@ let counter = 0;
 
 /**
  * Send the desktop notification for a session's pending prompt (approval /
- * question / plan, title differs by kind), unless the app window is focused
- * (an approval's panel is already visible then, and for question/plan the
- * dialog itself is on screen) or the dedupe gate suppresses it. The focus
- * check runs FIRST so a suppressed notification is not recorded and can
- * still fire later from the blur listener in App.tsx. Known trade-off:
- * answering inside the terminal (not via the panel) leaves the dedupe
- * record, so an identical prompt within the cooldown shows only in the
- * panel, without a toast.
+ * question / plan, title differs by kind), unless the dedupe gate suppresses
+ * it. A focused window suppresses the notification only for sessions in the
+ * FOCUSED workspace — their prompt is already on screen (ApprovalPanel or the
+ * dialog itself); a prompt in another workspace surfaces only as a small
+ * sidebar badge, so it still notifies. The focus check runs FIRST so a
+ * suppressed notification is not recorded and can still fire later from the
+ * blur listener in App.tsx. Known trade-off: answering inside the terminal
+ * (not via the panel) leaves the dedupe record, so an identical prompt within
+ * the cooldown shows only in the panel, without a toast.
  */
 export function notifyPendingPrompt(sess: Session): void {
   const kind: PromptKind = sess.pendingPrompt?.kind ?? "approval";
   const text = sess.pendingPrompt?.text ?? sess.pendingApproval;
   if (!text) return;
-  if (document.hasFocus()) return;
+  if (document.hasFocus()) {
+    const { sessions, activeId } = useSessionStore.getState();
+    if (sess.workspaceId === resolveFocusedWorkspace(sessions, activeId)) return;
+  }
   if (!shouldNotifyApproval(sess.id, text, Date.now())) return;
   notify(t(`notify.${kind}`, { label: sess.agentLabel ?? "Agent" }), text);
 }
@@ -112,6 +117,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ sessions: remaining, activeId: nextActive });
     clearApprovalNotify(id);
     clearApprovalSuppress(id);
+    clearScanState(id);
   },
 
   moveSessionToWorkspace: (sessionId, workspaceId) => {

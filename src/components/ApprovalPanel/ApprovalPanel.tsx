@@ -3,7 +3,8 @@
 // 其他 workspace 的待審批由側欄徽章與桌面通知提示。
 // Buttons share respondApproval with the approval:* commands; Esc returns
 // focus to the terminal.
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   activateSession,
   respondAllApprovals,
@@ -19,15 +20,31 @@ import {
 import { useT } from "../../i18n";
 import "./ApprovalPanel.css";
 
+// 「回應可能無效」提示只在回答後 3–20s 的窗口內有效；窗口到期不會有任何
+// store tick 觸發重繪，所以掛載期間每秒自查一次，讓提示到期自動消失
+//（approval 項目本來就短命，輪詢成本可忽略）。
+function IneffectiveHint({ sessionId, prompt }: { sessionId: string; prompt: string }) {
+  const t = useT();
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const update = () => setShow(isResponseIneffective(sessionId, prompt, Date.now()));
+    update();
+    const timer = setInterval(update, 1_000);
+    return () => clearInterval(timer);
+  }, [sessionId, prompt]);
+  if (!show) return null;
+  return <div className="approval-hint">{t("approval.ineffectiveHint")}</div>;
+}
+
 export function ApprovalPanel() {
   const t = useT();
-  const sessions = useSessionStore((s) => s.sessions);
-  const activeId = useSessionStore((s) => s.activeId);
-
-  const pending = useMemo(() => {
-    const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-    return pendingApprovalsInWorkspace(sessions, workspaceId);
-  }, [sessions, activeId]);
+  // 窄訂閱：未動到的 session 物件引用穩定，shallow 比對讓其他 session 的
+  // usage/state tick（PTY 輸出頻率）不會重繪整個面板。
+  const pending = useSessionStore(
+    useShallow((s) =>
+      pendingApprovalsInWorkspace(s.sessions, resolveFocusedWorkspace(s.sessions, s.activeId)),
+    ),
+  );
   if (pending.length === 0) return null;
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -74,11 +91,7 @@ export function ApprovalPanel() {
           <div className="approval-prompt" title={s.pendingApproval}>
             {s.pendingApproval}
           </div>
-          {isResponseIneffective(s.id, s.pendingApproval ?? "", Date.now()) && (
-            <div className="approval-hint">
-              {t("approval.ineffectiveHint")}
-            </div>
-          )}
+          <IneffectiveHint sessionId={s.id} prompt={s.pendingApproval ?? ""} />
           <div className="approval-actions">
             <button
               className="approve"
