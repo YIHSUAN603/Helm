@@ -1,6 +1,7 @@
 // 檔案變更面板：列出聚焦 workspace 內所有 session 動到的檔案，依 session 分組。
 // 點分組標頭可跳到該 session；Esc（面板內有焦點時）關閉並把焦點還給終端機。
-import { memo, useMemo } from "react";
+import { memo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { activateSession } from "../../commands/actions";
 import { useSessionStore, type Session } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
@@ -51,20 +52,21 @@ export function ChangedFilesPanel() {
 
 function ChangedFilesPanelContent() {
   const t = useT();
-  const sessions = useSessionStore((s) => s.sessions);
-  const activeId = useSessionStore((s) => s.activeId);
   const setFilesOpen = useUiStore((s) => s.setFilesOpen);
+  // 窄訂閱：session 物件引用穩定 + shallow 比對，其他 session 的 usage tick
+  // 不會重繪面板；total 是 primitive，值沒變就不重繪。
+  const groups = useSessionStore(
+    useShallow((s) =>
+      sessionsInWorkspace(s.sessions, resolveFocusedWorkspace(s.sessions, s.activeId)).filter(
+        (x) => (x.changedFiles?.length ?? 0) > 0,
+      ),
+    ),
+  );
+  const total = useSessionStore((s) =>
+    workspaceChangedFileCount(s.sessions, resolveFocusedWorkspace(s.sessions, s.activeId)),
+  );
 
   const onClose = () => setFilesOpen(false);
-  const { groups, total } = useMemo(() => {
-    const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-    return {
-      groups: sessionsInWorkspace(sessions, workspaceId).filter(
-        (s) => (s.changedFiles?.length ?? 0) > 0,
-      ),
-      total: workspaceChangedFileCount(sessions, workspaceId),
-    };
-  }, [sessions, activeId]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {

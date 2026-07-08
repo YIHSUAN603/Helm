@@ -2,6 +2,7 @@
 // 派工以「畫面上可見的 session」為對象（active session 的分割群組，
 // 未分組時只有它自己）；Σ 成本、變更計數則限縮在聚焦 workspace 內。
 import { useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
 import { groupTreeOf, useLayoutStore } from "../../store/layout";
@@ -28,7 +29,6 @@ function fmtNum(n?: number): string {
 
 export function Toolbar() {
   const t = useT();
-  const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const trees = useLayoutStore((s) => s.trees);
   const filesOpen = useUiStore((s) => s.filesOpen);
@@ -41,41 +41,51 @@ export function Toolbar() {
   const [text, setText] = useState("");
   const [target, setTarget] = useState<Target>("agents");
 
-  // Memoized: the local broadcast input re-renders the toolbar per keystroke;
-  // these aggregations only depend on the stores.
-  const { active, totalCost, changedCount } = useMemo(() => {
-    const workspaceId = resolveFocusedWorkspace(sessions, activeId);
-    return {
-      active: sessions.find((s) => s.id === activeId),
-      totalCost: workspaceTotalCost(sessions, workspaceId),
-      changedCount: workspaceChangedFileCount(sessions, workspaceId),
-    };
-  }, [sessions, activeId]);
+  // 窄訂閱（值/引用沒變就不重繪）：Σ成本與變更數是 primitive；active 只投影
+  // 工具列實際顯示的欄位（shallow 比對擋掉 agentState 等無關 tick）。
+  const totalCost = useSessionStore((s) =>
+    workspaceTotalCost(s.sessions, resolveFocusedWorkspace(s.sessions, s.activeId)),
+  );
+  const changedCount = useSessionStore((s) =>
+    workspaceChangedFileCount(s.sessions, resolveFocusedWorkspace(s.sessions, s.activeId)),
+  );
+  const active = useSessionStore(
+    useShallow((s) => {
+      const a = s.sessions.find((x) => x.id === s.activeId);
+      return (
+        a && {
+          agentId: a.agentId,
+          agentLabel: a.agentLabel,
+          cost: a.cost,
+          tokensIn: a.tokensIn,
+          tokensOut: a.tokensOut,
+        }
+      );
+    }),
+  );
 
   // 派工對象 = 畫面上可見的 session：active 的分割群組成員，未分組時只有它自己。
-  const visibleSessions = useMemo(() => {
+  // broadcast 只需要 id（agents 目標再過濾有 agentId 的），不必訂閱 session 物件。
+  const visibleIds = useMemo(() => {
     const groupRoot = groupTreeOf(trees, activeId);
-    const visibleIds = groupRoot
-      ? collectSessionIds(groupRoot)
-      : activeId
-        ? [activeId]
-        : [];
-    return visibleIds
-      .map((id) => sessions.find((s) => s.id === id))
-      .filter((s) => s !== undefined);
-  }, [trees, sessions, activeId]);
+    return groupRoot ? collectSessionIds(groupRoot) : activeId ? [activeId] : [];
+  }, [trees, activeId]);
+  const visibleAgentIds = useSessionStore(
+    useShallow((s) =>
+      visibleIds.filter((id) => s.sessions.find((x) => x.id === id)?.agentId),
+    ),
+  );
 
-  const targets = () =>
-    target === "agents" ? visibleSessions.filter((s) => s.agentId) : visibleSessions;
+  const targetIds = () => (target === "agents" ? visibleAgentIds : visibleIds);
 
   const broadcast = () => {
     const t = text.trim();
     if (!t) return;
-    for (const s of targets()) void ptyWrite(s.id, `${t}\r`);
+    for (const id of targetIds()) void ptyWrite(id, `${t}\r`);
     setText("");
   };
 
-  const targetCount = targets().length;
+  const targetCount = targetIds().length;
 
   return (
     <div className="toolbar" data-focus-region="toolbar">

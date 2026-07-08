@@ -15,6 +15,7 @@ import {
 } from "../store/workspaceGroups";
 import { listLaunchers } from "../agents/registry";
 import { cycleFocusRegion, focusActiveTerminal } from "../focus/focusUtils";
+import { useLanguageStore } from "../store/language";
 import { t } from "../i18n";
 import {
   activateSession,
@@ -323,13 +324,29 @@ function dynamicCommands(): Command[] {
   return cmds;
 }
 
+// Static commands are pure closures over module functions; only their titles
+// vary (with the language), so cache per language. runCommand sits on every
+// hotkey/menu dispatch and must not rebuild the whole list each time.
+let staticCache: { language: string; commands: Command[] } | null = null;
+
+function cachedStaticCommands(): Command[] {
+  const language = useLanguageStore.getState().name;
+  if (staticCache?.language !== language) {
+    staticCache = { language, commands: staticCommands() };
+  }
+  return staticCache.commands;
+}
+
 export function listCommands(): Command[] {
-  return [...staticCommands(), ...dynamicCommands()];
+  return [...cachedStaticCommands(), ...dynamicCommands()];
 }
 
 /** Run a command by id; silently ignores unknown or disabled commands. */
 export function runCommand(id: string): void {
-  const cmd = listCommands().find((c) => c.id === id);
+  // 靜態表命中就不建動態清單（動態 id 只來自 palette）。
+  const cmd =
+    cachedStaticCommands().find((c) => c.id === id) ??
+    dynamicCommands().find((c) => c.id === id);
   if (!cmd || cmd.enabled?.() === false) return;
   cmd.run();
 }

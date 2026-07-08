@@ -1,14 +1,32 @@
 // Agent registry：合併內建 profiles/launchers 與使用者 agents.json。
 import { invoke } from "@tauri-apps/api/core";
-import { BUILTIN_LAUNCHERS, BUILTIN_PROFILES, GENERIC_PROFILE } from "./builtins";
+// .ts 副檔名：讓 node 測試（strip-types 模式）能直接載入本模組。
+import { BUILTIN_LAUNCHERS, BUILTIN_PROFILES, GENERIC_PROFILE } from "./builtins.ts";
 import type { AgentConfig, AgentLauncher, AgentProfile } from "./types";
 
 let profiles = new Map<string, AgentProfile>();
 let launchers: AgentLauncher[] = [];
+// detectOutput 的編譯快取（null = 無效 regex）：detectProfile 在尚未偵測到
+// agent 的 session 每次 scan 都會跑，不能每次重編。profiles 變動時重建。
+let detectRegexes = new Map<string, RegExp | null>();
+
+function compileDetectRegexes() {
+  detectRegexes = new Map(
+    [...profiles.values()].map((p) => {
+      if (!p.detectOutput) return [p.id, null] as const;
+      try {
+        return [p.id, new RegExp(p.detectOutput, "i")] as const;
+      } catch {
+        return [p.id, null] as const; // 無效 regex 忽略
+      }
+    }),
+  );
+}
 
 function reset() {
   profiles = new Map(BUILTIN_PROFILES.map((p) => [p.id, p]));
   launchers = [...BUILTIN_LAUNCHERS];
+  compileDetectRegexes();
 }
 reset();
 
@@ -21,6 +39,7 @@ export async function initRegistry(): Promise<void> {
     const cfg = JSON.parse(raw) as AgentConfig;
     for (const p of cfg.profiles ?? []) profiles.set(p.id, p);
     for (const l of cfg.launchers ?? []) launchers.push(l);
+    compileDetectRegexes();
   } catch {
     // 設定不存在或格式錯誤時，靜默沿用內建。
   }
@@ -38,12 +57,7 @@ export function listLaunchers(): AgentLauncher[] {
 /** 從輸出被動偵測 agent（供在 shell 內手動啟動的情形）。 */
 export function detectProfile(text: string): AgentProfile | null {
   for (const p of profiles.values()) {
-    if (!p.detectOutput) continue;
-    try {
-      if (new RegExp(p.detectOutput, "i").test(text)) return p;
-    } catch {
-      // 無效 regex 忽略
-    }
+    if (detectRegexes.get(p.id)?.test(text)) return p;
   }
   return null;
 }
