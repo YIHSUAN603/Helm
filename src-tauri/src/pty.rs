@@ -2,7 +2,7 @@
 // 設計為多 session（id -> PtySession 的 map），Phase 1 可直接沿用。
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::Deserialize;
@@ -12,7 +12,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 /// 單一 PTY session 在 Rust 端持有的資源。
 struct PtySession {
     master: Box<dyn MasterPty + Send>,
-    writer: Box<dyn Write + Send>,
+    // Per-session 鎖：PTY master 的 write 在子行程不排空輸入時會阻塞，
+    // 不能在全域 map 鎖內執行，否則一個 session 卡住所有指令。
+    writer: Arc<Mutex<Box<dyn Write + Send>>>,
     // 保留 child 以便日後查詢/終止；drop 時會嘗試結束子行程。
     child: Box<dyn portable_pty::Child + Send + Sync>,
 }
@@ -133,7 +135,7 @@ pub fn pty_spawn(
 
     let session = PtySession {
         master: pair.master,
-        writer,
+        writer: Arc::new(Mutex::new(writer)),
         child,
     };
 
@@ -181,18 +183,24 @@ pub fn pty_spawn(
 /// 將鍵盤輸入寫入指定 PTY。
 #[tauri::command]
 pub fn pty_write(state: State<'_, PtyManager>, id: String, data: String) -> Result<(), String> {
-    let mut sessions = lock_sessions(&state.sessions);
-    let session = sessions
-        .get_mut(&id)
-        .ok_or_else(|| format!("no pty session: {id}"))?;
-    session
-        .writer
+    // map 鎖只用來取出該 session 的 writer Arc；可能阻塞的 write/flush 在
+    // 鎖外執行，一個 session 的阻塞寫入不會卡住其他 session 的指令。
+    let writer = {
+        let sessions = lock_sessions(&state.sessions);
+        Arc::clone(
+            &sessions
+                .get(&id)
+                .ok_or_else(|| format!("no pty session: {id}"))?
+                .writer,
+        )
+    };
+    // 同 session 寫入由 writer 鎖序列化（保持鍵入順序）；容忍 poisoning，
+    // 理由同 lock_sessions。
+    let mut writer = writer.lock().unwrap_or_else(|e| e.into_inner());
+    writer
         .write_all(data.as_bytes())
         .map_err(|e| format!("write failed: {e}"))?;
-    session
-        .writer
-        .flush()
-        .map_err(|e| format!("flush failed: {e}"))?;
+    writer.flush().map_err(|e| format!("flush failed: {e}"))?;
     Ok(())
 }
 
