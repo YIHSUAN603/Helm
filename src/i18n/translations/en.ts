@@ -52,6 +52,8 @@ export const en: Record<string, string> = {
   "sidebar.pendingApprovalBadge": "{count} pending approval(s) — click to go",
   "sidebar.addSession": "New shell in this workspace",
   "sidebar.removeWorkspace": "Delete workspace (sessions move to default)",
+  "sidebar.selectFolder": "Set default folder for new sessions",
+  "sidebar.clearFolder": "Clear default folder",
   "sidebar.close": "Close",
   "sidebar.state.thinking": "Thinking",
   "sidebar.state.tool": "Running",

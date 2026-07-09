@@ -47,6 +47,10 @@ The sidebar has two levels: **workspaces** (groups) containing **sessions**
 - **Delete a workspace** — hover its header and click the **×**; its
   sessions move to the default workspace (which can't be deleted).
 - **Collapse/expand** — click the header or its chevron.
+- **Set a default folder** — hover the workspace and click **📁** to pick a
+  folder; new sessions started in that workspace open there. The chosen path
+  is shown under the header — hover it and click **×** to clear. A workspace
+  without a folder falls back to the default working directory in Settings.
 - **New session in a workspace** — hover the workspace and click its **+**.
 - **Move a session** — drag it onto another workspace (even a collapsed
   one) to drop it there.

@@ -8,6 +8,8 @@ export interface Workspace {
   id: string;
   name: string;
   collapsed: boolean;
+  /** Default working directory for new sessions created in this workspace. */
+  folder?: string;
 }
 
 export interface WorkspaceGroup<S extends { workspaceId: string }> {

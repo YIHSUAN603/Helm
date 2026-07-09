@@ -219,6 +219,7 @@ const Pane = memo(function Pane({ session: s, rect, active, solo }: PaneProps) {
         id={s.id}
         focused={active}
         visible={rect !== undefined}
+        cwd={s.cwd}
         launchCommand={s.launchCommand}
         streamEnabled={streamEnabled}
         onTitle={(title) => useSessionStore.getState().setTitle(s.id, title)}

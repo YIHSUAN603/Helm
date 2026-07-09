@@ -19,6 +19,7 @@ export interface Session {
   status: SessionStatus; // 活動燈（無 agent 時使用）
   createdAt: number;
   workspaceId: string; // 側欄分組（純視覺，不影響 PTY）
+  cwd?: string; // PTY 啟動目錄（建立時由 workspace 資料夾快照，之後不變）
   // ---- agent 相關 ----
   agentId: string | null; // profile id（launcher 指定或被動偵測到）
   agentLabel?: string;
@@ -38,7 +39,7 @@ export interface Session {
 interface SessionState {
   sessions: Session[];
   activeId: string | null;
-  createSession: (launcher?: AgentLauncher, workspaceId?: string) => string;
+  createSession: (launcher?: AgentLauncher, workspaceId?: string, cwd?: string) => string;
   closeSession: (id: string) => void;
   moveSessionToWorkspace: (sessionId: string, workspaceId: string) => void;
   setActive: (id: string) => void;
@@ -84,7 +85,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   sessions: [],
   activeId: null,
 
-  createSession: (launcher, workspaceId) => {
+  createSession: (launcher, workspaceId, cwd) => {
     const id = crypto.randomUUID();
     const profileId = launcher?.profileId ?? null;
     const { sessions, activeId } = get();
@@ -94,6 +95,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       status: "idle",
       createdAt: Date.now(),
       workspaceId: workspaceId ?? resolveFocusedWorkspace(sessions, activeId),
+      cwd,
       agentId: profileId,
       agentLabel: profileId ? getProfile(profileId).label : undefined,
       launchCommand: launcher?.command || undefined,

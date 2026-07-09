@@ -9,6 +9,8 @@ interface WorkspaceState {
   /** Create "Workspace N" and return its id. */
   createWorkspace: () => string;
   renameWorkspace: (id: string, name: string) => void;
+  /** Set (or clear) the default working directory for new sessions in this workspace. */
+  setWorkspaceFolder: (id: string, folder: string | undefined) => void;
   /** Remove the workspace itself; refuses the default one. */
   deleteWorkspace: (id: string) => void;
   toggleCollapsed: (id: string) => void;
@@ -33,6 +35,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   renameWorkspace: (id, name) =>
     set((s) => ({
       workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, name } : w)),
+    })),
+
+  setWorkspaceFolder: (id, folder) =>
+    set((s) => ({
+      workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, folder } : w)),
     })),
 
   deleteWorkspace: (id) => {

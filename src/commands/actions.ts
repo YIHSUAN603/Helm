@@ -43,11 +43,16 @@ export function activateSession(id: string): void {
   requestAnimationFrame(() => focusActiveTerminal());
 }
 
+/** A workspace's default folder (new sessions start here), or undefined when unset. */
+function folderForWorkspace(id: string): string | undefined {
+  return useWorkspaceStore.getState().workspaces.find((w) => w.id === id)?.folder || undefined;
+}
+
 /** Create an ungrouped session (optionally from a launcher) and focus its terminal. */
 export function newSession(launcher?: AgentLauncher, workspaceId?: string): void {
   const store = useSessionStore.getState();
   const targetWs = workspaceId ?? resolveFocusedWorkspace(store.sessions, store.activeId);
-  store.createSession(launcher, targetWs);
+  store.createSession(launcher, targetWs, folderForWorkspace(targetWs));
   requestAnimationFrame(() => focusActiveTerminal());
 }
 
@@ -58,7 +63,7 @@ export function splitActivePane(dir: SplitDir, launcher?: AgentLauncher): void {
   if (!active) return;
   const layout = useLayoutStore.getState();
   if (!layout.canSplitPane(active.id, dir)) return;
-  const newId = store.createSession(launcher, active.workspaceId);
+  const newId = store.createSession(launcher, active.workspaceId, folderForWorkspace(active.workspaceId));
   layout.splitPane(active.id, dir, newId);
 }
 
@@ -90,9 +95,11 @@ export function switchToSessionIndex(index: number): void {
   if (id) activateSession(id);
 }
 
-/** Create a workspace and return its id. */
+/** Create a workspace, open a fresh session in it, and return the workspace id. */
 export function newWorkspace(): string {
-  return useWorkspaceStore.getState().createWorkspace();
+  const id = useWorkspaceStore.getState().createWorkspace();
+  newSession(undefined, id);
+  return id;
 }
 
 /** Delete a workspace; its sessions move to the default one (never destroyed). */

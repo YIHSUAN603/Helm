@@ -14,6 +14,7 @@ import {
 } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey } from "../../focus/listNav";
+import { pickFolder } from "../../ipc/dialog";
 import { SessionItem, SIDEBAR_NAV_SELECTOR } from "./SessionItem";
 import { useT } from "../../i18n";
 
@@ -37,6 +38,7 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
   const t = useT();
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const renameWorkspace = useWorkspaceStore((s) => s.renameWorkspace);
+  const setWorkspaceFolder = useWorkspaceStore((s) => s.setWorkspaceFolder);
   const moveSessionToWorkspace = useSessionStore((s) => s.moveSessionToWorkspace);
   const renaming = useUiStore((s) => s.renamingWorkspaceId === w.id);
   const setRenamingId = useUiStore((s) => s.setRenamingWorkspaceId);
@@ -81,6 +83,11 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
   const addSession = () => {
     newSession(undefined, w.id);
     expandWorkspace(w.id);
+  };
+
+  const chooseFolder = async () => {
+    const path = await pickFolder(w.folder);
+    if (path) setWorkspaceFolder(w.id, path);
   };
 
   const clearDrag = () => {
@@ -159,6 +166,18 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
           </button>
         )}
         <button
+          className={`icon-btn hover-action ${w.folder ? "on" : ""}`}
+          title={t("sidebar.selectFolder")}
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            void chooseFolder();
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          📁
+        </button>
+        <button
           className="icon-btn hover-action"
           title={t("sidebar.addSession")}
           tabIndex={-1}
@@ -184,6 +203,20 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
           </button>
         )}
       </div>
+      {w.folder && (
+        <div className="workspace-folder" title={w.folder}>
+          <span className="workspace-folder-icon">📁</span>
+          <span className="workspace-folder-path">{w.folder}</span>
+          <button
+            className="icon-btn hover-action"
+            title={t("sidebar.clearFolder")}
+            tabIndex={-1}
+            onClick={() => setWorkspaceFolder(w.id, undefined)}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {!w.collapsed && (
         <div className="workspace-sessions">
           {sessions.map(({ session: s, cluster }) => (
