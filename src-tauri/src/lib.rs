@@ -1,5 +1,6 @@
 mod config;
 mod fonts;
+mod notify;
 mod pty;
 
 use pty::PtyManager;
@@ -120,7 +121,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(PtyManager::default())
         .setup(|app| {
@@ -145,6 +145,7 @@ pub fn run() {
             pty::pty_kill,
             config::read_agents_config,
             fonts::list_monospace_fonts,
+            notify::notify_session,
             set_menu_language,
         ])
         .run(tauri::generate_context!())

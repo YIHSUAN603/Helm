@@ -31,7 +31,8 @@ import { usePrefixStore } from "./store/prefix";
 import { WhichKey } from "./components/WhichKey/WhichKey";
 import { runCommand } from "./commands/registry";
 import { listen } from "@tauri-apps/api/event";
-import { ensureNotifyPermission } from "./ipc/notify";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { activateSession } from "./commands/actions";
 import { setMenuLanguage } from "./ipc/menu";
 import { checkForUpdate } from "./ipc/update";
 import { useUpdateStore } from "./store/update";
@@ -304,11 +305,17 @@ function App() {
     bootstrapped = true;
     (async () => {
       await initRegistry();
-      void ensureNotifyPermission();
       // 啟動時把已持久化的語言同步給原生選單（Rust 端預設建置為 zh-TW）。
       void setMenuLanguage(useLanguageStore.getState().name);
       // 原生選單 accelerator → 命令派發（純瀏覽器環境會 reject，忽略）。
       listen<string>("app://shortcut", (e) => runCommand(e.payload)).catch(() => {});
+      // 點擊桌面通知（Rust 端送出）→ 聚焦視窗並切到觸發的 session。
+      listen<string>("notify://activate", (e) => {
+        const win = getCurrentWindow();
+        void win.unminimize();
+        void win.setFocus();
+        activateSession(e.payload);
+      }).catch(() => {});
       // Notifications are suppressed while the window is focused (the
       // ApprovalPanel is visible then); on blur, send them for prompts
       // still pending. Dedupe in notifyPendingPrompt stops alt-tab spam.

@@ -5,12 +5,10 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
     "opener:default",
     "dialog:allow-open",
-    "notification:default",
-    "notification:allow-notify",
-    "notification:allow-request-permission",
-    "notification:allow-is-permission-granted",
     "updater:default"
   ]
 }

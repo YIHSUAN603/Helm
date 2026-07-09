@@ -78,7 +78,7 @@ export function notifyPendingPrompt(sess: Session): void {
     if (sess.workspaceId === resolveFocusedWorkspace(sessions, activeId)) return;
   }
   if (!shouldNotifyApproval(sess.id, text, Date.now())) return;
-  notify(t(`notify.${kind}`, { label: sess.agentLabel ?? "Agent" }), text);
+  notify(sess.id, t(`notify.${kind}`, { label: sess.agentLabel ?? "Agent" }), text);
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
