@@ -223,6 +223,10 @@ check(
   deriveState(claude, "│ > \n  ? for shortcuts").state === "done",
 );
 check(
+  "claude 閒置畫面殘留裝飾星號 ✻ + 輸入框判 done（不再誤判 thinking）",
+  deriveState(claude, "✻ Ready\n│ > \n  ? for shortcuts").state === "done",
+);
+check(
   "claude 閒置輸入框旁殘留 failed 散文判 done（不釘 error）",
   deriveState(
     claude,

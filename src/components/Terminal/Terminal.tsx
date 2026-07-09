@@ -123,6 +123,17 @@ function TerminalImpl({
         term.input("\x1f");
         return false; // 已處理,不讓 xterm 預設邏輯再碰
       }
+      // Ctrl+C 有選取時複製（同 Windows Terminal）；沒選取時落回 xterm 預設
+      // 送出 SIGINT(0x03)。複製後清掉選取,下次 Ctrl+C 即回到中斷行為。
+      if (
+        e.type === "keydown" &&
+        e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey &&
+        e.key === "c" && term.hasSelection()
+      ) {
+        void navigator.clipboard.writeText(term.getSelection());
+        term.clearSelection();
+        return false;
+      }
       return true;
     });
     const fitAddon = new FitAddon();

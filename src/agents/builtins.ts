@@ -42,8 +42,10 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
       // (engine.deriveState), so a trailing ❯ prompt plus a numbered list on
       // another line, or lowercase prose like "1. yes we could", won't trigger.
       waiting: "❯\\s*\\d+\\.\\s*(Yes|Allow|Run|Apply|Proceed|Create)",
-      // 思考中：旋轉星號 ✻✽✶✳✢、"thinking"、或 "esc to interrupt" 提示。
-      thinking: "[✻✽✶✳✢]|\\bthinking\\b|esc to interrupt",
+      // 思考中：spinner 提示「(esc to interrupt)」或 "thinking" 字樣；單獨的
+      // 裝飾性星號 ✻✽… 不算——閒置畫面會殘留星號，否則會蓋掉 composer-at-rest
+      // 的 done 判定，讓閒置燈跟思考中燈一樣跳動（見 engine.deriveState）。
+      thinking: "esc to interrupt|\\bthinking\\b",
       // 工具呼叫：⏺ 後接工具動詞（⏺ Running / ⏺ Update(...) / ⏺ Reading …）。
       tool: "⏺\\s*(Running|Ran|Reading|Writing|Searching|Fetching|Update|Edit|MultiEdit|Write|Read|Create|Bash|Grep|Glob)\\b",
       error: "\\berror\\b|failed|API Error",
