@@ -303,6 +303,17 @@ check(
   check("claude 問題選單 prompt 用問題行", d.prompt === "Which approach do you prefer?");
 }
 {
+  // findQuestionAbove 需與 question pattern 一致地認全形問號「？」，否則中文
+  // 團隊的 AskUserQuestion 選單（問題行以「？」結尾）會被當散文清單忽略。
+  const d = deriveState(
+    claude,
+    "座標要怎麼進到 R_TOWN？\n❯ 1. DB 之後會補欄位\n  2. 我出 migration",
+  );
+  check("claude 全形問號問題選單判 waiting", d.state === "waiting");
+  check("claude 全形問號問題選單 kind = question", d.kind === "question");
+  check("claude 全形問號問題選單 prompt 用問題行", d.prompt === "座標要怎麼進到 R_TOWN？");
+}
+{
   const d = deriveState(
     claude,
     "│ Which library should we use?  │\n│ ❯ 1. axios                    │\n│   2. fetch                    │\n╰───────────────────────────────╯",
