@@ -48,9 +48,7 @@ pub fn notify_session(app: AppHandle, session_id: String, title: String, body: S
         use mac_notification_sys::{send_notification, Notification, NotificationResponse};
         // send_notification 會阻塞直到使用者互動或通知消失，丟到獨立執行緒。
         std::thread::spawn(move || {
-            if let Ok(response) =
-                send_notification(&title, None, &body, &Notification::default())
-            {
+            if let Ok(response) = send_notification(&title, None, &body, &Notification::default()) {
                 match response {
                     NotificationResponse::Click | NotificationResponse::ActionButton(_) => {
                         let _ = app.emit("notify://activate", &session_id);
