@@ -89,7 +89,7 @@ fn parse_request(request: &mut tiny_http::Request) -> Option<HookEvent> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Read as _, Write as _};
+    use std::io::Write as _;
     use std::net::TcpStream;
 
     // 對綁在隨機 port 的 tiny_http server 發真實 HTTP 請求，回傳 parse 結果。
