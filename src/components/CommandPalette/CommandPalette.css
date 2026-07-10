@@ -12,10 +12,12 @@
 
 .palette {
   position: absolute;
-  top: 12%;
+  top: max(16px, 12%);
   left: 50%;
   transform: translateX(-50%);
   width: min(520px, 90vw);
+  max-height: calc(100vh - max(16px, 12%) - 16px);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   background: var(--sidebar-bg);
@@ -36,7 +38,8 @@
 }
 
 .palette-list {
-  max-height: 320px;
+  flex: 0 1 320px;
+  min-height: 0;
   overflow-y: auto;
 }
 

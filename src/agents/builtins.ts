@@ -35,6 +35,10 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
     id: "claude-code",
     label: "Claude Code",
     detectOutput: "Claude Code|anthropic|claude\\.ai\\/code",
+    // 終端標題（2.1.206 實測）：忙碌時「盲文 spinner + 任務摘要」（⠐ Create …，
+    // 字元在 U+2800–U+28FF 內輪替），靜止（閒置/審批/完成）時「✳ + 摘要」，
+    // 退出時清成空字串。標題分不出審批與閒置，waiting 仍靠畫面掃描。
+    title: { busy: "^[\\u2800-\\u28FF]", rest: "^✳" },
     states: {
     // 以下皆對照 Claude Code 2.1.x 實際 TUI 輸出校準。
       // Only match an active approval menu: the ❯ arrow pointing at a
@@ -46,11 +50,13 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
       // 裝飾性星號 ✻✽… 不算——閒置畫面會殘留星號，否則會蓋掉 composer-at-rest
       // 的 done 判定，讓閒置燈跟思考中燈一樣跳動（見 engine.deriveState）。
       thinking: "esc to interrupt|\\bthinking\\b",
-      // 工具呼叫：⏺ 後接工具動詞（⏺ Running / ⏺ Update(...) / ⏺ Reading …）。
-      tool: "⏺\\s*(Running|Ran|Reading|Writing|Searching|Fetching|Update|Edit|MultiEdit|Write|Read|Create|Bash|Grep|Glob)\\b",
+      // 工具呼叫：bullet 後接工具動詞（● Write(...) / ⏺ Running …）。
+      // 2.1.206 實測 bullet 是 ● U+25CF；保留 ⏺ 相容舊版。
+      tool: "[⏺●]\\s*(Running|Ran|Reading|Writing|Searching|Fetching|Update|Edit|MultiEdit|Write|Read|Create|Bash|Grep|Glob)\\b",
       error: "\\berror\\b|failed|API Error",
-      // 完成：「Done.」或「Worked for 5s」。
-      done: "\\bDone\\.|Worked for \\d",
+      // 完成：「Done.」、「Worked for 5s」或 2.1.x 的隨機動詞完成行
+      // （✻ Crunched for 12s / ✻ Cogitated for 13s …）。
+      done: "\\bDone\\.|Worked for \\d|✻\\s+\\w+ for \\d+s",
       // 排除啟動/設定類的一次性提示（信任資料夾、選主題、登入等）。
       ignore:
         "trust\\s*(this folder|the files)|Security\\s*guide|choose.*text style|Select\\s*(theme|login)|Sign in|Log in|Welcome to Claude",
@@ -87,6 +93,15 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
     // No bare "codex": a session must not get permanently tagged just because
     // a filename or chat line mentions the word.
     detectOutput: "Codex CLI|OpenAI Codex",
+    // 終端標題（0.144.1 實測）：忙碌時「盲文 spinner + cwd 目錄名」（⠹ work），
+    // 靜止時只剩目錄名——無固定字元可辨識，rest 不填。
+    title: { busy: "^[\\u2800-\\u28FF]" },
+    // tui.notifications 的 OSC 9 訊息（需使用者 config.toml 設
+    // notification_method = "osc9"、notification_condition = "always"）：
+    // approval-requested 的固定前綴 → waiting；其餘（turn-complete 的回應
+    // 預覽、plan-mode prompt）視為回合結束——plan 對話框隨後由畫面掃描的
+    // planMode pattern 接手判 waiting。
+    notify: { waiting: "^Approval requested|^Codex wants to edit" },
     states: {
       // Approval menu (current Codex TUI): the › selection arrow on a numbered
       // affirmative option ("› 1. Yes, proceed (y)"). The arrow row only exists

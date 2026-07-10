@@ -13,6 +13,12 @@ import {
 } from "../../store/settings";
 import { firstFontFamily, toFontFamilyValue } from "../../store/fontFamily";
 import { listMonospaceFonts } from "../../ipc/fonts";
+import {
+  installClaudeHooks,
+  installClaudeStatusline,
+  integrationStatus,
+  type IntegrationStatus,
+} from "../../ipc/integrations";
 import { useLanguageStore, LANGUAGE_NAMES, LANGUAGE_LABELS } from "../../store/language";
 import { installPendingUpdate, useUpdateStore } from "../../store/update";
 import { focusActiveTerminal, trapTabKey } from "../../focus/focusUtils";
@@ -27,6 +33,101 @@ const CURSOR_STYLE_KEYS: Record<CursorStyle, string> = {
 const CURSOR_STYLES: CursorStyle[] = ["block", "bar", "underline"];
 
 const CUSTOM_FONT_FAMILY_ID = "custom";
+
+// Codex 開啟 OSC 9 通知所需的 config.toml 片段（Helm 不自動改寫 TOML，
+// 由使用者複製貼上；預設 auto 只對白名單終端發 OSC 9、且 focused 時不發）。
+const CODEX_OSC9_SNIPPET = `[tui]
+notification_method = "osc9"
+notification_condition = "always"`;
+
+// Agent 整合區塊：查詢/一鍵安裝 Claude Code hooks 與 statusline 轉發，
+// Codex 顯示可複製的 config 片段。純瀏覽器環境（查無狀態）不顯示。
+function IntegrationSection() {
+  const t = useT();
+  const [status, setStatus] = useState<IntegrationStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    void integrationStatus().then(setStatus);
+  }, []);
+  if (!status) return null;
+
+  const install = (fn: () => Promise<void>) => {
+    setError(null);
+    fn()
+      .then(() => integrationStatus().then(setStatus))
+      .catch((e) => setError(String(e)));
+  };
+
+  return (
+    <>
+      <div className="settings-section">{t("settings.integrations")}</div>
+      <p className="settings-hint">{t("settings.integrationsHint")}</p>
+
+      <div className="settings-row">
+        <span title={t("settings.integrationClaudeHooksHint")}>
+          {t("settings.integrationClaudeHooks")}
+        </span>
+        {status.claudeHooks ? (
+          <span>{t("settings.integrationInstalled")}</span>
+        ) : (
+          <button
+            className="settings-update-install"
+            title={t("settings.integrationClaudeHooksHint")}
+            onClick={() => install(installClaudeHooks)}
+          >
+            {t("settings.integrationInstall")}
+          </button>
+        )}
+      </div>
+
+      <div className="settings-row">
+        <span title={t("settings.integrationClaudeHooksHint")}>
+          {t("settings.integrationClaudeStatusline")}
+        </span>
+        {status.claudeStatusline === "helm" ? (
+          <span>{t("settings.integrationInstalled")}</span>
+        ) : status.claudeStatusline === "other" ? (
+          <span>{t("settings.integrationManual")}</span>
+        ) : (
+          <button
+            className="settings-update-install"
+            title={t("settings.integrationClaudeHooksHint")}
+            onClick={() => install(installClaudeStatusline)}
+          >
+            {t("settings.integrationInstall")}
+          </button>
+        )}
+      </div>
+
+      <div className="settings-row">
+        <span>{t("settings.integrationCodexOsc9")}</span>
+        {status.codexOsc9 ? (
+          <span>{t("settings.integrationConfigured")}</span>
+        ) : (
+          <button
+            className="settings-update-install"
+            onClick={() => {
+              void navigator.clipboard.writeText(CODEX_OSC9_SNIPPET);
+              setCopied(true);
+            }}
+          >
+            {copied ? t("settings.integrationCopied") : t("settings.integrationCopy")}
+          </button>
+        )}
+      </div>
+      {!status.codexOsc9 && (
+        <>
+          <p className="settings-hint">{t("settings.integrationCodexHint")}</p>
+          <pre className="settings-snippet">{CODEX_OSC9_SNIPPET}</pre>
+        </>
+      )}
+
+      {error && <p className="settings-error">{error}</p>}
+    </>
+  );
+}
 
 export function SettingsDialog() {
   const open = useUiStore((s) => s.settingsOpen);
@@ -267,6 +368,8 @@ function SettingsDialogInner() {
               onChange={(e) => setDefaultCwd(e.target.value)}
             />
           </label>
+
+          <IntegrationSection />
 
           <div className="settings-row">
             <span>{t("settings.updateVersion")}</span>

@@ -2,6 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 // .ts 副檔名：讓 node 測試（strip-types 模式）能直接載入本模組。
 import { BUILTIN_LAUNCHERS, BUILTIN_PROFILES, GENERIC_PROFILE } from "./builtins.ts";
+import { deriveNotifySignal } from "./engine.ts";
 import type { AgentConfig, AgentLauncher, AgentProfile } from "./types";
 
 let profiles = new Map<string, AgentProfile>();
@@ -58,6 +59,17 @@ export function listLaunchers(): AgentLauncher[] {
 export function detectProfile(text: string): AgentProfile | null {
   for (const p of profiles.values()) {
     if (detectRegexes.get(p.id)?.test(text)) return p;
+  }
+  return null;
+}
+
+/**
+ * 從 OSC 9 通知訊息偵測 agent：waiting 前綴（如 "Approval requested"）夠
+ * 特異，可兼作尚未偵測 session 的辨識；其他通知訊息（任意文字）不做偵測。
+ */
+export function detectNotifyProfile(message: string): AgentProfile | null {
+  for (const p of profiles.values()) {
+    if (deriveNotifySignal(p, message)?.state === "waiting") return p;
   }
   return null;
 }

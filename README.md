@@ -97,6 +97,28 @@ fullscreen.
   `Ctrl+A f`) to see every file an agent has touched in the current
   workspace, grouped by session.
 
+## Agent integrations (optional, recommended)
+
+Out of the box Helm detects an agent's state by reading what's on screen,
+which can lag or misread when an agent's UI changes between versions.
+Claude Code and Codex also provide official channels, and Helm can use
+them for instant, precise detection:
+
+- **Claude Code hooks** — open Settings → **Agent integrations** and click
+  **Install**. This adds a small forwarding hook to
+  `~/.claude/settings.json`, so Claude Code itself tells Helm the moment it
+  needs approval (including the exact command or file), when a turn ends,
+  and which files changed. Outside Helm the hook does nothing.
+- **Claude Code statusline** — a separate opt-in install that also reports
+  live cost and remaining context. If you already have a custom statusline,
+  Helm won't touch it.
+- **Codex notifications** — Codex can emit desktop-notification escape
+  codes that Helm reads directly. Copy the two-line snippet shown in
+  Settings into the `[tui]` section of `~/.codex/config.toml`.
+
+Screen reading stays on as a fallback, so everything keeps working if you
+skip this — approvals just take a moment longer to detect.
+
 ## Broadcasting to multiple agents
 
 Type a message once in the toolbar's broadcast box, choose whether it goes
@@ -178,6 +200,8 @@ here applies immediately and is remembered for next time:
 - **Cursor style** (block, bar, underline) and **cursor blink**
 - **Default shell** and **default working directory** for new sessions
   (leave blank to use your system's defaults)
+- **Agent integrations** — one-click setup for the official Claude Code /
+  Codex signals (see [Agent integrations](#agent-integrations-optional-recommended))
 - Installed app version and current update status
 
 ## Supported agents & customization

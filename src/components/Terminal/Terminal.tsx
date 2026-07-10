@@ -38,6 +38,8 @@ interface TerminalProps {
    *  false 時跳過每個 chunk 的 TextDecoder 解碼。 */
   streamEnabled: boolean;
   onTitle?: (title: string) => void;
+  /** OSC 9 桌面通知序列（Codex tui.notifications 等）的訊息本文。 */
+  onNotify?: (message: string) => void;
   onBusy?: () => void;
   onIdle?: () => void;
   onExit?: () => void;
@@ -68,6 +70,7 @@ function TerminalImpl({
   launchCommand,
   streamEnabled,
   onTitle,
+  onNotify,
   onBusy,
   onIdle,
   onExit,
@@ -79,11 +82,11 @@ function TerminalImpl({
   const fitRef = useRef<FitAddon | null>(null);
   const themeName = useThemeStore((s) => s.name);
 
-  const cbRef = useRef({ onTitle, onBusy, onIdle, onExit, onScan, onStream });
+  const cbRef = useRef({ onTitle, onNotify, onBusy, onIdle, onExit, onScan, onStream });
   // Latest-ref 模式（刻意在 render 期同步更新）：PTY 事件可能在 render 與
   // effect flush 之間到達，改在 effect 內指派會讀到過期 callback。
   // eslint-disable-next-line react-hooks/refs
-  cbRef.current = { onTitle, onBusy, onIdle, onExit, onScan, onStream };
+  cbRef.current = { onTitle, onNotify, onBusy, onIdle, onExit, onScan, onStream };
 
   // Renderer: xterm 5.x + the canvas addon (DOM renderer as fallback). xterm
   // 6.x rendered full-screen TUIs (nvim's alternate screen) blank on macOS
@@ -149,6 +152,13 @@ function TerminalImpl({
     fitRef.current = fitAddon;
 
     const titleDisposable = term.onTitleChange((t) => cbRef.current.onTitle?.(t));
+
+    // OSC 9（桌面通知）：Codex 的 tui.notifications 以 `\x1b]9;<訊息>\x07`
+    // 通知審批/回合結束，訊息交給 onNotify 推導狀態。回 true 表示已處理。
+    const oscDisposable = term.parser.registerOscHandler(9, (data) => {
+      cbRef.current.onNotify?.(data);
+      return true;
+    });
 
     // Switching to/from the alternate screen (nvim and other full-screen TUIs)
     // can change the usable cell grid; refit on the swap so cols/rows stay
@@ -267,6 +277,7 @@ function TerminalImpl({
       if (ptyResizeTimer) clearTimeout(ptyResizeTimer);
       resizeObserver.disconnect();
       titleDisposable.dispose();
+      oscDisposable.dispose();
       bufferDisposable.dispose();
       dataDisposable.dispose();
       unlistenExit?.();

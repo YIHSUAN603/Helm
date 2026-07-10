@@ -1,11 +1,14 @@
 mod config;
 mod fonts;
+mod hookserver;
+mod integrations;
 mod notify;
 mod pty;
 
+use hookserver::HookServer;
 use pty::PtyManager;
 use tauri::menu::{Menu, MenuItemBuilder, SubmenuBuilder};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 /// Menu item labels, keyed by language. Item ids (= frontend command ids in
 /// src/commands/registry.ts) never change, only the human-readable text.
@@ -123,7 +126,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(PtyManager::default())
+        .manage(HookServer::default())
         .setup(|app| {
+            // Hook 事件接收器：失敗不擋啟動（agent 偵測退回 viewport 掃描）。
+            if let Err(e) = hookserver::start(app.handle().clone(), &app.state::<HookServer>()) {
+                eprintln!("hook server disabled: {e}");
+            }
             let menu = build_menu(app.handle(), "zh-TW")?;
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
@@ -144,6 +152,9 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             config::read_agents_config,
+            integrations::integration_status,
+            integrations::install_claude_hooks,
+            integrations::install_claude_statusline,
             fonts::list_monospace_fonts,
             notify::notify_session,
             set_menu_language,

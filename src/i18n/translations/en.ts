@@ -37,6 +37,20 @@ export const en: Record<string, string> = {
   "settings.defaultCwdPlaceholder": "Leave empty to use home directory",
   "settings.updateVersion": "Version",
   "settings.updateStatus": "Update status",
+  "settings.integrations": "Agent integrations",
+  "settings.integrationsHint":
+    "Let CLI agents report approvals and state via official hooks (more precise than screen scanning). Installing modifies the corresponding user config file.",
+  "settings.integrationClaudeHooks": "Claude Code hooks (approvals/state)",
+  "settings.integrationClaudeHooksHint": "Writes to ~/.claude/settings.json",
+  "settings.integrationClaudeStatusline": "Claude Code statusline (cost/context)",
+  "settings.integrationCodexOsc9": "Codex notifications (OSC 9)",
+  "settings.integrationCodexHint": "Paste this snippet into ~/.codex/config.toml:",
+  "settings.integrationInstall": "Install",
+  "settings.integrationInstalled": "✓ Installed",
+  "settings.integrationConfigured": "✓ Configured",
+  "settings.integrationManual": "Custom statusline exists; integrate manually",
+  "settings.integrationCopy": "Copy config",
+  "settings.integrationCopied": "Copied",
 
   // Update
   "update.checking": "Checking for updates…",

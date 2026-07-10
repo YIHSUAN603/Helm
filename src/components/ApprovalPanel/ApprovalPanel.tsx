@@ -76,38 +76,40 @@ export function ApprovalPanel() {
           </span>
         )}
       </div>
-      {pending.map((s) => (
-        <div className="approval-item" key={s.id}>
-          <div
-            className="approval-meta"
-            role="button"
-            tabIndex={0}
-            onClick={() => activateSession(s.id)}
-            onKeyDown={(e) => onMetaKeyDown(e, s.id)}
-          >
-            <span className="approval-agent">{s.agentLabel ?? t("toolbar.defaultAgent")}</span>
-            <span className="approval-session">{s.title}</span>
-          </div>
-          <div className="approval-prompt" title={s.pendingApproval}>
-            {s.pendingApproval}
-          </div>
-          <IneffectiveHint sessionId={s.id} prompt={s.pendingApproval ?? ""} />
-          <div className="approval-actions">
-            <button
-              className="approve"
-              onClick={() => respondApproval(s.id, s.agentId, true)}
+      <div className="approval-content">
+        {pending.map((s) => (
+          <div className="approval-item" key={s.id}>
+            <div
+              className="approval-meta"
+              role="button"
+              tabIndex={0}
+              onClick={() => activateSession(s.id)}
+              onKeyDown={(e) => onMetaKeyDown(e, s.id)}
             >
-              {t("approval.approve")}
-            </button>
-            <button
-              className="reject"
-              onClick={() => respondApproval(s.id, s.agentId, false)}
-            >
-              {t("approval.reject")}
-            </button>
+              <span className="approval-agent">{s.agentLabel ?? t("toolbar.defaultAgent")}</span>
+              <span className="approval-session">{s.title}</span>
+            </div>
+            <div className="approval-prompt" title={s.pendingApproval}>
+              {s.pendingApproval}
+            </div>
+            <IneffectiveHint sessionId={s.id} prompt={s.pendingApproval ?? ""} />
+            <div className="approval-actions">
+              <button
+                className="approve"
+                onClick={() => respondApproval(s.id, s.agentId, true)}
+              >
+                {t("approval.approve")}
+              </button>
+              <button
+                className="reject"
+                onClick={() => respondApproval(s.id, s.agentId, false)}
+              >
+                {t("approval.reject")}
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

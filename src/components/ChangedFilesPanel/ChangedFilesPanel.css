@@ -4,6 +4,7 @@
   right: 8px;
   width: 300px;
   max-height: calc(100% - 16px);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   background: var(--sidebar-bg);
@@ -38,6 +39,9 @@
 }
 
 .files-list {
+  /* 2026/07/10：面板高度不足時僅捲動檔案清單，保留標頭與關閉鈕。 */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 6px;
 }

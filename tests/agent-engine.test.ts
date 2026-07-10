@@ -1,8 +1,14 @@
 // Agent 狀態引擎的純函式測試（不需 GUI / Tauri）。
 // 執行：node --experimental-strip-types tests/agent-engine.test.ts
 import assert from "node:assert";
-import { deriveState, stripAnsi } from "../src/agents/engine.ts";
+import { deriveState, deriveTitleSignal, stripAnsi } from "../src/agents/engine.ts";
 import { BUILTIN_PROFILES, GENERIC_PROFILE } from "../src/agents/builtins.ts";
+import {
+  TITLE_BUSY_TTL_MS,
+  clearScanState,
+  getTitleSignal,
+  setTitleSignal,
+} from "../src/store/scanState.ts";
 
 const claude = BUILTIN_PROFILES.find((p) => p.id === "claude-code")!;
 const codex = BUILTIN_PROFILES.find((p) => p.id === "codex")!;
@@ -409,5 +415,85 @@ check(
   "generic 無新 pattern 時 kind 一律 approval",
   deriveState(GENERIC_PROFILE, "Proceed? (y/n)").kind === "approval",
 );
+
+// 過時 pattern 校準（2.1.206 實測）：bullet 改 ●、完成動詞隨機化。
+check(
+  "claude tool 支援 ● bullet (● Write(hello.txt))",
+  deriveState(claude, "● Write(hello.txt)").state === "tool",
+);
+check(
+  "claude done 隨機動詞完成行 (✻ Crunched for 12s)",
+  deriveState(claude, "✻ Crunched for 12s").state === "done",
+);
+
+// 終端標題 → 忙/靜止訊號（deriveTitleSignal，pattern 依 2026-07-10 實測校準）。
+check(
+  "claude 盲文 spinner 標題 → busy",
+  deriveTitleSignal(claude, "⠐ Create hello.txt file with hi content") === "busy",
+);
+check("claude ✳ 標題 → rest", deriveTitleSignal(claude, "✳ Claude Code") === "rest");
+check("claude 空標題（退出）→ 無訊號", deriveTitleSignal(claude, "") === undefined);
+check(
+  "claude shell 標題 → 無訊號",
+  deriveTitleSignal(claude, "~/project — zsh") === undefined,
+);
+check("codex 盲文 spinner 標題 → busy", deriveTitleSignal(codex, "⠹ work") === "busy");
+check("codex 靜止標題（純目錄名）→ 無訊號", deriveTitleSignal(codex, "work") === undefined);
+check(
+  "generic 無 title pattern → 無訊號",
+  deriveTitleSignal(GENERIC_PROFILE, "⠐ anything") === undefined,
+);
+
+// deriveState + title 訊號：只重分類，scan 的 waiting 永遠優先。
+check(
+  "busy 否決 composer 完成判定（串流中殘留完成行）→ thinking",
+  deriveState(claude, "✻ Crunched for 12s\n│ > │\n  ? for shortcuts", "busy").state ===
+    "thinking",
+);
+check(
+  "busy + 純散文（無任何 pattern 命中）→ thinking",
+  deriveState(claude, "Streaming some prose output here.", "busy").state === "thinking",
+);
+check(
+  "busy 否決殘留 error 散文 → thinking",
+  deriveState(claude, "1 test failed earlier\nmore prose", "busy").state === "thinking",
+);
+check(
+  "busy + 工具行仍判 tool（比 busy 更具體）",
+  deriveState(claude, "● Running 1 shell command…", "busy").state === "tool",
+);
+check(
+  "busy + 審批選單仍判 waiting（scan 優先）",
+  deriveState(claude, "Do you want to proceed?\n❯ 1. Yes\n  2. No", "busy").state ===
+    "waiting",
+);
+check(
+  "rest 否決殘留 spinner 行（composer 可見）→ done",
+  deriveState(claude, "✻ Pondering… (esc to interrupt)\n│ > │\n  ? for shortcuts", "rest")
+    .state === "done",
+);
+check(
+  "無訊號時行為不變（殘留 spinner 判 thinking）",
+  deriveState(claude, "✻ Pondering… (esc to interrupt)\n│ > │\n  ? for shortcuts").state ===
+    "thinking",
+);
+
+// scanState：busy 訊號 TTL（殘留 spinner 標題不得永久釘住燈號），rest 不過期。
+{
+  const id = "test-title-signal";
+  setTitleSignal(id, "busy", 1000);
+  check("busy 於 TTL 內有效", getTitleSignal(id, 1000 + TITLE_BUSY_TTL_MS - 1) === "busy");
+  check(
+    "busy 超過 TTL 過期",
+    getTitleSignal(id, 1000 + TITLE_BUSY_TTL_MS + 1) === undefined,
+  );
+  setTitleSignal(id, "rest", 1000);
+  check("rest 不過期", getTitleSignal(id, 1000 + TITLE_BUSY_TTL_MS * 100) === "rest");
+  setTitleSignal(id, undefined, 2000);
+  check("undefined 清除訊號", getTitleSignal(id, 2000) === undefined);
+  setTitleSignal(id, "busy", 3000);
+  clearScanState(id);
+  check("clearScanState 清除 title 訊號", getTitleSignal(id, 3000) === undefined);
+}
 
 console.log(`\n${passed} checks passed.`);

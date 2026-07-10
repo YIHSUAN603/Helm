@@ -37,6 +37,20 @@ export const zhTW: Record<string, string> = {
   "settings.defaultCwdPlaceholder": "留空使用使用者家目錄",
   "settings.updateVersion": "版本",
   "settings.updateStatus": "更新狀態",
+  "settings.integrations": "Agent 整合",
+  "settings.integrationsHint":
+    "讓 CLI agent 以官方 hooks 回報審批與狀態（比畫面掃描精確）。安裝會修改對應的使用者設定檔。",
+  "settings.integrationClaudeHooks": "Claude Code hooks（審批/狀態）",
+  "settings.integrationClaudeHooksHint": "寫入 ~/.claude/settings.json",
+  "settings.integrationClaudeStatusline": "Claude Code statusline（成本/context）",
+  "settings.integrationCodexOsc9": "Codex 通知（OSC 9）",
+  "settings.integrationCodexHint": "請把以下片段貼進 ~/.codex/config.toml：",
+  "settings.integrationInstall": "安裝",
+  "settings.integrationInstalled": "✓ 已安裝",
+  "settings.integrationConfigured": "✓ 已設定",
+  "settings.integrationManual": "已有自訂 statusline，請手動整合",
+  "settings.integrationCopy": "複製設定",
+  "settings.integrationCopied": "已複製",
 
   // Update
   "update.checking": "檢查更新中…",

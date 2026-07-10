@@ -17,6 +17,35 @@ export type AgentState =
  */
 export type PromptKind = "approval" | "question" | "plan";
 
+/**
+ * 從終端標題(OSC 0/2)推導的粗訊號:
+ * - "busy":agent 執行中(CLI 以 spinner 字元開頭更新標題)。
+ * - "rest":agent 靜止(閒置/審批/完成——標題分不出這三者,waiting 仍靠畫面掃描)。
+ */
+export type TitleSignal = "busy" | "rest";
+
+/**
+ * OSC 9 桌面通知序列（`\x1b]9;<訊息>\x07`）的辨識 pattern。Codex 的
+ * tui.notifications 會把 approval-requested / agent-turn-complete 以此格式
+ * 寫進 PTY，Helm 身為終端可直接攔（見 Terminal.tsx 的 registerOscHandler）。
+ */
+export interface AgentNotifyPatterns {
+  /**
+   * 命中 = 審批等待中（訊息本文作為提示）。前綴需夠特異（如
+   * "^Approval requested"），因為它兼作未偵測 session 的 agent 辨識。
+   * 未命中時的其他通知一律視為回合結束（該 agent 只在這兩種時機發通知）。
+   */
+  waiting?: string;
+}
+
+/** 比對終端標題的 pattern(regex 來源字串)。title 只能分忙/不忙,故獨立於 states。 */
+export interface AgentTitlePatterns {
+  /** 命中 = agent 執行中(spinner 字元)。 */
+  busy?: string;
+  /** 命中 = agent 靜止。選填;無法辨識靜止 title 的工具(如 Codex)可不填。 */
+  rest?: string;
+}
+
 /** 各狀態的辨識 pattern（regex 來源字串，套用在近期清乾淨的輸出上）。 */
 export interface AgentStatePatterns {
   /**
@@ -91,6 +120,13 @@ export interface AgentProfile {
   detectOutput?: string;
   /** 狀態辨識 pattern。 */
   states: AgentStatePatterns;
+  /**
+   * 終端標題(OSC 0/2)的忙/靜止辨識 pattern,選填。標題由 CLI 主動設定、
+   * 不受 TUI 重繪雜訊影響,作為 deriveState 的重分類訊號(見 engine.ts)。
+   */
+  title?: AgentTitlePatterns;
+  /** OSC 9 桌面通知的辨識 pattern，選填（目前僅 Codex 會發）。 */
+  notify?: AgentNotifyPatterns;
   /** 結構化擷取 pattern（成本/用量/檔案變更），選填。 */
   extract?: AgentExtractors;
   /** 進入 waiting 時，approve / reject 要寫回 PTY 的按鍵序列。 */

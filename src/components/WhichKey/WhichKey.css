@@ -5,6 +5,10 @@
   transform: translateX(-50%);
   z-index: 100;
   max-width: min(880px, 94vw);
+  max-height: calc(100vh - 32px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   background: var(--sidebar-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -15,10 +19,14 @@
 }
 
 .whichkey-groups {
+  /* 2026/07/10：矮視窗時讓快捷鍵清單捲動，底部提示列保持可見。 */
+  flex: 0 1 auto;
+  min-height: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 4px 24px;
   padding: 10px 14px;
+  overflow-y: auto;
 }
 
 .whichkey-group {

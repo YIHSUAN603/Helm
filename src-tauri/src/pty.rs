@@ -109,6 +109,13 @@ pub fn pty_spawn(
     let mut cmd = CommandBuilder::new(program);
     cmd.args(&args);
     cmd.env("TERM", "xterm-256color");
+    // Agent hook 整合：CLI spawn 的 hook 程序繼承這兩個變數，把事件精準對回
+    // 本 session（見 hookserver.rs）。port = 0 代表 hook server 沒起來，不注入。
+    cmd.env("HELM_SESSION_ID", &options.id);
+    let hook_port = app.state::<crate::hookserver::HookServer>().port();
+    if hook_port > 0 {
+        cmd.env("HELM_EVENT_PORT", hook_port.to_string());
+    }
     if let Some(cwd) = options.cwd {
         cmd.cwd(cwd);
     } else if let Some(home) = dirs_home() {
@@ -240,7 +247,7 @@ pub fn pty_kill(state: State<'_, PtyManager>, id: String) -> Result<(), String> 
 }
 
 /// 使用者 home 目錄：Unix 用 HOME，Windows 用 USERPROFILE。
-fn dirs_home() -> Option<String> {
+pub(crate) fn dirs_home() -> Option<String> {
     std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .ok()

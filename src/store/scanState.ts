@@ -6,9 +6,14 @@
 // dropped on session close (closeSession) — the handlers themselves stop
 // firing once the Terminal unmounts, so they cannot self-clean.
 
+// type-only import：維持本模組可被 node 測試直接載入（無執行期依賴）。
+import type { TitleSignal } from "../agents/types";
+
 const lineBuffers = new Map<string, string>();
 const nonWaitingStreaks = new Map<string, number>();
 const emptyScanStreaks = new Map<string, number>();
+const titleSignals = new Map<string, { signal: TitleSignal; at: number }>();
+const hookWaitingAt = new Map<string, number>();
 
 /** 殘餘半行長度上限：長時間無換行的輸出不能讓 buffer 無限成長。 */
 export const LINE_BUFFER_MAX = 4000;
@@ -69,9 +74,71 @@ export function resetEmptyScanStreak(sessionId: string): void {
   emptyScanStreaks.delete(sessionId);
 }
 
+/**
+ * busy 訊號的有效期：spinner 期間 CLI 每秒更新標題數次,超過此時間沒有新的
+ * busy title 即視為過期——agent 被 kill 後殘留的 spinner title 不能把燈
+ * 永久釘在 thinking（shell 不一定會重設 title）。rest 只做否決,不設 TTL。
+ */
+export const TITLE_BUSY_TTL_MS = 3000;
+
+/** Record the latest title-derived signal (undefined = no signal, forget it). */
+export function setTitleSignal(
+  sessionId: string,
+  signal: TitleSignal | undefined,
+  now: number,
+): void {
+  if (signal) titleSignals.set(sessionId, { signal, at: now });
+  else titleSignals.delete(sessionId);
+}
+
+/** The session's title signal; a busy older than TITLE_BUSY_TTL_MS is expired. */
+export function getTitleSignal(
+  sessionId: string,
+  now: number,
+): TitleSignal | undefined {
+  const cur = titleSignals.get(sessionId);
+  if (!cur) return undefined;
+  if (cur.signal === "busy" && now - cur.at > TITLE_BUSY_TTL_MS) return undefined;
+  return cur.signal;
+}
+
+/**
+ * Hook-waiting 寬限：PermissionRequest hook 在審批對話框「畫出來之前」觸發
+ * （hooks 的語意如此），若 handleScan 的連續 non-waiting 清除在對話框重繪前
+ * 執行，會把剛設下的 waiting 清掉。寬限期內跳過清除；代價是使用者在 TUI 內
+ * 回答時，燈號最多晚這個時間才清。
+ */
+export const HOOK_WAITING_GRACE_MS = 2000;
+
+/**
+ * 記錄「目前的 waiting 來自 hook」。entry 存在期間 scan 偵測到的 waiting 不
+ * 覆蓋 prompt（hook 的 tool_name + tool_input 比 viewport 選單行精確）；
+ * 清除時機：scan 判定審批已結束、stop/toolDone 事件、session 關閉。
+ */
+export function markHookWaiting(sessionId: string, now: number): void {
+  hookWaitingAt.set(sessionId, now);
+}
+
+export function clearHookWaiting(sessionId: string): void {
+  hookWaitingAt.delete(sessionId);
+}
+
+/** 目前的 waiting 是否為 hook 來源（不論新舊）。 */
+export function hasHookWaiting(sessionId: string): boolean {
+  return hookWaitingAt.has(sessionId);
+}
+
+/** hook 設下 waiting 後是否仍在寬限期內（清除要再等等）。 */
+export function isHookWaitingFresh(sessionId: string, now: number): boolean {
+  const at = hookWaitingAt.get(sessionId);
+  return at !== undefined && now - at <= HOOK_WAITING_GRACE_MS;
+}
+
 /** Forget the session's buffers (session close / housekeeping). */
 export function clearScanState(sessionId: string): void {
   lineBuffers.delete(sessionId);
   nonWaitingStreaks.delete(sessionId);
   emptyScanStreaks.delete(sessionId);
+  titleSignals.delete(sessionId);
+  hookWaitingAt.delete(sessionId);
 }

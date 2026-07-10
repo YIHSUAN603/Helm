@@ -16,10 +16,16 @@ import {
   STREAM_MAX_LINES_PER_CHUNK,
   bumpEmptyScanStreak,
   bumpNonWaitingStreak,
+  clearHookWaiting,
   clearScanState,
   consumeLines,
+  getTitleSignal,
+  hasHookWaiting,
+  isHookWaitingFresh,
+  markHookWaiting,
   resetEmptyScanStreak,
   resetNonWaitingStreak,
+  setTitleSignal,
 } from "./store/scanState";
 import { useThemeStore } from "./store/theme";
 import { groupTreeOf, useLayoutStore } from "./store/layout";
@@ -37,8 +43,10 @@ import { setMenuLanguage } from "./ipc/menu";
 import { checkForUpdate } from "./ipc/update";
 import { useUpdateStore } from "./store/update";
 import { useLanguageStore } from "./store/language";
-import { initRegistry, detectProfile, getProfile } from "./agents/registry";
-import { deriveState, stripAnsi } from "./agents/engine";
+import { initRegistry, detectNotifyProfile, detectProfile, getProfile } from "./agents/registry";
+import { deriveNotifySignal, deriveState, deriveTitleSignal, stripAnsi } from "./agents/engine";
+import { normalizeHookPayload, profileIdForSource } from "./agents/hookEvents";
+import { listenAgentHook } from "./ipc/hooks";
 import { extractFilesFromText, extractFromLine, extractUsageFromText } from "./agents/extract";
 import { useT } from "./i18n";
 import "./App.css";
@@ -96,6 +104,80 @@ function rectStyle(rect: RectPct): CSSProperties {
   };
 }
 
+// 終端標題（OSC 0/2）→ 側欄標題 + 忙/靜止訊號。CLI 忙碌時以 spinner 字元
+// 開頭更新標題、靜止時換成固定字元（見 builtins 的 title patterns），比 TUI
+// 文字掃描可靠。訊號只記下來：標題變更本身就是 PTY 輸出，scan debounce 必然
+// 跟著觸發，於下一次 handleScan（≤150ms）併入 deriveState。
+function handleTitle(id: string, title: string) {
+  const store = useSessionStore.getState();
+  store.setTitle(id, title);
+  const sess = store.sessions.find((x) => x.id === id);
+  if (!sess?.agentId) return;
+  const signal = deriveTitleSignal(getProfile(sess.agentId), title);
+  setTitleSignal(id, signal, Date.now());
+}
+
+// OSC 9 桌面通知（Codex tui.notifications）→ 狀態訊號。發通知的 agent 只在
+// 「要審批」與「回合結束」時發通知，waiting 前綴未命中即視為 done。session
+// 尚未偵測到 agent 時，只有特異的 waiting 前綴兼作辨識；任意程式發的其他
+// OSC 9 通知不動狀態。
+function handleNotify(id: string, message: string) {
+  const store = useSessionStore.getState();
+  const sess = store.sessions.find((x) => x.id === id);
+  if (!sess) return;
+  let profileId = sess.agentId;
+  if (!profileId) {
+    const p = detectNotifyProfile(message);
+    if (!p) return;
+    store.setDetectedAgent(id, p.id, p.label);
+    profileId = p.id;
+  }
+  const sig = deriveNotifySignal(getProfile(profileId), message);
+  if (!sig) return;
+  if (sig.state === "waiting") {
+    markHookWaiting(id, Date.now());
+    store.setAgentState(id, "waiting", sig.prompt, "approval");
+  } else {
+    clearHookWaiting(id);
+    store.setAgentState(id, "done");
+  }
+}
+
+// Hook 事件（agent://hook，見 src-tauri/src/hookserver.rs）→ 正規化 → store。
+// 官方結構化訊號：permission/stop 直接設 waiting/done（比 viewport 掃描精確且
+// 即時），usage/toolDone 更新統計。未安裝 hooks 時本函式不會被觸發，一切照舊。
+function handleHookEvent(id: string, source: string, payload: unknown) {
+  const store = useSessionStore.getState();
+  const sess = store.sessions.find((x) => x.id === id);
+  if (!sess) return;
+  // source 直接確定 profile（比 detectOutput 被動偵測可靠）。
+  const profileId = profileIdForSource(source);
+  if (profileId && !sess.agentId) {
+    const p = getProfile(profileId);
+    store.setDetectedAgent(id, p.id, p.label);
+  }
+  const ev = normalizeHookPayload(source, payload);
+  if (!ev) return;
+  switch (ev.kind) {
+    case "permission":
+      markHookWaiting(id, Date.now());
+      store.setAgentState(id, "waiting", ev.prompt, "approval");
+      break;
+    case "stop":
+      clearHookWaiting(id);
+      store.setAgentState(id, "done");
+      break;
+    case "toolDone":
+      // 工具已執行 = 這次審批已被回答（核准）；狀態燈交回 scan 驅動。
+      clearHookWaiting(id);
+      if (ev.file) store.addChangedFile(id, ev.file);
+      break;
+    case "usage":
+      store.setUsage(id, ev.usage);
+      break;
+  }
+}
+
 // 近期渲染文字 → 偵測 agent 並推導狀態，更新 store。
 function handleScan(id: string, text: string) {
   const store = useSessionStore.getState();
@@ -129,7 +211,7 @@ function handleScan(id: string, text: string) {
     }
     for (const f of extractFilesFromText(profile, text)) store.addChangedFile(id, f);
   }
-  const derived = deriveState(profile, text);
+  const derived = deriveState(profile, text, getTitleSignal(id, Date.now()));
   if (derived.state) resetEmptyScanStreak(id);
   if (derived.state === "waiting") {
     // Just-answered prompt still on screen (TUI mid-repaint): don't resurrect
@@ -138,6 +220,9 @@ function handleScan(id: string, text: string) {
       return;
     }
     resetNonWaitingStreak(id);
+    // 目前的 waiting 來自 hook：prompt（tool_name + tool_input）比 viewport
+    // 選單行精確，scan 只確認 waiting 持續，不覆蓋提示內容。
+    if (hasHookWaiting(id) && sess.agentState === "waiting") return;
     store.setAgentState(id, derived.state, derived.prompt, derived.kind);
     return;
   }
@@ -147,12 +232,15 @@ function handleScan(id: string, text: string) {
   // prompts are unaffected.
   const pendingText = sess.pendingApproval ?? sess.pendingPrompt?.text;
   if (pendingText) {
+    // Hook 剛宣告 waiting：對話框可能還沒重繪到 viewport，寬限期內不清除。
+    if (isHookWaitingFresh(id, Date.now())) return;
     if (bumpNonWaitingStreak(id) < 2) return;
     // The dialog left the screen without a panel response — the user answered
     // inside the terminal. Record it so a stale copy of the same prompt
     // resurfacing (e.g. a resize reflow) cannot resurrect the prompt,
     // matching the explicit-response path in respondApproval.
     markApprovalAnswered(id, pendingText, Date.now());
+    clearHookWaiting(id); // 審批結束，waiting 的 hook 來源標記一併失效
   }
   resetNonWaitingStreak(id);
   if (derived.state) {
@@ -236,7 +324,8 @@ const Pane = memo(function Pane({ session: s, rect, active, solo }: PaneProps) {
         cwd={s.cwd}
         launchCommand={s.launchCommand}
         streamEnabled={streamEnabled}
-        onTitle={(title) => useSessionStore.getState().setTitle(s.id, title)}
+        onTitle={(title) => handleTitle(s.id, title)}
+        onNotify={(message) => handleNotify(s.id, message)}
         onBusy={() => useSessionStore.getState().setStatus(s.id, "busy")}
         onIdle={() => useSessionStore.getState().setStatus(s.id, "idle")}
         onExit={() => {
@@ -322,6 +411,10 @@ function App() {
       void setMenuLanguage(useLanguageStore.getState().name);
       // 原生選單 accelerator → 命令派發（純瀏覽器環境會 reject，忽略）。
       listen<string>("app://shortcut", (e) => runCommand(e.payload)).catch(() => {});
+      // CLI agent 的 hook 程序回報的結構化事件（審批/回合結束/用量）。
+      listenAgentHook((e) => handleHookEvent(e.sessionId, e.source, e.payload)).catch(
+        () => {},
+      );
       // 點擊桌面通知（Rust 端送出）→ 聚焦視窗並切到觸發的 session。
       listen<string>("notify://activate", (e) => {
         const win = getCurrentWindow();
