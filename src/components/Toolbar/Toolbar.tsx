@@ -59,6 +59,7 @@ export function Toolbar() {
           cost: a.cost,
           tokensIn: a.tokensIn,
           tokensOut: a.tokensOut,
+          contextLeftPercent: a.contextLeftPercent,
         }
       );
     }),
@@ -138,9 +139,15 @@ export function Toolbar() {
           <span className="tb-mono" title={t("toolbar.cost")}>
             {fmtCost(active.cost)}
           </span>
-          <span className="tb-mono" title={t("toolbar.tokens")}>
-            ↑{fmtNum(active.tokensIn)} ↓{fmtNum(active.tokensOut)}
-          </span>
+          {active.contextLeftPercent !== undefined ? (
+            <span className="tb-mono" title={t("toolbar.contextLeft")}>
+              {t("toolbar.contextLeftValue", { percent: active.contextLeftPercent })}
+            </span>
+          ) : (
+            <span className="tb-mono" title={t("toolbar.tokens")}>
+              ↑{fmtNum(active.tokensIn)} ↓{fmtNum(active.tokensOut)}
+            </span>
+          )}
         </div>
       )}
       <button

@@ -41,8 +41,8 @@ There is no lint config; type checking relies on `tsc` (run by `npm run build`).
 
 PTY output → `Terminal.tsx` writes to xterm and triggers two debounced pipelines (see `App.tsx`):
 
-- **`onScan`** (debounced 150ms for visible panes / 1000ms for hidden ones, reads the rendered text of xterm's **visible viewport**) → `handleScan` → `deriveState` derives agent state → updates the session store → on `waiting`, pops up `ApprovalPanel` + desktop notification. Deliberately reads only the visible viewport, not scrollback (a prompt that was answered and scrolled away should no longer count as an active approval).
-- **`onStream`** (raw decoded output, line by line) → `handleStream` → `extractFromLine` extracts cost/token/file changes → updates the store → `ChangedFilesPanel`. Partial lines across chunks are buffered by `lineBuffers` in `App.tsx`.
+- **`onScan`** (debounced 150ms for visible panes / 1000ms for hidden ones, reads the rendered text of xterm's **visible viewport**) → `handleScan` → `deriveState` derives agent state → updates the session store → on `waiting`, pops up `ApprovalPanel` + desktop notification. Also extracts cost/tokens (`extractUsageFromText`) and file changes (`extractFilesFromText`) from the viewport — alt-screen TUIs (Claude Code 2.1+) repaint via cursor positioning with almost no newlines, so the stream path never sees their footer or `⏺ Update(...)` lines; re-scanning the same lines is idempotent (`addChangedFile` dedups by path). Deliberately reads only the visible viewport, not scrollback (a prompt that was answered and scrolled away should no longer count as an active approval).
+- **`onStream`** (raw decoded output, line by line) → `handleStream` → `extractFromLine` extracts cost/token/file changes → updates the store → `ChangedFilesPanel`. Partial lines across chunks are buffered by `lineBuffers` in `App.tsx`. Still effective for plain line-oriented agent output (generic profile, user-supplied profiles).
 
 ### Agent profile system (data-driven, not tied to any specific tool)
 

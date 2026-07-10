@@ -6,6 +6,8 @@ export const zhTW: Record<string, string> = {
   "toolbar.send": "送出",
   "toolbar.cost": "本次成本",
   "toolbar.tokens": "input / output tokens",
+  "toolbar.contextLeft": "剩餘 context",
+  "toolbar.contextLeftValue": "剩餘 context {percent}%",
   "toolbar.changedFiles": "此 Workspace 的檔案變更",
   "toolbar.changedFilesLabel": "變更 {count}",
   "toolbar.totalCost": "此 Workspace 成本總計",

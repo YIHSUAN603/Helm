@@ -39,7 +39,7 @@ import { useUpdateStore } from "./store/update";
 import { useLanguageStore } from "./store/language";
 import { initRegistry, detectProfile, getProfile } from "./agents/registry";
 import { deriveState, stripAnsi } from "./agents/engine";
-import { extractFromLine, extractUsageFromText } from "./agents/extract";
+import { extractFilesFromText, extractFromLine, extractUsageFromText } from "./agents/extract";
 import { useT } from "./i18n";
 import "./App.css";
 
@@ -113,18 +113,21 @@ function handleScan(id: string, text: string) {
     profileId = p.id;
   }
   const profile = getProfile(profileId);
-  // 用量統計（cost/tokens）從已渲染的 viewport 擷取：Claude Code 的 footer
-  // 以游標移動原地重繪、沒有換行，stream 的逐行路徑永遠看不到它。
+  // 用量統計（cost/tokens）與檔案變更從已渲染的 viewport 擷取：Claude Code 的
+  // TUI（2.1+ 為 alt-screen）以游標移動原地重繪、幾乎沒有換行，stream 的逐行
+  // 路徑看不到 footer 也看不到 ⏺ Update(...) 工具行。
   // 必須在下方 waiting/suppress 的早期 return 之前執行，否則審批期間統計會凍結。
   if (profile.extract) {
     const usage = extractUsageFromText(profile, text);
     if (
       usage.cost !== undefined ||
       usage.tokensIn !== undefined ||
-      usage.tokensOut !== undefined
+      usage.tokensOut !== undefined ||
+      usage.contextLeftPercent !== undefined
     ) {
       store.setUsage(id, usage);
     }
+    for (const f of extractFilesFromText(profile, text)) store.addChangedFile(id, f);
   }
   const derived = deriveState(profile, text);
   if (derived.state) resetEmptyScanStreak(id);
@@ -182,8 +185,18 @@ function handleStream(id: string, text: string) {
     const line = stripAnsi(raw);
     if (!line.trim()) continue;
     const ex = extractFromLine(profile, line);
-    if (ex.cost !== undefined || ex.tokensIn !== undefined || ex.tokensOut !== undefined) {
-      store.setUsage(id, { cost: ex.cost, tokensIn: ex.tokensIn, tokensOut: ex.tokensOut });
+    if (
+      ex.cost !== undefined ||
+      ex.tokensIn !== undefined ||
+      ex.tokensOut !== undefined ||
+      ex.contextLeftPercent !== undefined
+    ) {
+      store.setUsage(id, {
+        cost: ex.cost,
+        tokensIn: ex.tokensIn,
+        tokensOut: ex.tokensOut,
+        contextLeftPercent: ex.contextLeftPercent,
+      });
     }
     if (ex.file) store.addChangedFile(id, ex.file);
   }

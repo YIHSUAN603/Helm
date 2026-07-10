@@ -6,6 +6,7 @@ export interface Extracted {
   cost?: number;
   tokensIn?: number;
   tokensOut?: number;
+  contextLeftPercent?: number;
   file?: { op: string; path: string };
 }
 
@@ -50,8 +51,8 @@ function preFilters(e: NonNullable<AgentProfile["extract"]>): PreFilters {
   let f = preFilterCache.get(e);
   if (!f) {
     f = {
-      any: compileCombined([e.cost, e.tokensIn, e.tokensOut, e.fileChange]),
-      usage: compileCombined([e.cost, e.tokensIn, e.tokensOut]),
+      any: compileCombined([e.cost, e.tokensIn, e.tokensOut, e.contextLeftPercent, e.fileChange]),
+      usage: compileCombined([e.cost, e.tokensIn, e.tokensOut, e.contextLeftPercent]),
     };
     preFilterCache.set(e, f);
   }
@@ -93,6 +94,8 @@ export function extractFromLine(profile: AgentProfile, line: string): Extracted 
   if (ti !== undefined) out.tokensIn = ti;
   const to = num(e.tokensOut, line);
   if (to !== undefined) out.tokensOut = to;
+  const context = num(e.contextLeftPercent, line);
+  if (context !== undefined) out.contextLeftPercent = context;
 
   if (e.fileChange) {
     const re = rx(e.fileChange);
@@ -107,11 +110,14 @@ export function extractFromLine(profile: AgentProfile, line: string): Extracted 
   return out;
 }
 
-export type ExtractedUsage = Pick<Extracted, "cost" | "tokensIn" | "tokensOut">;
+export type ExtractedUsage = Pick<
+  Extracted,
+  "cost" | "tokensIn" | "tokensOut" | "contextLeftPercent"
+>;
 
 // 從整段已渲染文字（如 xterm viewport）擷取用量統計。
-// 只取 cost/tokens（idempotent 的「當前狀態」），不取 fileChange（append 事件，
-// 留在 stream 路徑處理）。逐行掃描，後面的行覆蓋前面的（footer 靠近底部）。
+// 只取 cost/tokens（idempotent 的「當前狀態」）；fileChange 另有 viewport 擷取器
+// extractFilesFromText。逐行掃描，後面的行覆蓋前面的（footer 靠近底部）。
 export function extractUsageFromText(profile: AgentProfile, text: string): ExtractedUsage {
   const out: ExtractedUsage = {};
   if (!profile.extract) return out;
@@ -125,6 +131,33 @@ export function extractUsageFromText(profile: AgentProfile, text: string): Extra
     if (ti !== undefined) out.tokensIn = ti;
     const to = num(profile.extract.tokensOut, line);
     if (to !== undefined) out.tokensOut = to;
+    const context = num(profile.extract.contextLeftPercent, line);
+    if (context !== undefined) out.contextLeftPercent = context;
   }
   return out;
+}
+
+// 從整段已渲染文字擷取檔案變更行（Claude Code 2.1+ 以 alt-screen 重繪，raw
+// stream 幾乎無換行，逐行的 stream 路徑看不到 ⏺ Update(...)，fileChange 改由
+// viewport 擷取；addChangedFile 以 path 去重，重複掃到同一行是 idempotent 的）。
+// 同一路徑在一次掃描內去重（後面的行覆蓋前面的 op），避免每次 scan 打多次 store。
+export function extractFilesFromText(
+  profile: AgentProfile,
+  text: string,
+): { op: string; path: string }[] {
+  const src = profile.extract?.fileChange;
+  if (!src) return [];
+  const re = rx(src);
+  if (!re) return [];
+  const byPath = new Map<string, string>();
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue;
+    const m = re.exec(line);
+    if (!m) continue;
+    // group1=op group2=path；若只有一個 group 就當作 path（同 extractFromLine）。
+    const op = m[2] ? m[1] : "change";
+    const path = (m[2] ?? m[1] ?? "").trim();
+    if (path) byPath.set(path, op.trim());
+  }
+  return [...byPath].map(([path, op]) => ({ op, path }));
 }

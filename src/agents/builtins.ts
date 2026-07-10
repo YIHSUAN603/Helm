@@ -88,23 +88,35 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
     // a filename or chat line mentions the word.
     detectOutput: "Codex CLI|OpenAI Codex",
     states: {
-      // y/n anchored to end of line (answered prompts stay visible on screen);
-      // case variants enumerated since waiting is matched case-sensitively.
+      // Approval menu (current Codex TUI): the › selection arrow on a numbered
+      // affirmative option ("› 1. Yes, proceed (y)"). The arrow row only exists
+      // while the menu is live, so answered prompts left in the viewport don't
+      // match. Legacy y/n prompts kept, anchored to end of line (answered
+      // prompts stay visible on screen); waiting is matched case-sensitively.
       waiting:
-        "Allow command|Run this command|[Aa]pprove\\?|Apply patch\\?|\\([yY]\\/[nN]\\)\\s*:?\\s*$",
+        "[›❯]\\s*\\d+\\.\\s*(Yes|Approve|Allow|Run|Proceed)|Allow command|Run this command|[Aa]pprove\\?|Apply patch\\?|\\([yY]\\/[nN]\\)\\s*:?\\s*$",
       thinking: "Thinking|Working|Reasoning",
       tool: "Running|exec|\\$\\s|patch",
       error: "\\berror\\b|failed",
       done: "\\bdone\\b|completed",
+      // Question menu with arbitrary option text ("› 1. 取代箭頭數字"); the
+      // engine requires a question line above before treating it as waiting
+      // (kind = "question"), so prose numbered lists don't misfire. The arrow
+      // row only exists while the menu is live.
+      menuOption: "^\\s*[›❯]\\s*\\d+\\.\\s",
     },
     extract: {
       cost: "cost[:\\s]*\\$\\s?([0-9]+(?:\\.[0-9]+)?)",
       tokensIn: "([0-9,]+)\\s*(?:input|prompt)",
       tokensOut: "([0-9,]+)\\s*(?:output|completion)",
+      // 2026-07-10：Codex TUI 僅公開顯示剩餘 context，不提供 input/output token。
+      contextLeftPercent: "([0-9]+(?:\\.[0-9]+)?)%\\s*context\\s*left",
       fileChange: "\\b(Apply patch|patch|edit|create|update)\\b.*?([^\\s]+\\.[A-Za-z0-9]+)",
     },
     approve: "y\r",
-    reject: "n\r",
+    // The menu binds "No" to Esc; "n\r" would press Enter on the highlighted
+    // "Yes, proceed" and approve instead.
+    reject: "\x1b",
   },
   GENERIC_PROFILE,
 ];

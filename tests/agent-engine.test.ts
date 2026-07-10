@@ -142,6 +142,51 @@ check(
   "codex 偵測 waiting (Allow command)",
   deriveState(codex, "Allow command to run? (y/n)").state === "waiting",
 );
+// 選單式審批（現行 Codex TUI）：› 箭頭指向編號肯定選項
+{
+  const screen = [
+    "Would you like to run the following command?",
+    "",
+    "  $ git add AGENTS.md",
+    "",
+    "› 1. Yes, proceed (y)",
+    "  2. Yes, and don't ask again for commands that start with `git add` (p)",
+    "  3. No, and tell Codex what to do differently (esc)",
+  ].join("\n");
+  const derived = deriveState(codex, screen);
+  check("codex 偵測選單式審批 (› 1. Yes, proceed)", derived.state === "waiting");
+  check("codex 選單式審批 kind 為 approval", derived.kind === "approval");
+  check(
+    "codex 選單審批的提示取上方問題行",
+    derived.prompt === "Would you like to run the following command?",
+  );
+}
+// Question 選單（任意選項文字，AskUserQuestion 風格）：靠 menuOption + 上方問題行
+{
+  const screen = [
+    " Question 1/1 (1 unanswered)",
+    "  Codex 的 context 剩餘率要如何放進現有統計列？",
+    "",
+    "  › 1. 取代箭頭數字 (Recommended)  Codex 顯示「Context 72% left」",
+    "    2. 額外並列                    保留箭頭欄位的空值，再加一個 context 指標",
+    "    3. 統一成百分比                所有 agent 都優先顯示 context 百分比",
+    "    4. None of the above           Optionally, add details in notes (tab).",
+    "",
+    "  tab to add notes | enter to submit answer | esc to interrupt",
+  ].join("\n");
+  const derived = deriveState(codex, screen);
+  check("codex 偵測 Question 選單（任意選項）為 waiting", derived.state === "waiting");
+  check("codex Question 選單 kind 為 question", derived.kind === "question");
+  check(
+    "codex Question 選單的提示取上方問題行",
+    derived.prompt?.includes("context 剩餘率") === true,
+  );
+}
+check(
+  "codex 無箭頭的編號清單不誤判為 waiting",
+  deriveState(codex, "Next steps:\n  1. Yes, review the diff\n  2. Run the tests").state !==
+    "waiting",
+);
 // detectOutput 收緊：不因一般文字提到 codex 而誤標 session
 {
   const detect = new RegExp(codex.detectOutput!, "i");

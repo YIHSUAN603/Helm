@@ -33,6 +33,7 @@ export interface Session {
   cost?: number;
   tokensIn?: number;
   tokensOut?: number;
+  contextLeftPercent?: number;
   changedFiles?: { op: string; path: string }[];
 }
 
@@ -50,7 +51,7 @@ interface SessionState {
   clearApproval: (id: string) => void;
   setUsage: (
     id: string,
-    usage: { cost?: number; tokensIn?: number; tokensOut?: number },
+    usage: { cost?: number; tokensIn?: number; tokensOut?: number; contextLeftPercent?: number },
   ) => void;
   addChangedFile: (id: string, file: { op: string; path: string }) => void;
 }
@@ -211,12 +212,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const cost = usage.cost ?? cur.cost;
     const tokensIn = usage.tokensIn ?? cur.tokensIn;
     const tokensOut = usage.tokensOut ?? cur.tokensOut;
-    if (cost === cur.cost && tokensIn === cur.tokensIn && tokensOut === cur.tokensOut) {
+    const contextLeftPercent = usage.contextLeftPercent ?? cur.contextLeftPercent;
+    if (
+      cost === cur.cost &&
+      tokensIn === cur.tokensIn &&
+      tokensOut === cur.tokensOut &&
+      contextLeftPercent === cur.contextLeftPercent
+    ) {
       return;
     }
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id ? { ...x, cost, tokensIn, tokensOut } : x,
+        x.id === id ? { ...x, cost, tokensIn, tokensOut, contextLeftPercent } : x,
       ),
     }));
   },

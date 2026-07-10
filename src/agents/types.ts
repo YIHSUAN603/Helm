@@ -66,7 +66,7 @@ export interface AgentStatePatterns {
 }
 
 /**
- * 從輸出串流逐行擷取結構化資訊（成本/用量/檔案變更）的 regex 來源。
+ * 從輸出串流逐行擷取結構化資訊（成本/用量/context/檔案變更）的 regex 來源。
  * 皆選填，需帶 capture group。同樣資料驅動：任何工具都能在 agents.json 定義。
  */
 export interface AgentExtractors {
@@ -76,6 +76,8 @@ export interface AgentExtractors {
   tokensIn?: string;
   /** group1 = output/completion tokens。 */
   tokensOut?: string;
+  /** group1 = 剩餘 context 百分比。 */
+  contextLeftPercent?: string;
   /** group1 = 操作（Edit/Write…），group2 = 檔案路徑。 */
   fileChange?: string;
 }

@@ -6,6 +6,8 @@ export const en: Record<string, string> = {
   "toolbar.send": "Send",
   "toolbar.cost": "Cost this session",
   "toolbar.tokens": "input / output tokens",
+  "toolbar.contextLeft": "Context remaining",
+  "toolbar.contextLeftValue": "Context {percent}% left",
   "toolbar.changedFiles": "Changed files in this workspace",
   "toolbar.changedFilesLabel": "Changed {count}",
   "toolbar.totalCost": "Total cost for this workspace",
