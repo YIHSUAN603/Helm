@@ -57,6 +57,12 @@ export const en: Record<string, string> = {
   "settings.integrationCopy": "Copy config",
   "settings.integrationCopied": "Copied",
 
+  // Integration hint (Codex OSC 9 not configured banner)
+  "integrationHint.codexOsc9":
+    "Codex detected, but notification mode (OSC 9) is not enabled — Helm cannot receive approval alerts in real time.",
+  "integrationHint.openSettings": "Open Settings",
+  "integrationHint.dismiss": "Don't remind me again",
+
   // Update
   "update.checking": "Checking for updates…",
   "update.upToDate": "Up to date",

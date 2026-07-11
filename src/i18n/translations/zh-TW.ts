@@ -57,6 +57,12 @@ export const zhTW: Record<string, string> = {
   "settings.integrationCopy": "複製設定",
   "settings.integrationCopied": "已複製",
 
+  // Integration hint (Codex OSC 9 not configured banner)
+  "integrationHint.codexOsc9":
+    "偵測到 Codex，但尚未開啟通知模式（OSC 9），Helm 無法即時收到審批提醒。",
+  "integrationHint.openSettings": "開啟設定",
+  "integrationHint.dismiss": "不再提示",
+
   // Update
   "update.checking": "檢查更新中…",
   "update.upToDate": "已是最新版本",
