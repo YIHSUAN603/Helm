@@ -30,8 +30,8 @@ pub fn notify_session(app: AppHandle, session_id: String, title: String, body: S
 
     #[cfg(target_os = "linux")]
     {
-        use tauri::Emitter;
         use notify_rust::Notification;
+        use tauri::Emitter;
         // "default" = 點擊通知本體（多數桌面環境）。wait_for_action 會阻塞，
         // 必須丟到獨立執行緒。
         if let Ok(handle) = Notification::new()
