@@ -1,3 +1,16 @@
+/* Bundled symbols-only Nerd Font, embedded via the app so Nerd Font glyphs
+   (Neovim / TUI icons, Private Use Area) render regardless of which primary
+   font the user picks and without relying on WKWebView resolving a
+   system-installed patched font. Appended as the last named fallback in every
+   terminal font-family chain (see withSymbolsFallback). */
+@font-face {
+  font-family: "Symbols Nerd Font Mono";
+  src: url("./assets/fonts/SymbolsNerdFontMono-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   margin: 0;
   padding: 0;

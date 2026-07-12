@@ -1512,9 +1512,12 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 name = "helm"
 version = "0.5.0"
 dependencies = [
+ "block2",
  "fontdb",
- "mac-notification-sys",
  "notify-rust",
+ "objc2",
+ "objc2-foundation",
+ "objc2-user-notifications",
  "portable-pty",
  "serde",
  "serde_json",
@@ -2502,7 +2505,10 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9df9128cbbfef73cda168416ccf7f837b62737d748333bfe9ab71c245d76613e"
 dependencies = [
+ "bitflags 2.13.0",
+ "block2",
  "objc2",
+ "objc2-core-location",
  "objc2-foundation",
 ]
 

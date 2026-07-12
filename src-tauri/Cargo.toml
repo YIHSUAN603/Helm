@@ -49,5 +49,19 @@ tauri-winrt-notification = "0.7"
 notify-rust = "4"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-mac-notification-sys = "0.6"
+# Modern UserNotifications framework (macOS 26 removed the legacy
+# NSUserNotification API that mac-notification-sys/notify-rust rely on). An
+# osascript fallback in notify.rs covers the unbundled `tauri dev` case.
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSBundle", "NSString"] }
+objc2-user-notifications = { version = "0.3", features = [
+  "alloc",
+  "block2",
+  "UNUserNotificationCenter",
+  "UNNotificationRequest",
+  "UNNotificationContent",
+  "UNNotificationResponse",
+  "UNNotification",
+] }
 

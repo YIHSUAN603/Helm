@@ -10,6 +10,7 @@ import { notify } from "../ipc/notify";
 import { getProfile } from "../agents/registry";
 import { t } from "../i18n";
 import type { AgentLauncher, AgentState, PromptKind } from "../agents/types";
+import type { PlanUsage } from "../agents/hookEvents";
 
 export type SessionStatus = "idle" | "busy" | "exited";
 
@@ -34,6 +35,8 @@ export interface Session {
   tokensIn?: number;
   tokensOut?: number;
   contextLeftPercent?: number;
+  // 方案速率限制剩餘（Claude Code Pro/Max，來自 statusline rate_limits；帳號級、跨 session）
+  planUsage?: PlanUsage;
   changedFiles?: { op: string; path: string }[];
 }
 
@@ -51,12 +54,30 @@ interface SessionState {
   clearApproval: (id: string) => void;
   setUsage: (
     id: string,
-    usage: { cost?: number; tokensIn?: number; tokensOut?: number; contextLeftPercent?: number },
+    usage: {
+      cost?: number;
+      tokensIn?: number;
+      tokensOut?: number;
+      contextLeftPercent?: number;
+      planUsage?: PlanUsage;
+    },
   ) => void;
   addChangedFile: (id: string, file: { op: string; path: string }) => void;
 }
 
 let counter = 0;
+
+// 比較兩個 PlanUsage 是否等值（四個子欄位皆相同），用於 setUsage 的短路檢查。
+function samePlanUsage(a?: PlanUsage, b?: PlanUsage): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.fiveHourLeftPercent === b.fiveHourLeftPercent &&
+    a.sevenDayLeftPercent === b.sevenDayLeftPercent &&
+    a.fiveHourResetsAt === b.fiveHourResetsAt &&
+    a.sevenDayResetsAt === b.sevenDayResetsAt
+  );
+}
 
 /**
  * Send the desktop notification for a session's pending prompt (approval /
@@ -213,17 +234,20 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const tokensIn = usage.tokensIn ?? cur.tokensIn;
     const tokensOut = usage.tokensOut ?? cur.tokensOut;
     const contextLeftPercent = usage.contextLeftPercent ?? cur.contextLeftPercent;
+    // statusline 每次整包送來 rate_limits，以整個物件替換即可（無須逐欄合併）。
+    const planUsage = usage.planUsage ?? cur.planUsage;
     if (
       cost === cur.cost &&
       tokensIn === cur.tokensIn &&
       tokensOut === cur.tokensOut &&
-      contextLeftPercent === cur.contextLeftPercent
+      contextLeftPercent === cur.contextLeftPercent &&
+      samePlanUsage(planUsage, cur.planUsage)
     ) {
       return;
     }
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id ? { ...x, cost, tokensIn, tokensOut, contextLeftPercent } : x,
+        x.id === id ? { ...x, cost, tokensIn, tokensOut, contextLeftPercent, planUsage } : x,
       ),
     }));
   },

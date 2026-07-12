@@ -16,8 +16,17 @@ export type AgentEvent =
         tokensIn?: number;
         tokensOut?: number;
         contextLeftPercent?: number;
+        planUsage?: PlanUsage;
       };
     };
+
+/** 方案速率限制剩餘（Claude Code Pro/Max，來自 statusline rate_limits；帳號級、跨 session）。 */
+export interface PlanUsage {
+  fiveHourLeftPercent?: number; // 100 - five_hour.used_percentage
+  sevenDayLeftPercent?: number; // 100 - seven_day.used_percentage
+  fiveHourResetsAt?: number; // unix seconds
+  sevenDayResetsAt?: number;
+}
 
 /** hook 安裝片段的 source 參數 → 對應的內建 profile id（未知來源回 null）。 */
 export function profileIdForSource(source: string): string | null {
@@ -39,6 +48,22 @@ function str(v: unknown): string | undefined {
 
 function num(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+// statusline 的 rate_limits：Pro/Max 首次 API 回應後才有，任一視窗可能單獨缺席。
+// 存「剩餘 %」（100 - used_percentage）與 resets_at（unix seconds）。全缺回 undefined。
+function parsePlanUsage(v: unknown): PlanUsage | undefined {
+  if (!isRecord(v)) return undefined;
+  const out: PlanUsage = {};
+  const five = isRecord(v.five_hour) ? v.five_hour : undefined;
+  const seven = isRecord(v.seven_day) ? v.seven_day : undefined;
+  const fiveUsed = five ? num(five.used_percentage) : undefined;
+  const sevenUsed = seven ? num(seven.used_percentage) : undefined;
+  if (fiveUsed !== undefined) out.fiveHourLeftPercent = 100 - fiveUsed;
+  if (sevenUsed !== undefined) out.sevenDayLeftPercent = 100 - sevenUsed;
+  if (five) out.fiveHourResetsAt = num(five.resets_at);
+  if (seven) out.sevenDayResetsAt = num(seven.resets_at);
+  return Object.values(out).some((x) => x !== undefined) ? out : undefined;
 }
 
 // tool_input 中常見的檔案路徑欄位（Claude Code：file_path / notebook_path；
@@ -84,6 +109,7 @@ export function normalizeHookPayload(source: string, payload: unknown): AgentEve
       tokensIn: ctx ? num(ctx.total_input_tokens) : undefined,
       tokensOut: ctx ? num(ctx.total_output_tokens) : undefined,
       contextLeftPercent: ctx ? num(ctx.remaining_percentage) : undefined,
+      planUsage: parsePlanUsage(payload.rate_limits),
     };
     if (Object.values(usage).every((v) => v === undefined)) return undefined;
     return { kind: "usage", usage };

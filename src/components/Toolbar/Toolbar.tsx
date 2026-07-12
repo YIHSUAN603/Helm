@@ -13,6 +13,7 @@ import {
   workspaceChangedFileCount,
   workspaceTotalCost,
 } from "../../store/workspaceGroups";
+import type { PlanUsage } from "../../agents/hookEvents";
 import { ptyWrite } from "../../ipc/pty";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { useT } from "../../i18n";
@@ -20,11 +21,51 @@ import "./Toolbar.css";
 
 type Target = "all" | "agents";
 
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
 function fmtCost(n?: number): string {
   return n === undefined ? "—" : `$${n.toFixed(4)}`;
 }
 function fmtNum(n?: number): string {
   return n === undefined ? "—" : n.toLocaleString();
+}
+
+// 方案速率限制剩餘：至少有一個視窗（5h / 週）帶剩餘 % 才顯示。
+function hasPlanUsage(pu?: PlanUsage): boolean {
+  return (
+    !!pu && (pu.fiveHourLeftPercent !== undefined || pu.sevenDayLeftPercent !== undefined)
+  );
+}
+
+function fmtResetTime(unixSec?: number): string | undefined {
+  if (unixSec === undefined) return undefined;
+  return new Date(unixSec * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// 緊湊顯示：僅存在的視窗才顯示，以 · 併排（例：「5h 77% · 週 59%」）。
+function planUsageText(pu: PlanUsage, t: Translate): string {
+  const parts: string[] = [];
+  if (pu.fiveHourLeftPercent !== undefined) {
+    parts.push(t("toolbar.planUsage5h", { percent: Math.round(pu.fiveHourLeftPercent) }));
+  }
+  if (pu.sevenDayLeftPercent !== undefined) {
+    parts.push(t("toolbar.planUsageWeek", { percent: Math.round(pu.sevenDayLeftPercent) }));
+  }
+  return parts.join(" · ");
+}
+
+// tooltip：標題 + 各視窗重置時間。
+function planUsageTitle(pu: PlanUsage, t: Translate): string {
+  const bits = [t("toolbar.planUsage")];
+  const r5 = fmtResetTime(pu.fiveHourResetsAt);
+  if (pu.fiveHourLeftPercent !== undefined && r5) {
+    bits.push(`5h ${t("toolbar.planUsageReset", { time: r5 })}`);
+  }
+  const rw = fmtResetTime(pu.sevenDayResetsAt);
+  if (pu.sevenDayLeftPercent !== undefined && rw) {
+    bits.push(`${t("toolbar.planUsageWeekLabel")} ${t("toolbar.planUsageReset", { time: rw })}`);
+  }
+  return bits.join(" · ");
 }
 
 export function Toolbar() {
@@ -60,6 +101,7 @@ export function Toolbar() {
           tokensIn: a.tokensIn,
           tokensOut: a.tokensOut,
           contextLeftPercent: a.contextLeftPercent,
+          planUsage: a.planUsage,
         }
       );
     }),
@@ -139,7 +181,11 @@ export function Toolbar() {
           <span className="tb-mono" title={t("toolbar.cost")}>
             {fmtCost(active.cost)}
           </span>
-          {active.contextLeftPercent !== undefined ? (
+          {hasPlanUsage(active.planUsage) ? (
+            <span className="tb-mono" title={planUsageTitle(active.planUsage!, t)}>
+              {planUsageText(active.planUsage!, t)}
+            </span>
+          ) : active.contextLeftPercent !== undefined ? (
             <span className="tb-mono" title={t("toolbar.contextLeft")}>
               {t("toolbar.contextLeftValue", { percent: active.contextLeftPercent })}
             </span>

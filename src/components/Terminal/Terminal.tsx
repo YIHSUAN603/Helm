@@ -16,6 +16,7 @@ import {
 } from "../../ipc/pty";
 import { useThemeStore, xtermThemes } from "../../store/theme";
 import { useSettingsStore } from "../../store/settings";
+import { SYMBOLS_NERD_FONT, withSymbolsFallback } from "../../store/fontFamily";
 import "./Terminal.css";
 
 // Agent-scan debounce. Hidden panes still scan (their approvals surface via
@@ -109,7 +110,7 @@ function TerminalImpl({
 
     const settings = useSettingsStore.getState();
     const term = new XTerm({
-      fontFamily: settings.fontFamily,
+      fontFamily: withSymbolsFallback(settings.fontFamily),
       fontSize: settings.fontSize,
       cursorStyle: settings.cursorStyle,
       cursorBlink: settings.cursorBlink,
@@ -198,6 +199,20 @@ function TerminalImpl({
     let unlistenExit: UnlistenFn | undefined;
     let decoder = new TextDecoder();
     let streamWasEnabled = false;
+
+    // The bundled symbols font (@font-face) loads asynchronously; the canvas
+    // renderer builds its glyph atlas at open, so on a cold start the Nerd Font
+    // icons would be blank until the next repaint. Force-load it, then drop the
+    // stale atlas and repaint so icons appear immediately.
+    void document.fonts.load(`${settings.fontSize}px ${SYMBOLS_NERD_FONT}`).then(() => {
+      if (disposed) return;
+      try {
+        term.clearTextureAtlas();
+        term.refresh(0, term.rows - 1);
+      } catch {
+        /* ignore */
+      }
+    });
 
     (async () => {
       unlistenExit = await onPtyExit(id, () => {
@@ -333,13 +348,20 @@ function TerminalImpl({
     const term = termRef.current;
     const fit = fitRef.current;
     if (!term || !fit) return;
-    term.options.fontFamily = fontFamily;
+    term.options.fontFamily = withSymbolsFallback(fontFamily);
     term.options.fontSize = fontSize;
     term.options.cursorStyle = cursorStyle;
     term.options.cursorBlink = cursorBlink;
     try {
+      // Drop the canvas renderer's cached glyph atlas so the new font is
+      // redrawn. Changing only fontFamily (same size) leaves cols/rows
+      // unchanged, so fit() is a no-op and the stale glyphs would otherwise
+      // stay on screen — "picked a font, nothing changed" on macOS.
+      term.clearTextureAtlas();
       fit.fit();
       void ptyResize(id, term.cols, term.rows);
+      // Force a repaint of the visible rows even when dimensions didn't change.
+      term.refresh(0, term.rows - 1);
     } catch {
       /* ignore */
     }

@@ -132,6 +132,9 @@ pub fn run() {
             if let Err(e) = hookserver::start(app.handle().clone(), &app.state::<HookServer>()) {
                 eprintln!("hook server disabled: {e}");
             }
+            // Register the desktop-notification delegate + request authorization
+            // before the app finishes launching (required on macOS; no-op elsewhere).
+            notify::init(app.handle());
             let menu = build_menu(app.handle(), "zh-TW")?;
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {

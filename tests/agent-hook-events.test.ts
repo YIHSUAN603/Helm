@@ -138,6 +138,46 @@ check(
   normalizeHookPayload("claude-code-statusline", { model: { id: "x" } }) === undefined,
 );
 
+// ---- statusline plan usage (rate_limits) ----
+{
+  const ev = normalizeHookPayload("claude-code-statusline", {
+    cost: { total_cost_usd: 0.5 },
+    context_window: { remaining_percentage: 80 },
+    rate_limits: {
+      five_hour: { used_percentage: 23.5, resets_at: 1738425600 },
+      seven_day: { used_percentage: 41.2, resets_at: 1738857600 },
+    },
+  });
+  check(
+    "statusline rate_limits → planUsage 剩餘 %",
+    ev?.kind === "usage" &&
+      ev.usage.planUsage?.fiveHourLeftPercent === 76.5 &&
+      ev.usage.planUsage?.sevenDayLeftPercent === 58.8 &&
+      ev.usage.planUsage?.fiveHourResetsAt === 1738425600 &&
+      ev.usage.planUsage?.sevenDayResetsAt === 1738857600,
+  );
+}
+{
+  // 無 rate_limits（僅 context_window）→ planUsage undefined，其餘照舊。
+  const ev = normalizeHookPayload("claude-code-statusline", {
+    context_window: { remaining_percentage: 92 },
+  });
+  check(
+    "statusline 無 rate_limits → planUsage undefined",
+    ev?.kind === "usage" && ev.usage.contextLeftPercent === 92 && ev.usage.planUsage === undefined,
+  );
+}
+{
+  // 只有 rate_limits、無 cost/context → 仍回 usage（不被丟棄）。
+  const ev = normalizeHookPayload("claude-code-statusline", {
+    rate_limits: { five_hour: { used_percentage: 10 } },
+  });
+  check(
+    "statusline 只有 rate_limits → 仍回 usage",
+    ev?.kind === "usage" && ev.usage.planUsage?.fiveHourLeftPercent === 90,
+  );
+}
+
 // ---- 防禦：壞 payload 一律丟棄 ----
 check("非物件 payload → 丟棄", normalizeHookPayload("claude-code", "junk") === undefined);
 check("null payload → 丟棄", normalizeHookPayload("claude-code", null) === undefined);

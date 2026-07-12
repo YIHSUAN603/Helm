@@ -1,7 +1,12 @@
 // Pure font-family helper tests (no GUI / Tauri needed).
 // Run: node --experimental-strip-types tests/font-family.test.ts
 import assert from "node:assert";
-import { firstFontFamily, toFontFamilyValue } from "../src/store/fontFamily.ts";
+import {
+  firstFontFamily,
+  SYMBOLS_NERD_FONT,
+  toFontFamilyValue,
+  withSymbolsFallback,
+} from "../src/store/fontFamily.ts";
 
 let passed = 0;
 function check(name: string, cond: boolean) {
@@ -42,6 +47,39 @@ function check(name: string, cond: boolean) {
   for (const family of ["Consolas", "Cascadia Code", "JetBrains Mono", "3270 Nerd Font"]) {
     check(`round-trip: ${family}`, firstFontFamily(toFontFamilyValue(family)) === family);
   }
+}
+
+// withSymbolsFallback: 補上內建符號字型 fallback，插在 generic monospace 之前
+{
+  check(
+    "inserts before trailing monospace",
+    withSymbolsFallback('"SF Mono", monospace') ===
+      `"SF Mono", ${SYMBOLS_NERD_FONT}, monospace`,
+  );
+  check(
+    "inserts before monospace in a longer chain",
+    withSymbolsFallback('"SF Mono", Consolas, monospace') ===
+      `"SF Mono", Consolas, ${SYMBOLS_NERD_FONT}, monospace`,
+  );
+  check(
+    "appends symbols + monospace when no generic present",
+    withSymbolsFallback('"SF Mono", Consolas') ===
+      `"SF Mono", Consolas, ${SYMBOLS_NERD_FONT}, monospace`,
+  );
+  check(
+    "idempotent when already present",
+    withSymbolsFallback(`"SF Mono", ${SYMBOLS_NERD_FONT}, monospace`) ===
+      `"SF Mono", ${SYMBOLS_NERD_FONT}, monospace`,
+  );
+  check(
+    "user Nerd Font primary is preserved, symbols appended as fallback",
+    withSymbolsFallback('"JetBrainsMono Nerd Font Mono", monospace') ===
+      `"JetBrainsMono Nerd Font Mono", ${SYMBOLS_NERD_FONT}, monospace`,
+  );
+  check(
+    "bare monospace gets symbols before it",
+    withSymbolsFallback("monospace") === `${SYMBOLS_NERD_FONT}, monospace`,
+  );
 }
 
 console.log(`\nfont-family tests passed: ${passed}`);

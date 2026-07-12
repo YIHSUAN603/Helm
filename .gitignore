@@ -20,6 +20,8 @@ src-tauri/updater.key
 !.vscode/extensions.json
 .idea
 .DS_Store
+# AppleDouble sidecar files (macOS on exFAT, where this repo may live)
+._*
 *.suo
 *.ntvs*
 *.njsproj
