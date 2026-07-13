@@ -152,6 +152,21 @@ function TerminalImpl({
     termRef.current = term;
     fitRef.current = fitAddon;
 
+    // PTY 尺寸的唯一同步點:任何 fit() 路徑(ResizeObserver、alt-screen 切換、
+    // 字型載入/變更、visible/focus refit)只要實際改變格子數就會經 onResize
+    // 傳到 PTY,不會再有「xterm 變大了但 PTY 停在舊 rows」的脫鉤(mac 冷啟動
+    // 首開 Claude Code 高度不滿版即此因)。拖曳分隔線時 fit 連發:尾端
+    // debounce,拖曳結束才通知 PTY。spawn 完成前不送(session 尚未註冊),
+    // spawn 後的權威同步會補上最新尺寸。
+    let spawned = false;
+    let ptyResizeTimer: ReturnType<typeof setTimeout> | undefined;
+    const resizeDisposable = term.onResize(({ cols, rows }) => {
+      if (ptyResizeTimer) clearTimeout(ptyResizeTimer);
+      ptyResizeTimer = setTimeout(() => {
+        if (spawned) void ptyResize(id, cols, rows);
+      }, 80);
+    });
+
     const titleDisposable = term.onTitleChange((t) => cbRef.current.onTitle?.(t));
 
     // OSC 9（桌面通知）：Codex 的 tui.notifications 以 `\x1b]9;<訊息>\x07`
@@ -203,11 +218,14 @@ function TerminalImpl({
     // The bundled symbols font (@font-face) loads asynchronously; the canvas
     // renderer builds its glyph atlas at open, so on a cold start the Nerd Font
     // icons would be blank until the next repaint. Force-load it, then drop the
-    // stale atlas and repaint so icons appear immediately.
+    // stale atlas, refit (cell metrics may differ from the pre-load fit; any
+    // grid change reaches the PTY via onResize) and repaint so icons appear
+    // immediately.
     void document.fonts.load(`${settings.fontSize}px ${SYMBOLS_NERD_FONT}`).then(() => {
       if (disposed) return;
       try {
         term.clearTextureAtlas();
+        fitAddon.fit();
         term.refresh(0, term.rows - 1);
       } catch {
         /* ignore */
@@ -247,6 +265,15 @@ function TerminalImpl({
           }
         },
       );
+      if (disposed) return;
+      // 權威同步:spawn（IPC 往返）期間的格子變化此前送不進 PTY,現在補上。
+      spawned = true;
+      try {
+        fitAddon.fit();
+      } catch {
+        /* ignore */
+      }
+      void ptyResize(id, term.cols, term.rows);
       // 啟動 agent：把指令當作使用者輸入送進 PTY（保留完整 shell 環境）。
       if (launchCommand) {
         await ptyWrite(id, `${launchCommand}\r`);
@@ -258,9 +285,8 @@ function TerminalImpl({
     });
 
     // 拖曳分隔線時 resize 事件連發：fit 用 rAF 合併（畫面即時跟手），
-    // ptyResize 尾端 debounce（拖曳結束才通知 PTY 新的 cols/rows）。
+    // PTY 的 cols/rows 由 onResize 的尾端 debounce 通知（見上方同步點）。
     let fitRaf = 0;
-    let ptyResizeTimer: ReturnType<typeof setTimeout> | undefined;
     const resizeObserver = new ResizeObserver(() => {
       if (container.clientWidth === 0 || container.clientHeight === 0) return;
       if (!fitRaf) {
@@ -273,14 +299,6 @@ function TerminalImpl({
           }
         });
       }
-      if (ptyResizeTimer) clearTimeout(ptyResizeTimer);
-      ptyResizeTimer = setTimeout(() => {
-        try {
-          void ptyResize(id, term.cols, term.rows);
-        } catch {
-          /* ignore */
-        }
-      }, 80);
     });
     resizeObserver.observe(container);
 
@@ -291,6 +309,7 @@ function TerminalImpl({
       if (fitRaf) cancelAnimationFrame(fitRaf);
       if (ptyResizeTimer) clearTimeout(ptyResizeTimer);
       resizeObserver.disconnect();
+      resizeDisposable.dispose();
       titleDisposable.dispose();
       oscDisposable.dispose();
       bufferDisposable.dispose();
@@ -312,13 +331,12 @@ function TerminalImpl({
     requestAnimationFrame(() => {
       try {
         fit.fit();
-        void ptyResize(id, term.cols, term.rows);
         term.focus();
       } catch {
         /* ignore */
       }
     });
-  }, [focused, id]);
+  }, [focused]);
 
   // Visible ⇢ refit (display just flipped from none; dimensions are valid by
   // rAF time). The DOM renderer needs no attach/detach across visibility.
@@ -359,13 +377,12 @@ function TerminalImpl({
       // stay on screen — "picked a font, nothing changed" on macOS.
       term.clearTextureAtlas();
       fit.fit();
-      void ptyResize(id, term.cols, term.rows);
       // Force a repaint of the visible rows even when dimensions didn't change.
       term.refresh(0, term.rows - 1);
     } catch {
       /* ignore */
     }
-  }, [id, fontFamily, fontSize, cursorStyle, cursorBlink]);
+  }, [fontFamily, fontSize, cursorStyle, cursorBlink]);
 
   // 版面（single/grid、顯示與否）由外層 pane 控制；這裡只填滿容器。
   return <div className="terminal-pane" ref={containerRef} />;
