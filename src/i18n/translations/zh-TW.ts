@@ -102,8 +102,6 @@ export const zhTW: Record<string, string> = {
   "approval.rejectAll": "全部拒絕",
   "approval.approve": "批准",
   "approval.reject": "拒絕",
-  "approval.ineffectiveHint":
-    "提示在回應後又出現——按鍵可能不符此 agent，請直接在終端機回應，或在 agents.json 為它設定 approve/reject 按鍵。",
 
   // Changed files panel
   "files.title": "檔案變更",

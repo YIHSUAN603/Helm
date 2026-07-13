@@ -102,8 +102,6 @@ export const en: Record<string, string> = {
   "approval.rejectAll": "Reject all",
   "approval.approve": "Approve",
   "approval.reject": "Reject",
-  "approval.ineffectiveHint":
-    "The prompt reappeared after a response — the keys may not match this agent. Respond directly in the terminal, or set approve/reject keys for it in agents.json.",
 
   // Changed files panel
   "files.title": "Changed files",

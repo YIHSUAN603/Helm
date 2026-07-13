@@ -3,7 +3,6 @@
 // 其他 workspace 的待審批由側欄徽章與桌面通知提示。
 // Buttons share respondApproval with the approval:* commands; Esc returns
 // focus to the terminal.
-import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   activateSession,
@@ -12,29 +11,12 @@ import {
 } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { useSessionStore } from "../../store/sessions";
-import { isResponseIneffective } from "../../store/approvalSuppress";
 import {
   pendingApprovalsInWorkspace,
   resolveFocusedWorkspace,
 } from "../../store/workspaceGroups";
 import { useT } from "../../i18n";
 import "./ApprovalPanel.css";
-
-// 「回應可能無效」提示只在回答後 3–20s 的窗口內有效；窗口到期不會有任何
-// store tick 觸發重繪，所以掛載期間每秒自查一次，讓提示到期自動消失
-//（approval 項目本來就短命，輪詢成本可忽略）。
-function IneffectiveHint({ sessionId, prompt }: { sessionId: string; prompt: string }) {
-  const t = useT();
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const update = () => setShow(isResponseIneffective(sessionId, prompt, Date.now()));
-    update();
-    const timer = setInterval(update, 1_000);
-    return () => clearInterval(timer);
-  }, [sessionId, prompt]);
-  if (!show) return null;
-  return <div className="approval-hint">{t("approval.ineffectiveHint")}</div>;
-}
 
 export function ApprovalPanel() {
   const t = useT();
@@ -92,7 +74,6 @@ export function ApprovalPanel() {
             <div className="approval-prompt" title={s.pendingApproval}>
               {s.pendingApproval}
             </div>
-            <IneffectiveHint sessionId={s.id} prompt={s.pendingApproval ?? ""} />
             <div className="approval-actions">
               <button
                 className="approve"
