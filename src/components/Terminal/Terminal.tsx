@@ -14,7 +14,7 @@ import {
   ptySpawn,
   ptyWrite,
 } from "../../ipc/pty";
-import { useThemeStore, xtermThemes } from "../../store/theme";
+import { resolveXtermTheme, useThemeStore } from "../../store/theme";
 import { useSettingsStore } from "../../store/settings";
 import { SYMBOLS_NERD_FONT, withSymbolsFallback } from "../../store/fontFamily";
 import "./Terminal.css";
@@ -82,6 +82,7 @@ function TerminalImpl({
   const termRef = useRef<XTerm | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const themeName = useThemeStore((s) => s.name);
+  const customThemes = useThemeStore((s) => s.customThemes);
 
   const cbRef = useRef({ onTitle, onNotify, onBusy, onIdle, onExit, onScan, onStream });
   // Latest-ref 模式（刻意在 render 期同步更新）：PTY 事件可能在 render 與
@@ -115,7 +116,10 @@ function TerminalImpl({
       cursorStyle: settings.cursorStyle,
       cursorBlink: settings.cursorBlink,
       allowProposedApi: true,
-      theme: xtermThemes[useThemeStore.getState().name],
+      theme: resolveXtermTheme(
+        useThemeStore.getState().name,
+        useThemeStore.getState().customThemes,
+      ),
     });
     // xterm.js 不對映 Ctrl+/ → 0x1F(^_);補上讓 nvim 的 <C-/> 綁定可用。
     term.attachCustomKeyEventHandler((e) => {
@@ -354,8 +358,8 @@ function TerminalImpl({
 
   useEffect(() => {
     const term = termRef.current;
-    if (term) term.options.theme = xtermThemes[themeName];
-  }, [themeName]);
+    if (term) term.options.theme = resolveXtermTheme(themeName, customThemes);
+  }, [themeName, customThemes]);
 
   // 字型/游標設定變更：套用到已存在的 term，並重新 fit（字型大小會改變 cell 尺寸）。
   const fontFamily = useSettingsStore((s) => s.fontFamily);

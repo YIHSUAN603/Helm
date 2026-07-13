@@ -1,5 +1,6 @@
-// 應用主題（多組配色 preset），記在 localStorage。
+// 應用主題（多組配色 preset + 使用者自訂主題），記在 localStorage。
 import { create } from "zustand";
+import type { CSSProperties } from "react";
 import type { ITheme } from "@xterm/xterm";
 
 export type ThemeName =
@@ -40,21 +41,89 @@ export const THEME_LABELS: Record<ThemeName, string> = {
   githubLight: "GitHub Light",
 };
 
+// 使用者自訂主題：從當下主題複製為起點，UI 9 變數 + 終端 20 色全可調。
+// id 以 "custom-" 開頭，直接作為 helm.theme 的值（與內建名共用同一欄位）。
+export type UiColorKey =
+  | "appBg"
+  | "termBg"
+  | "sidebarBg"
+  | "border"
+  | "fg"
+  | "muted"
+  | "hover"
+  | "active"
+  | "accent";
+
+export const UI_COLOR_VARS: Record<UiColorKey, string> = {
+  appBg: "--app-bg",
+  termBg: "--term-bg",
+  sidebarBg: "--sidebar-bg",
+  border: "--border",
+  fg: "--fg",
+  muted: "--muted",
+  hover: "--hover",
+  active: "--active",
+  accent: "--accent",
+};
+
+export interface CustomTheme {
+  id: string;
+  name: string;
+  colorScheme: "dark" | "light";
+  ui: Record<UiColorKey, string>;
+  terminal: ITheme;
+}
+
 interface ThemeState {
-  name: ThemeName;
-  setName: (name: ThemeName) => void;
+  name: string; // 內建 ThemeName 或自訂主題 id
+  customThemes: CustomTheme[];
+  setName: (name: string) => void;
   toggle: () => void;
+  createCustomTheme: (theme: Omit<CustomTheme, "id">) => string;
+  updateCustomTheme: (id: string, patch: Partial<Omit<CustomTheme, "id">>) => void;
+  deleteCustomTheme: (id: string) => void;
 }
 
 const STORAGE_KEY = "helm.theme";
+const CUSTOM_STORAGE_KEY = "helm.customThemes";
 
-function initial(): ThemeName {
-  const v = localStorage.getItem(STORAGE_KEY) as ThemeName | null;
-  return v && THEME_NAMES.includes(v) ? v : "dark";
+function loadCustomThemes(): CustomTheme[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(CUSTOM_STORAGE_KEY) ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (c): c is CustomTheme =>
+        !!c &&
+        typeof c.id === "string" &&
+        typeof c.name === "string" &&
+        (c.colorScheme === "dark" || c.colorScheme === "light") &&
+        typeof c.ui === "object" &&
+        c.ui !== null &&
+        typeof c.terminal === "object" &&
+        c.terminal !== null,
+    );
+  } catch {
+    return [];
+  }
 }
 
+function saveCustomThemes(themes: CustomTheme[]) {
+  localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(themes));
+}
+
+function initial(customThemes: CustomTheme[]): string {
+  const v = localStorage.getItem(STORAGE_KEY);
+  if (!v) return "dark";
+  if (THEME_NAMES.includes(v as ThemeName)) return v;
+  if (customThemes.some((c) => c.id === v)) return v;
+  return "dark";
+}
+
+const initialCustomThemes = loadCustomThemes();
+
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  name: initial(),
+  name: initial(initialCustomThemes),
+  customThemes: initialCustomThemes,
   setName: (name) => {
     localStorage.setItem(STORAGE_KEY, name);
     set({ name });
@@ -65,7 +134,48 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     localStorage.setItem(STORAGE_KEY, next);
     set({ name: next });
   },
+  createCustomTheme: (theme) => {
+    const id = `custom-${crypto.randomUUID()}`;
+    const customThemes = [...get().customThemes, { id, ...theme }];
+    saveCustomThemes(customThemes);
+    localStorage.setItem(STORAGE_KEY, id);
+    set({ customThemes, name: id });
+    return id;
+  },
+  updateCustomTheme: (id, patch) => {
+    const customThemes = get().customThemes.map((c) =>
+      c.id === id ? { ...c, ...patch } : c,
+    );
+    saveCustomThemes(customThemes);
+    set({ customThemes });
+  },
+  deleteCustomTheme: (id) => {
+    const customThemes = get().customThemes.filter((c) => c.id !== id);
+    saveCustomThemes(customThemes);
+    if (get().name === id) {
+      localStorage.setItem(STORAGE_KEY, "dark");
+      set({ customThemes, name: "dark" });
+    } else {
+      set({ customThemes });
+    }
+  },
 }));
+
+/** 依 active 名稱解析 xterm 主題：自訂 id → 其 terminal 色組，否則內建 preset。 */
+export function resolveXtermTheme(name: string, customThemes: CustomTheme[]): ITheme {
+  const custom = customThemes.find((c) => c.id === name);
+  if (custom) return custom.terminal;
+  return xtermThemes[name as ThemeName] ?? xtermThemes.dark;
+}
+
+/** 自訂主題的 UI 變數 → inline style（App.css 不需要 [data-theme="custom"] 區塊）。 */
+export function customCssVars(theme: CustomTheme): CSSProperties {
+  const style: Record<string, string> = { colorScheme: theme.colorScheme };
+  for (const [key, cssVar] of Object.entries(UI_COLOR_VARS)) {
+    style[cssVar] = theme.ui[key as UiColorKey];
+  }
+  return style as CSSProperties;
+}
 
 // xterm 對應的配色（含完整 16 色 ANSI palette，避免不同背景色下色彩衝突）。
 export const xtermThemes: Record<ThemeName, ITheme> = {

@@ -28,7 +28,7 @@ import {
   resetNonWaitingStreak,
   setTitleSignal,
 } from "./store/scanState";
-import { useThemeStore } from "./store/theme";
+import { customCssVars, useThemeStore } from "./store/theme";
 import { groupTreeOf, useLayoutStore } from "./store/layout";
 import { computeLayout, type RectPct } from "./store/layoutTree";
 import { useUiStore } from "./store/ui";
@@ -347,6 +347,8 @@ function App() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
   const theme = useThemeStore((s) => s.name);
+  // 自訂主題：data-theme 落到 "custom"（App.css 無此區塊），9 個 UI 變數以 inline style 提供。
+  const customTheme = useThemeStore((s) => s.customThemes.find((c) => c.id === s.name));
   const trees = useLayoutStore((s) => s.trees);
   // 只渲染 active session 所在群組的樹；其他 session 的 pane 拿不到
   // rect → data-in-layout="false" 隱藏（Terminal 保持掛載）。
@@ -438,7 +440,11 @@ function App() {
   }, []);
 
   return (
-    <div className="app" data-theme={theme}>
+    <div
+      className="app"
+      data-theme={customTheme ? "custom" : theme}
+      style={customTheme ? customCssVars(customTheme) : undefined}
+    >
       <SessionSidebar />
       <main className="app-body">
         <Toolbar />

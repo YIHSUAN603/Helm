@@ -115,6 +115,49 @@
   cursor: pointer;
 }
 
+/* 自訂主題編輯器 */
+.settings-color-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px 10px;
+}
+
+.settings-color-grid label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.settings-color-grid input[type="color"] {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.settings-color-grid span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-theme-delete {
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  color: #f38ba8;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
 /* Agent 整合區塊 */
 .settings-section {
   margin-top: 6px;

@@ -2,8 +2,16 @@
 // 結構仿 CommandPalette：backdrop + 置中對話框，Esc/backdrop 點擊關閉並還原焦點。
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import type { ITheme } from "@xterm/xterm";
 import { useUiStore } from "../../store/ui";
-import { useThemeStore, THEME_NAMES, THEME_LABELS } from "../../store/theme";
+import {
+  useThemeStore,
+  THEME_NAMES,
+  THEME_LABELS,
+  UI_COLOR_VARS,
+  resolveXtermTheme,
+  type UiColorKey,
+} from "../../store/theme";
 import {
   useSettingsStore,
   FONT_FAMILY_PRESETS,
@@ -33,6 +41,64 @@ const CURSOR_STYLE_KEYS: Record<CursorStyle, string> = {
 const CURSOR_STYLES: CursorStyle[] = ["block", "bar", "underline"];
 
 const CUSTOM_FONT_FAMILY_ID = "custom";
+
+// 自訂主題編輯器的欄位定義（順序即顯示順序）。
+const UI_COLOR_FIELDS: { key: UiColorKey; labelKey: string }[] = [
+  { key: "appBg", labelKey: "settings.themeColorAppBg" },
+  { key: "termBg", labelKey: "settings.themeColorTermBg" },
+  { key: "sidebarBg", labelKey: "settings.themeColorSidebarBg" },
+  { key: "border", labelKey: "settings.themeColorBorder" },
+  { key: "fg", labelKey: "settings.themeColorFg" },
+  { key: "muted", labelKey: "settings.themeColorMuted" },
+  { key: "hover", labelKey: "settings.themeColorHover" },
+  { key: "active", labelKey: "settings.themeColorActive" },
+  { key: "accent", labelKey: "settings.themeColorAccent" },
+];
+
+type TerminalColorKey = Exclude<keyof ITheme, "extendedAnsi">;
+
+const TERMINAL_COLOR_FIELDS: { key: TerminalColorKey; labelKey: string }[] = [
+  { key: "background", labelKey: "settings.themeColorXtermBg" },
+  { key: "foreground", labelKey: "settings.themeColorXtermFg" },
+  { key: "cursor", labelKey: "settings.themeColorXtermCursor" },
+  { key: "selectionBackground", labelKey: "settings.themeColorXtermSelection" },
+];
+
+// ANSI 標準色名固定用英文，不進 i18n。
+const ANSI_COLOR_FIELDS: { key: TerminalColorKey; label: string }[] = [
+  { key: "black", label: "Black" },
+  { key: "red", label: "Red" },
+  { key: "green", label: "Green" },
+  { key: "yellow", label: "Yellow" },
+  { key: "blue", label: "Blue" },
+  { key: "magenta", label: "Magenta" },
+  { key: "cyan", label: "Cyan" },
+  { key: "white", label: "White" },
+  { key: "brightBlack", label: "Bright Black" },
+  { key: "brightRed", label: "Bright Red" },
+  { key: "brightGreen", label: "Bright Green" },
+  { key: "brightYellow", label: "Bright Yellow" },
+  { key: "brightBlue", label: "Bright Blue" },
+  { key: "brightMagenta", label: "Bright Magenta" },
+  { key: "brightCyan", label: "Bright Cyan" },
+  { key: "brightWhite", label: "Bright White" },
+];
+
+// <input type="color"> 只接受 #rrggbb：展開 #rgb、截掉 alpha（如 githubDark 的
+// selectionBackground #3392ff44）、rgb() 形式轉 hex。
+function normalizeHex(value: string): string {
+  const v = value.trim();
+  const rgb = v.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+  if (rgb) {
+    return `#${rgb
+      .slice(1, 4)
+      .map((n) => Number(n).toString(16).padStart(2, "0"))
+      .join("")}`;
+  }
+  if (/^#[0-9a-f]{3,4}$/i.test(v)) return `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`;
+  if (/^#[0-9a-f]{6}/i.test(v)) return v.slice(0, 7).toLowerCase();
+  return "#000000";
+}
 
 // Codex 開啟 OSC 9 通知所需的 config.toml 片段（Helm 不自動改寫 TOML，
 // 由使用者複製貼上；預設 auto 只對白名單終端發 OSC 9、且 focused 時不發）。
@@ -142,6 +208,38 @@ function SettingsDialogInner() {
 
   const themeName = useThemeStore((s) => s.name);
   const setThemeName = useThemeStore((s) => s.setName);
+  const customThemes = useThemeStore((s) => s.customThemes);
+  const createCustomTheme = useThemeStore((s) => s.createCustomTheme);
+  const updateCustomTheme = useThemeStore((s) => s.updateCustomTheme);
+  const deleteCustomTheme = useThemeStore((s) => s.deleteCustomTheme);
+  const customTheme = customThemes.find((c) => c.id === themeName);
+
+  // 以當下主題為起點建立自訂主題：UI 9 變數從 .app 的 computed style 讀
+  // （單一事實來源在 App.css / inline style，不在 TS 重複維護一份），終端色
+  // 複製解析後的 xterm 主題。建立後自動切換為 active。
+  const createCustomFromCurrent = () => {
+    const app = document.querySelector(".app");
+    if (!app) return;
+    const cs = getComputedStyle(app);
+    const ui = Object.fromEntries(
+      (Object.entries(UI_COLOR_VARS) as [UiColorKey, string][]).map(([key, cssVar]) => [
+        key,
+        normalizeHex(cs.getPropertyValue(cssVar)),
+      ]),
+    ) as Record<UiColorKey, string>;
+    const terminal = Object.fromEntries(
+      Object.entries(resolveXtermTheme(themeName, customThemes)).map(([key, value]) => [
+        key,
+        normalizeHex(String(value)),
+      ]),
+    ) as ITheme;
+    createCustomTheme({
+      name: t("settings.themeCustomDefaultName", { n: customThemes.length + 1 }),
+      colorScheme: cs.getPropertyValue("color-scheme").trim() === "light" ? "light" : "dark",
+      ui,
+      terminal,
+    });
+  };
 
   const language = useLanguageStore((s) => s.name);
   const setLanguage = useLanguageStore((s) => s.setName);
@@ -251,17 +349,101 @@ function SettingsDialogInner() {
         <div className="settings-body">
           <label className="settings-row">
             <span>{t("settings.theme")}</span>
-            <select
-              value={themeName}
-              onChange={(e) => setThemeName(e.target.value as typeof themeName)}
-            >
+            <select value={themeName} onChange={(e) => setThemeName(e.target.value)}>
               {THEME_NAMES.map((name) => (
                 <option key={name} value={name}>
                   {THEME_LABELS[name]}
                 </option>
               ))}
+              {customThemes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
           </label>
+
+          <div className="settings-row">
+            <span />
+            <button className="settings-update-install" onClick={createCustomFromCurrent}>
+              {t("settings.themeCustomCreate")}
+            </button>
+          </div>
+
+          {customTheme && (
+            <>
+              <div className="settings-row">
+                <span>{t("settings.themeCustomName")}</span>
+                <input
+                  type="text"
+                  value={customTheme.name}
+                  onChange={(e) =>
+                    updateCustomTheme(customTheme.id, { name: e.target.value })
+                  }
+                />
+                <button
+                  className="settings-theme-delete"
+                  onClick={() => deleteCustomTheme(customTheme.id)}
+                >
+                  {t("settings.themeCustomDelete")}
+                </button>
+              </div>
+
+              <div className="settings-section">{t("settings.themeUiColors")}</div>
+              <div className="settings-color-grid">
+                {UI_COLOR_FIELDS.map(({ key, labelKey }) => (
+                  <label key={key}>
+                    <input
+                      type="color"
+                      value={customTheme.ui[key] ?? "#000000"}
+                      onChange={(e) =>
+                        updateCustomTheme(customTheme.id, {
+                          ui: { ...customTheme.ui, [key]: e.target.value },
+                        })
+                      }
+                    />
+                    <span>{t(labelKey)}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="settings-section">{t("settings.themeTerminalColors")}</div>
+              <div className="settings-color-grid">
+                {TERMINAL_COLOR_FIELDS.map(({ key, labelKey }) => (
+                  <label key={key}>
+                    <input
+                      type="color"
+                      value={customTheme.terminal[key] ?? "#000000"}
+                      onChange={(e) =>
+                        updateCustomTheme(customTheme.id, {
+                          terminal: { ...customTheme.terminal, [key]: e.target.value },
+                        })
+                      }
+                    />
+                    <span>{t(labelKey)}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="settings-section">{t("settings.themeAnsiColors")}</div>
+              <div className="settings-color-grid">
+                {ANSI_COLOR_FIELDS.map(({ key, label }) => (
+                  <label key={key}>
+                    <input
+                      type="color"
+                      value={customTheme.terminal[key] ?? "#000000"}
+                      onChange={(e) =>
+                        updateCustomTheme(customTheme.id, {
+                          terminal: { ...customTheme.terminal, [key]: e.target.value },
+                        })
+                      }
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
 
           <label className="settings-row">
             <span>{t("settings.language")}</span>
