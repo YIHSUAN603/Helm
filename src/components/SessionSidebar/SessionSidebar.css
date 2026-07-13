@@ -280,17 +280,6 @@
   }
 }
 
-.agent-tag {
-  flex: 0 0 auto;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--muted);
-  background: var(--active);
-  border-radius: 4px;
-  padding: 1px 5px;
-}
-
 .new-menu-wrap {
   position: relative;
 }

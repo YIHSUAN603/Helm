@@ -10,7 +10,7 @@ import type { Session } from "./sessions";
 
 export type SidebarSession = Pick<
   Session,
-  "id" | "title" | "status" | "workspaceId" | "agentState" | "agentLabel" | "pendingApproval"
+  "id" | "title" | "status" | "workspaceId" | "agentState" | "pendingApproval"
 >;
 
 let prevInput: Session[] | null = null;
@@ -24,7 +24,6 @@ function sameProjected(s: Session, p: SidebarSession): boolean {
     s.status === p.status &&
     s.workspaceId === p.workspaceId &&
     s.agentState === p.agentState &&
-    s.agentLabel === p.agentLabel &&
     s.pendingApproval === p.pendingApproval
   );
 }
@@ -48,7 +47,6 @@ export function projectSidebarSessions(sessions: Session[]): SidebarSession[] {
             status: s.status,
             workspaceId: s.workspaceId,
             agentState: s.agentState,
-            agentLabel: s.agentLabel,
             pendingApproval: s.pendingApproval,
           };
     nextCache.set(s.id, proj);

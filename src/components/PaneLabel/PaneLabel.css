@@ -20,15 +20,6 @@
   text-overflow: ellipsis;
 }
 
-.pane-agent {
-  font-size: 9.5px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--active);
-  border-radius: 4px;
-  padding: 1px 5px;
-}
-
 .pane-actions {
   margin-left: auto;
   display: flex;

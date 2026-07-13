@@ -1,4 +1,4 @@
-// One session row: status dot, title, agent tag, close button.
+// One session row: status dot, title, close button.
 // Draggable so it can be dropped onto another workspace group.
 // Memoized: projected session refs (sidebarProjection) are stable for
 // untouched sessions and cluster info arrives as primitives, so one session's
@@ -88,7 +88,6 @@ export const SessionItem = memo(function SessionItem({
       <span className="session-name" title={s.title}>
         {s.title}
       </span>
-      {s.agentLabel && <span className="agent-tag">{s.agentLabel}</span>}
       <button
         className="icon-btn close"
         title={t("sidebar.close")}

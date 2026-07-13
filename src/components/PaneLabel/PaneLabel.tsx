@@ -88,7 +88,6 @@ export const PaneLabel = memo(function PaneLabel({ session }: { session: Session
     <div className="pane-label">
       <span className={`status-dot ${dotClass(session)}`} />
       <span className="pane-title">{session.title}</span>
-      {session.agentLabel && <span className="pane-agent">{session.agentLabel}</span>}
       <span className="pane-actions">
         {splitButton("row", "◫", t("pane.splitRight"))}
         {splitButton("column", "⊟", t("pane.splitDown"))}
