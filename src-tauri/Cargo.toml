@@ -54,7 +54,7 @@ notify-rust = "4"
 # osascript fallback in notify.rs covers the unbundled `tauri dev` case.
 objc2 = "0.6"
 block2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSBundle", "NSString"] }
+objc2-foundation = { version = "0.3", features = ["NSBundle", "NSString", "NSUserDefaults"] }
 objc2-user-notifications = { version = "0.3", features = [
   "alloc",
   "block2",

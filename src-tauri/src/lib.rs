@@ -121,6 +121,16 @@ fn set_menu_language(app: AppHandle, language: String) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // macOS: WKWebView honors the press-and-hold accent picker
+    // (ApplePressAndHoldEnabled, global default true), which suppresses key
+    // repeat — holding a key must repeat in a terminal. Opt this app's
+    // defaults domain out before the webview is created.
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_foundation::{ns_string, NSUserDefaults};
+        NSUserDefaults::standardUserDefaults()
+            .setBool_forKey(false, ns_string!("ApplePressAndHoldEnabled"));
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
