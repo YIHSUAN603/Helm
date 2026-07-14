@@ -36,10 +36,6 @@ function NotificationCenterContent() {
   const markRead = useNotificationsStore((s) => s.markRead);
   const markAllRead = useNotificationsStore((s) => s.markAllRead);
   const hasUnread = items.some((x) => !x.read);
-  const sessionAlive = useSessionStore((s) => {
-    const ids = new Set(s.sessions.map((x) => x.id));
-    return (id: string) => ids.has(id);
-  });
 
   const onClose = () => setOpen(false);
 
@@ -53,8 +49,10 @@ function NotificationCenterContent() {
 
   const onItemClick = (n: AppNotification) => {
     markRead(n.id);
-    // session 已關閉的歷史項只標已讀，不跳轉。
-    if (!sessionAlive(n.sessionId)) return;
+    // session 已關閉的歷史項只標已讀，不跳轉。點擊當下讀 store 即可，
+    // 不訂閱 session 列表（面板不必隨 session tick 重繪）。
+    const alive = useSessionStore.getState().sessions.some((s) => s.id === n.sessionId);
+    if (!alive) return;
     activateSession(n.sessionId);
     onClose();
   };

@@ -138,10 +138,12 @@ export function respondAllApprovals(approve: boolean): void {
   }
 }
 
-/** Jump to the first session awaiting approval in a workspace. */
+/** Jump to the first waiting session (approval / question / plan) in a workspace. */
 export function activateFirstPendingApproval(workspaceId: string): void {
   const { sessions } = useSessionStore.getState();
-  const target = sessionsInWorkspace(sessions, workspaceId).find((s) => s.pendingApproval);
+  const target = sessionsInWorkspace(sessions, workspaceId).find(
+    (s) => s.agentState === "waiting",
+  );
   if (target) activateSession(target.id);
 }
 

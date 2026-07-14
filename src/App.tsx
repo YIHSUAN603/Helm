@@ -4,6 +4,7 @@ import { SessionSidebar } from "./components/SessionSidebar/SessionSidebar";
 import { ApprovalPanel } from "./components/ApprovalPanel/ApprovalPanel";
 import { Toolbar } from "./components/Toolbar/Toolbar";
 import { ChangedFilesPanel } from "./components/ChangedFilesPanel/ChangedFilesPanel";
+import { NotificationCenter } from "./components/NotificationCenter/NotificationCenter";
 import { IntegrationHint } from "./components/IntegrationHint/IntegrationHint";
 import { PaneLabel } from "./components/PaneLabel/PaneLabel";
 import { SplitResizers } from "./components/SplitLayout/SplitResizers";
@@ -472,6 +473,7 @@ function App() {
           )}
           <ApprovalPanel />
           <ChangedFilesPanel />
+          <NotificationCenter />
           <IntegrationHint />
         </div>
       </main>

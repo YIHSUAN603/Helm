@@ -4,6 +4,8 @@
 import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useSessionStore } from "../../store/sessions";
+import { useNotificationsStore } from "../../store/notifications";
+import { unreadCount } from "../../store/notificationCenter";
 import { useUiStore } from "../../store/ui";
 import { groupTreeOf, useLayoutStore } from "../../store/layout";
 import { collectSessionIds } from "../../store/layoutTree";
@@ -74,6 +76,9 @@ export function Toolbar() {
   const trees = useLayoutStore((s) => s.trees);
   const filesOpen = useUiStore((s) => s.filesOpen);
   const toggleFiles = useUiStore((s) => s.toggleFiles);
+  const notifOpen = useUiStore((s) => s.notificationsOpen);
+  const toggleNotifications = useUiStore((s) => s.toggleNotifications);
+  const unread = useNotificationsStore((s) => unreadCount(s.items));
   const updatePhase = useUpdateStore((s) => s.phase);
   const updateVersion = useUpdateStore((s) => s.version);
   const updateDismissed = useUpdateStore((s) => s.dismissed);
@@ -203,6 +208,15 @@ export function Toolbar() {
         title={t("toolbar.changedFiles")}
       >
         {t("toolbar.changedFilesLabel", { count: changedCount })}
+      </button>
+      <button
+        className={`tb-files tb-bell ${notifOpen ? "on" : ""}`}
+        aria-pressed={notifOpen}
+        onClick={toggleNotifications}
+        title={t("toolbar.notifications")}
+      >
+        🔔
+        {unread > 0 && <span className="tb-bell-badge">{unread}</span>}
       </button>
       <span className="tb-total" title={t("toolbar.totalCost")}>
         Σ ${totalCost.toFixed(4)}

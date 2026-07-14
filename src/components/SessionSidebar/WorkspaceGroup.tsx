@@ -45,8 +45,10 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
   const onRenameStart = () => setRenamingId(w.id);
   const onRenameEnd = () => setRenamingId(null);
   const [dragOver, setDragOver] = useState(false);
+  // 所有 waiting 一視同仁：agentState === "waiting" 涵蓋 approval / question /
+  // plan（question/plan 沒有 pendingApproval，但同樣需要使用者處理）。
   const pendingCount = useMemo(
-    () => sessions.filter(({ session: s }) => s.pendingApproval).length,
+    () => sessions.filter(({ session: s }) => s.agentState === "waiting").length,
     [sessions],
   );
   // Counter to ignore dragleave noise from child elements.

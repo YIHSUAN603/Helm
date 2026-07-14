@@ -16,6 +16,7 @@ export const en: Record<string, string> = {
   "toolbar.changedFiles": "Changed files in this workspace",
   "toolbar.changedFilesLabel": "Changed {count}",
   "toolbar.totalCost": "Total cost for this workspace",
+  "toolbar.notifications": "Notifications",
   "toolbar.defaultAgent": "Agent",
 
   // App shell
@@ -106,7 +107,7 @@ export const en: Record<string, string> = {
   // Sidebar
   "sidebar.newWorkspace": "New workspace",
   "sidebar.settings": "Settings",
-  "sidebar.pendingApprovalBadge": "{count} pending approval(s) — click to go",
+  "sidebar.pendingApprovalBadge": "{count} awaiting your input — click to go",
   "sidebar.addSession": "New shell in this workspace",
   "sidebar.removeWorkspace": "Delete workspace (sessions move to default)",
   "sidebar.selectFolder": "Set default folder for new sessions",
@@ -125,6 +126,8 @@ export const en: Record<string, string> = {
   "notify.approval": "{label} needs your approval",
   "notify.question": "{label} has a question for you",
   "notify.plan": "{label}'s plan awaits your confirmation",
+  "notify.done": "{label} finished its turn",
+  "notify.error": "{label} hit an error",
 
   // Notification center
   "notifCenter.title": "Notifications",

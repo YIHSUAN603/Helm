@@ -16,6 +16,7 @@ export const zhTW: Record<string, string> = {
   "toolbar.changedFiles": "此 Workspace 的檔案變更",
   "toolbar.changedFilesLabel": "變更 {count}",
   "toolbar.totalCost": "此 Workspace 成本總計",
+  "toolbar.notifications": "通知中心",
   "toolbar.defaultAgent": "Agent",
 
   // App shell
@@ -106,7 +107,7 @@ export const zhTW: Record<string, string> = {
   // Sidebar
   "sidebar.newWorkspace": "新增 Workspace",
   "sidebar.settings": "設定",
-  "sidebar.pendingApprovalBadge": "{count} 個待審批 — 點擊前往",
+  "sidebar.pendingApprovalBadge": "{count} 個待處理 — 點擊前往",
   "sidebar.addSession": "在此 Workspace 新增 Shell",
   "sidebar.removeWorkspace": "刪除 Workspace（session 移到預設）",
   "sidebar.selectFolder": "設定新 session 的預設資料夾",
@@ -125,6 +126,8 @@ export const zhTW: Record<string, string> = {
   "notify.approval": "{label} 需要你核准",
   "notify.question": "{label} 有問題想問你",
   "notify.plan": "{label} 的計畫等待你確認",
+  "notify.done": "{label} 回合完成",
+  "notify.error": "{label} 發生錯誤",
 
   // Notification center
   "notifCenter.title": "通知中心",
