@@ -6,6 +6,7 @@ import { resolveFocusedWorkspace } from "./workspaceGroups";
 import { clearApprovalNotify, shouldNotifyApproval } from "./approvalNotify";
 import { clearApprovalSuppress } from "./approvalSuppress";
 import { clearScanState } from "./scanState";
+import { useSettingsStore } from "./settings";
 import { notify } from "../ipc/notify";
 import { getProfile } from "../agents/registry";
 import { t } from "../i18n";
@@ -95,6 +96,7 @@ export function notifyPendingPrompt(sess: Session): void {
   const kind: PromptKind = sess.pendingPrompt?.kind ?? "approval";
   const text = sess.pendingPrompt?.text ?? sess.pendingApproval;
   if (!text) return;
+  if (!useSettingsStore.getState().notificationsEnabled) return;
   if (document.hasFocus()) {
     const { sessions, activeId } = useSessionStore.getState();
     if (sess.workspaceId === resolveFocusedWorkspace(sessions, activeId)) return;

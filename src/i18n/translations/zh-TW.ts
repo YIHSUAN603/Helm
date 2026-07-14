@@ -60,6 +60,7 @@ export const zhTW: Record<string, string> = {
   "settings.defaultShellPlaceholder": "留空使用系統預設",
   "settings.defaultCwd": "預設工作目錄",
   "settings.defaultCwdPlaceholder": "留空使用使用者家目錄",
+  "settings.notifications": "桌面通知",
   "settings.updateVersion": "版本",
   "settings.updateStatus": "更新狀態",
   "settings.integrations": "Agent 整合",

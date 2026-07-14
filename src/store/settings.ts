@@ -75,6 +75,7 @@ const KEYS = {
   cursorBlink: "helm.cursorBlink",
   defaultShell: "helm.defaultShell",
   defaultCwd: "helm.defaultCwd",
+  notificationsEnabled: "helm.notificationsEnabled",
 } as const;
 
 interface SettingsState {
@@ -84,12 +85,14 @@ interface SettingsState {
   cursorBlink: boolean;
   defaultShell: string;
   defaultCwd: string;
+  notificationsEnabled: boolean;
   setFontFamily: (v: string) => void;
   setFontSize: (v: number) => void;
   setCursorStyle: (v: CursorStyle) => void;
   setCursorBlink: (v: boolean) => void;
   setDefaultShell: (v: string) => void;
   setDefaultCwd: (v: string) => void;
+  setNotificationsEnabled: (v: boolean) => void;
 }
 
 function initialFontFamily(): string {
@@ -111,6 +114,11 @@ function initialCursorBlink(): boolean {
   return v === null ? DEFAULT_CURSOR_BLINK : v === "true";
 }
 
+function initialNotificationsEnabled(): boolean {
+  const v = localStorage.getItem(KEYS.notificationsEnabled);
+  return v === null ? true : v === "true";
+}
+
 export const useSettingsStore = create<SettingsState>((set) => ({
   fontFamily: initialFontFamily(),
   fontSize: initialFontSize(),
@@ -118,6 +126,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   cursorBlink: initialCursorBlink(),
   defaultShell: localStorage.getItem(KEYS.defaultShell) || "",
   defaultCwd: localStorage.getItem(KEYS.defaultCwd) || "",
+  notificationsEnabled: initialNotificationsEnabled(),
 
   setFontFamily: (v) => {
     localStorage.setItem(KEYS.fontFamily, v);
@@ -145,5 +154,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setDefaultCwd: (v) => {
     localStorage.setItem(KEYS.defaultCwd, v);
     set({ defaultCwd: v });
+  },
+  setNotificationsEnabled: (v) => {
+    localStorage.setItem(KEYS.notificationsEnabled, String(v));
+    set({ notificationsEnabled: v });
   },
 }));

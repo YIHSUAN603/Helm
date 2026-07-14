@@ -60,6 +60,7 @@ export const en: Record<string, string> = {
   "settings.defaultShellPlaceholder": "Leave empty to use system default",
   "settings.defaultCwd": "Default working directory",
   "settings.defaultCwdPlaceholder": "Leave empty to use home directory",
+  "settings.notifications": "Desktop notifications",
   "settings.updateVersion": "Version",
   "settings.updateStatus": "Update status",
   "settings.integrations": "Agent integrations",

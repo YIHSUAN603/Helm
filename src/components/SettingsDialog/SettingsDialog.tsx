@@ -250,12 +250,14 @@ function SettingsDialogInner() {
   const cursorBlink = useSettingsStore((s) => s.cursorBlink);
   const defaultShell = useSettingsStore((s) => s.defaultShell);
   const defaultCwd = useSettingsStore((s) => s.defaultCwd);
+  const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled);
   const setFontFamily = useSettingsStore((s) => s.setFontFamily);
   const setFontSize = useSettingsStore((s) => s.setFontSize);
   const setCursorStyle = useSettingsStore((s) => s.setCursorStyle);
   const setCursorBlink = useSettingsStore((s) => s.setCursorBlink);
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
   const setDefaultCwd = useSettingsStore((s) => s.setDefaultCwd);
+  const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled);
 
   // 系統等寬字型清單；載入中(null)、清單為空或純瀏覽器環境時退回內建 preset。
   const [systemFonts, setSystemFonts] = useState<string[] | null>(null);
@@ -548,6 +550,15 @@ function SettingsDialogInner() {
               value={defaultCwd}
               placeholder={t("settings.defaultCwdPlaceholder")}
               onChange={(e) => setDefaultCwd(e.target.value)}
+            />
+          </label>
+
+          <label className="settings-row">
+            <span>{t("settings.notifications")}</span>
+            <input
+              type="checkbox"
+              checked={notificationsEnabled}
+              onChange={(e) => setNotificationsEnabled(e.target.checked)}
             />
           </label>
 
