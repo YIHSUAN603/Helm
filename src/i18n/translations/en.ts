@@ -25,7 +25,13 @@ export const en: Record<string, string> = {
   "settings.dialogLabel": "Settings",
   "settings.title": "Settings",
   "settings.close": "Close",
+  "settings.tabGeneral": "General",
+  "settings.tabAppearance": "Appearance",
+  "settings.tabIntegrations": "Agent integrations",
+  "settings.tabAbout": "About",
   "settings.theme": "Theme",
+  "settings.themeDark": "Dark",
+  "settings.themeLight": "Light",
   "settings.themeCustomCreate": "New custom theme from current",
   "settings.themeCustomDefaultName": "Custom theme {n}",
   "settings.themeCustomName": "Theme name",
@@ -61,6 +67,9 @@ export const en: Record<string, string> = {
   "settings.defaultCwd": "Default working directory",
   "settings.defaultCwdPlaceholder": "Leave empty to use home directory",
   "settings.notifications": "Desktop notifications",
+  "settings.notifyWaiting": "When approval / reply is needed",
+  "settings.notifyDone": "When an agent turn completes",
+  "settings.notifyError": "When an agent errors",
   "settings.updateVersion": "Version",
   "settings.updateStatus": "Update status",
   "settings.integrations": "Agent integrations",
@@ -86,7 +95,7 @@ export const en: Record<string, string> = {
 
   // Update
   "update.checking": "Checking for updates…",
-  "update.upToDate": "Up to date",
+  "update.up-to-date": "Up to date",
   "update.available": "Update {version} available",
   "update.installNow": "Update & restart",
   "update.later": "Later",
@@ -116,6 +125,12 @@ export const en: Record<string, string> = {
   "notify.approval": "{label} needs your approval",
   "notify.question": "{label} has a question for you",
   "notify.plan": "{label}'s plan awaits your confirmation",
+
+  // Notification center
+  "notifCenter.title": "Notifications",
+  "notifCenter.markAllRead": "Mark all read",
+  "notifCenter.empty": "No notifications yet",
+  "notifCenter.close": "Close",
 
   // Approval panel
   "approval.pending": "Pending approval",

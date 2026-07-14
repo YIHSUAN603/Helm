@@ -76,6 +76,9 @@ const KEYS = {
   defaultShell: "helm.defaultShell",
   defaultCwd: "helm.defaultCwd",
   notificationsEnabled: "helm.notificationsEnabled",
+  notifyWaiting: "helm.notifyWaiting",
+  notifyDone: "helm.notifyDone",
+  notifyError: "helm.notifyError",
 } as const;
 
 interface SettingsState {
@@ -86,6 +89,10 @@ interface SettingsState {
   defaultShell: string;
   defaultCwd: string;
   notificationsEnabled: boolean;
+  // 桌面通知的類型開關（總開關 && 類型開關才發；通知中心不受影響、永遠記錄）。
+  notifyWaiting: boolean; // 需要核准/回覆（approval / question / plan）
+  notifyDone: boolean; // agent 回合完成
+  notifyError: boolean; // agent 錯誤
   setFontFamily: (v: string) => void;
   setFontSize: (v: number) => void;
   setCursorStyle: (v: CursorStyle) => void;
@@ -93,6 +100,9 @@ interface SettingsState {
   setDefaultShell: (v: string) => void;
   setDefaultCwd: (v: string) => void;
   setNotificationsEnabled: (v: boolean) => void;
+  setNotifyWaiting: (v: boolean) => void;
+  setNotifyDone: (v: boolean) => void;
+  setNotifyError: (v: boolean) => void;
 }
 
 function initialFontFamily(): string {
@@ -114,8 +124,8 @@ function initialCursorBlink(): boolean {
   return v === null ? DEFAULT_CURSOR_BLINK : v === "true";
 }
 
-function initialNotificationsEnabled(): boolean {
-  const v = localStorage.getItem(KEYS.notificationsEnabled);
+function initialBool(key: string): boolean {
+  const v = localStorage.getItem(key);
   return v === null ? true : v === "true";
 }
 
@@ -126,7 +136,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   cursorBlink: initialCursorBlink(),
   defaultShell: localStorage.getItem(KEYS.defaultShell) || "",
   defaultCwd: localStorage.getItem(KEYS.defaultCwd) || "",
-  notificationsEnabled: initialNotificationsEnabled(),
+  notificationsEnabled: initialBool(KEYS.notificationsEnabled),
+  notifyWaiting: initialBool(KEYS.notifyWaiting),
+  notifyDone: initialBool(KEYS.notifyDone),
+  notifyError: initialBool(KEYS.notifyError),
 
   setFontFamily: (v) => {
     localStorage.setItem(KEYS.fontFamily, v);
@@ -158,5 +171,17 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setNotificationsEnabled: (v) => {
     localStorage.setItem(KEYS.notificationsEnabled, String(v));
     set({ notificationsEnabled: v });
+  },
+  setNotifyWaiting: (v) => {
+    localStorage.setItem(KEYS.notifyWaiting, String(v));
+    set({ notifyWaiting: v });
+  },
+  setNotifyDone: (v) => {
+    localStorage.setItem(KEYS.notifyDone, String(v));
+    set({ notifyDone: v });
+  },
+  setNotifyError: (v) => {
+    localStorage.setItem(KEYS.notifyError, String(v));
+    set({ notifyError: v });
   },
 }));

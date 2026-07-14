@@ -25,7 +25,13 @@ export const zhTW: Record<string, string> = {
   "settings.dialogLabel": "設定",
   "settings.title": "設定",
   "settings.close": "關閉",
+  "settings.tabGeneral": "一般",
+  "settings.tabAppearance": "外觀",
+  "settings.tabIntegrations": "Agent 整合",
+  "settings.tabAbout": "關於",
   "settings.theme": "主題",
+  "settings.themeDark": "深色",
+  "settings.themeLight": "淺色",
   "settings.themeCustomCreate": "以目前主題建立自訂主題",
   "settings.themeCustomDefaultName": "自訂主題 {n}",
   "settings.themeCustomName": "主題名稱",
@@ -61,6 +67,9 @@ export const zhTW: Record<string, string> = {
   "settings.defaultCwd": "預設工作目錄",
   "settings.defaultCwdPlaceholder": "留空使用使用者家目錄",
   "settings.notifications": "桌面通知",
+  "settings.notifyWaiting": "需要核准／回覆時",
+  "settings.notifyDone": "Agent 回合完成時",
+  "settings.notifyError": "Agent 發生錯誤時",
   "settings.updateVersion": "版本",
   "settings.updateStatus": "更新狀態",
   "settings.integrations": "Agent 整合",
@@ -86,7 +95,7 @@ export const zhTW: Record<string, string> = {
 
   // Update
   "update.checking": "檢查更新中…",
-  "update.upToDate": "已是最新版本",
+  "update.up-to-date": "已是最新版本",
   "update.available": "有新版本 {version}",
   "update.installNow": "更新並重啟",
   "update.later": "稍後",
@@ -116,6 +125,12 @@ export const zhTW: Record<string, string> = {
   "notify.approval": "{label} 需要你核准",
   "notify.question": "{label} 有問題想問你",
   "notify.plan": "{label} 的計畫等待你確認",
+
+  // Notification center
+  "notifCenter.title": "通知中心",
+  "notifCenter.markAllRead": "全部標為已讀",
+  "notifCenter.empty": "尚無通知",
+  "notifCenter.close": "關閉",
 
   // Approval panel
   "approval.pending": "待審批",

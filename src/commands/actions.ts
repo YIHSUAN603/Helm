@@ -2,7 +2,7 @@
 // Shared by the command registry and components so buttons and hotkeys
 // go through the exact same code path.
 import { useSessionStore } from "../store/sessions";
-import { clearApprovalNotify } from "../store/approvalNotify";
+import { clearNotifyDedupe } from "../store/notificationRouter";
 import { markApprovalAnswered } from "../store/approvalSuppress";
 import { groupTreeOf, useLayoutStore } from "../store/layout";
 import { useWorkspaceStore, expandWorkspace } from "../store/workspaces";
@@ -126,7 +126,7 @@ export function respondApproval(id: string, agentId: string | null, approve: boo
   if (prompt) markApprovalAnswered(id, prompt, Date.now());
   // Explicit response resets notification dedupe: a NEW approval with the
   // exact same prompt text must notify immediately.
-  clearApprovalNotify(id);
+  clearNotifyDedupe(id);
 }
 
 /** Respond to every pending approval in the focused workspace only. */

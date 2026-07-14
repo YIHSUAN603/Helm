@@ -55,6 +55,34 @@
   color: var(--fg);
 }
 
+/* 分頁列：header 下、body 上，active 分頁以底部 accent 指示線標示。 */
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.settings-tab:hover {
+  color: var(--fg);
+}
+
+.settings-tab[aria-selected="true"] {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+
 .settings-body {
   /* 2026/07/10：矮視窗時保留標頭，僅捲動設定內容。 */
   flex: 1 1 auto;
@@ -79,6 +107,15 @@
 .settings-row > span {
   flex: 0 0 auto;
   color: var(--muted);
+}
+
+/* 桌面通知的類型子開關：縮排掛在總開關之下。 */
+.settings-subrow {
+  padding-left: 16px;
+}
+
+.settings-subrow:has(input:disabled) {
+  opacity: 0.5;
 }
 
 .settings-row input[type="text"],
@@ -116,6 +153,24 @@
 }
 
 /* 自訂主題編輯器 */
+.settings-row-actions {
+  justify-content: flex-end;
+}
+
+.settings-secondary {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--fg);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings-secondary:hover {
+  background: var(--hover);
+}
+
 .settings-color-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

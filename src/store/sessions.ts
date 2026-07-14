@@ -3,7 +3,14 @@ import { create } from "zustand";
 import { groupTreeOf, useLayoutStore } from "./layout";
 import { siblingFirstSession } from "./layoutTree";
 import { resolveFocusedWorkspace } from "./workspaceGroups";
-import { clearApprovalNotify, shouldNotifyApproval } from "./approvalNotify";
+import {
+  clearNotifyDedupe,
+  detectAgentEvent,
+  shouldDesktopNotify,
+  type DesktopNotifyContext,
+} from "./notificationRouter";
+import { useNotificationsStore } from "./notifications";
+import type { NotifyKind } from "./notificationCenter";
 import { clearApprovalSuppress } from "./approvalSuppress";
 import { clearScanState } from "./scanState";
 import { useSettingsStore } from "./settings";
@@ -80,29 +87,59 @@ function samePlanUsage(a?: PlanUsage, b?: PlanUsage): boolean {
   );
 }
 
+/** 桌面通知 gating 所需的環境：類型開關（settings）+ 視窗焦點 + workspace 歸屬。 */
+function desktopNotifyContext(sess: Session, kind: NotifyKind): DesktopNotifyContext {
+  const st = useSettingsStore.getState();
+  const perKind =
+    kind === "done" ? st.notifyDone : kind === "error" ? st.notifyError : st.notifyWaiting;
+  const { sessions, activeId } = useSessionStore.getState();
+  return {
+    enabled: st.notificationsEnabled && perKind,
+    windowFocused: document.hasFocus(),
+    inFocusedWorkspace: sess.workspaceId === resolveFocusedWorkspace(sessions, activeId),
+  };
+}
+
 /**
  * Send the desktop notification for a session's pending prompt (approval /
- * question / plan, title differs by kind), unless the dedupe gate suppresses
- * it. A focused window suppresses the notification only for sessions in the
- * FOCUSED workspace — their prompt is already on screen (ApprovalPanel or the
- * dialog itself); a prompt in another workspace surfaces only as a small
- * sidebar badge, so it still notifies. The focus check runs FIRST so a
- * suppressed notification is not recorded and can still fire later from the
- * blur listener in App.tsx. Known trade-off: answering inside the terminal
- * (not via the panel) leaves the dedupe record, so an identical prompt within
- * the cooldown shows only in the panel, without a toast.
+ * question / plan, title differs by kind), unless the router's gate suppresses
+ * it (per-kind toggle, focus/workspace suppression, dedupe cooldown — see
+ * shouldDesktopNotify). Called on the entered-waiting edge and again from the
+ * blur listener in App.tsx for prompts still pending. Known trade-off:
+ * answering inside the terminal (not via the panel) leaves the dedupe record,
+ * so an identical prompt within the cooldown shows only in the panel, without
+ * a toast.
  */
 export function notifyPendingPrompt(sess: Session): void {
   const kind: PromptKind = sess.pendingPrompt?.kind ?? "approval";
   const text = sess.pendingPrompt?.text ?? sess.pendingApproval;
   if (!text) return;
-  if (!useSettingsStore.getState().notificationsEnabled) return;
-  if (document.hasFocus()) {
-    const { sessions, activeId } = useSessionStore.getState();
-    if (sess.workspaceId === resolveFocusedWorkspace(sessions, activeId)) return;
+  if (!shouldDesktopNotify(sess.id, kind, text, desktopNotifyContext(sess, kind), Date.now())) {
+    return;
   }
-  if (!shouldNotifyApproval(sess.id, text, Date.now())) return;
   notify(sess.id, t(`notify.${kind}`, { label: sess.agentLabel ?? "Agent" }), text);
+}
+
+/**
+ * 狀態轉移邊緣判定出的提醒事件 → 兩個出口：通知中心（永遠記錄，重複入列
+ * 由 pushNotification 去重）＋ 桌面通知（經統一 gating）。waiting 類沿用
+ * notifyPendingPrompt（與 blur 補發共用同一條路徑）。
+ */
+function emitAgentEvent(sess: Session, kind: NotifyKind): void {
+  useNotificationsStore.getState().push({
+    kind,
+    sessionId: sess.id,
+    sessionTitle: sess.title,
+    agentLabel: sess.agentLabel,
+    text: sess.pendingPrompt?.text ?? sess.pendingApproval,
+  });
+  if (kind === "done" || kind === "error") {
+    if (shouldDesktopNotify(sess.id, kind, "", desktopNotifyContext(sess, kind), Date.now())) {
+      notify(sess.id, t(`notify.${kind}`, { label: sess.agentLabel ?? "Agent" }), sess.title);
+    }
+    return;
+  }
+  notifyPendingPrompt(sess);
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -141,9 +178,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       nextActive = sibling ?? remaining[idx]?.id ?? remaining[idx - 1]?.id ?? null;
     }
     set({ sessions: remaining, activeId: nextActive });
-    clearApprovalNotify(id);
+    clearNotifyDedupe(id);
     clearApprovalSuppress(id);
     clearScanState(id);
+    useNotificationsStore.getState().resolveSession(id);
   },
 
   moveSessionToWorkspace: (sessionId, workspaceId) => {
@@ -212,22 +250,29 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         x.id === id ? { ...x, agentState: state, pendingApproval, pendingPrompt } : x,
       ),
     }));
-    // Entered waiting → desktop notification, gated by focus + dedupe
-    // (notifyPendingPrompt) so state flapping cannot re-notify the same prompt.
-    if (state === "waiting" && prev?.agentState !== "waiting") {
+    // 離開 waiting = 提示已被回答/清除 → 通知中心對應項標為 resolved。
+    if (prev.agentState === "waiting" && state !== "waiting") {
+      useNotificationsStore.getState().resolveSession(id);
+    }
+    // 狀態轉移邊緣 → 提醒事件（waiting 進入 / done / error），gating 與去重
+    // 在 emitAgentEvent 內，state flapping 不會重複提醒。
+    const eventKind = detectAgentEvent(prev.agentState, state, kind);
+    if (eventKind) {
       const sess = get().sessions.find((x) => x.id === id);
-      if (sess) notifyPendingPrompt(sess);
+      if (sess) emitAgentEvent(sess, eventKind);
     }
   },
 
-  clearApproval: (id) =>
+  clearApproval: (id) => {
     set((s) => ({
       sessions: s.sessions.map((x) =>
         x.id === id
           ? { ...x, pendingApproval: undefined, pendingPrompt: undefined, agentState: undefined }
           : x,
       ),
-    })),
+    }));
+    useNotificationsStore.getState().resolveSession(id);
+  },
 
   setUsage: (id, usage) => {
     const cur = get().sessions.find((x) => x.id === id);

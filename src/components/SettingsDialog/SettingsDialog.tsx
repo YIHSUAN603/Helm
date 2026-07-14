@@ -1,5 +1,6 @@
 // 設定對話框：主題、字型、游標、預設 shell/工作目錄。所有變更即時套用並寫入 localStorage。
 // 結構仿 CommandPalette：backdrop + 置中對話框，Esc/backdrop 點擊關閉並還原焦點。
+// 內容分四個分頁（一般 / 外觀 / Agent 整合 / 關於），分頁狀態僅存在元件內、不持久化。
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import type { ITheme } from "@xterm/xterm";
@@ -10,6 +11,7 @@ import {
   THEME_LABELS,
   UI_COLOR_VARS,
   resolveXtermTheme,
+  type ThemeName,
   type UiColorKey,
 } from "../../store/theme";
 import {
@@ -33,12 +35,27 @@ import { focusActiveTerminal, trapTabKey } from "../../focus/focusUtils";
 import { useT } from "../../i18n";
 import "./SettingsDialog.css";
 
+type SettingsTab = "general" | "appearance" | "integrations" | "about";
+
+const SETTINGS_TABS: { id: SettingsTab; labelKey: string }[] = [
+  { id: "general", labelKey: "settings.tabGeneral" },
+  { id: "appearance", labelKey: "settings.tabAppearance" },
+  { id: "integrations", labelKey: "settings.tabIntegrations" },
+  { id: "about", labelKey: "settings.tabAbout" },
+];
+
 const CURSOR_STYLE_KEYS: Record<CursorStyle, string> = {
   block: "settings.cursorStyleBlock",
   bar: "settings.cursorStyleBar",
   underline: "settings.cursorStyleUnderline",
 };
 const CURSOR_STYLES: CursorStyle[] = ["block", "bar", "underline"];
+
+// dark/light 是通用名（非專有名詞），標籤走 i18n；其餘用 THEME_LABELS 的英文名。
+const THEME_LABEL_KEYS: Partial<Record<ThemeName, string>> = {
+  dark: "settings.themeDark",
+  light: "settings.themeLight",
+};
 
 const CUSTOM_FONT_FAMILY_ID = "custom";
 
@@ -106,7 +123,7 @@ const CODEX_OSC9_SNIPPET = `[tui]
 notification_method = "osc9"
 notification_condition = "always"`;
 
-// Agent 整合區塊：查詢/一鍵安裝 Claude Code hooks 與 statusline 轉發，
+// Agent 整合分頁：查詢/一鍵安裝 Claude Code hooks 與 statusline 轉發，
 // Codex 顯示可複製的 config 片段。純瀏覽器環境（查無狀態）不顯示。
 function IntegrationSection() {
   const t = useT();
@@ -128,7 +145,6 @@ function IntegrationSection() {
 
   return (
     <>
-      <div className="settings-section">{t("settings.integrations")}</div>
       <p className="settings-hint">{t("settings.integrationsHint")}</p>
 
       <div className="settings-row">
@@ -206,6 +222,8 @@ function SettingsDialogInner() {
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
   const prevFocusRef = useRef<Element | null>(document.activeElement);
 
+  const [tab, setTab] = useState<SettingsTab>("general");
+
   const themeName = useThemeStore((s) => s.name);
   const setThemeName = useThemeStore((s) => s.setName);
   const customThemes = useThemeStore((s) => s.customThemes);
@@ -251,6 +269,9 @@ function SettingsDialogInner() {
   const defaultShell = useSettingsStore((s) => s.defaultShell);
   const defaultCwd = useSettingsStore((s) => s.defaultCwd);
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled);
+  const notifyWaiting = useSettingsStore((s) => s.notifyWaiting);
+  const notifyDone = useSettingsStore((s) => s.notifyDone);
+  const notifyError = useSettingsStore((s) => s.notifyError);
   const setFontFamily = useSettingsStore((s) => s.setFontFamily);
   const setFontSize = useSettingsStore((s) => s.setFontSize);
   const setCursorStyle = useSettingsStore((s) => s.setCursorStyle);
@@ -258,6 +279,9 @@ function SettingsDialogInner() {
   const setDefaultShell = useSettingsStore((s) => s.setDefaultShell);
   const setDefaultCwd = useSettingsStore((s) => s.setDefaultCwd);
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled);
+  const setNotifyWaiting = useSettingsStore((s) => s.setNotifyWaiting);
+  const setNotifyDone = useSettingsStore((s) => s.setNotifyDone);
+  const setNotifyError = useSettingsStore((s) => s.setNotifyError);
 
   // 系統等寬字型清單；載入中(null)、清單為空或純瀏覽器環境時退回內建 preset。
   const [systemFonts, setSystemFonts] = useState<string[] | null>(null);
@@ -301,10 +325,11 @@ function SettingsDialogInner() {
   const updateVersion = useUpdateStore((s) => s.version);
   const [appVersion, setAppVersion] = useState("");
 
+  // 開啟與切換分頁時，focus 目前分頁的第一個控件。
   useEffect(() => {
-    const dialog = document.getElementById("settings-dialog");
-    (dialog?.querySelector("select, input") as HTMLElement | null)?.focus();
-  }, []);
+    const body = document.querySelector("#settings-dialog .settings-body");
+    (body?.querySelector("select, input, button") as HTMLElement | null)?.focus();
+  }, [tab]);
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
@@ -348,247 +373,301 @@ function SettingsDialogInner() {
           </button>
         </div>
 
-        <div className="settings-body">
-          <label className="settings-row">
-            <span>{t("settings.theme")}</span>
-            <select value={themeName} onChange={(e) => setThemeName(e.target.value)}>
-              {THEME_NAMES.map((name) => (
-                <option key={name} value={name}>
-                  {THEME_LABELS[name]}
-                </option>
-              ))}
-              {customThemes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="settings-row">
-            <span />
-            <button className="settings-update-install" onClick={createCustomFromCurrent}>
-              {t("settings.themeCustomCreate")}
+        <div className="settings-tabs" role="tablist">
+          {SETTINGS_TABS.map(({ id, labelKey }) => (
+            <button
+              key={id}
+              className="settings-tab"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+            >
+              {t(labelKey)}
             </button>
-          </div>
+          ))}
+        </div>
 
-          {customTheme && (
+        <div className="settings-body">
+          {tab === "general" && (
             <>
-              <div className="settings-row">
-                <span>{t("settings.themeCustomName")}</span>
+              <label className="settings-row">
+                <span>{t("settings.language")}</span>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as typeof language)}
+                >
+                  {LANGUAGE_NAMES.map((name) => (
+                    <option key={name} value={name}>
+                      {LANGUAGE_LABELS[name]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="settings-row">
+                <span>{t("settings.notifications")}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationsEnabled}
+                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                />
+              </label>
+
+              {/* 類型子開關：總開關關閉時停用（桌面通知全不發，通知中心仍記錄）。 */}
+              <label className="settings-row settings-subrow">
+                <span>{t("settings.notifyWaiting")}</span>
+                <input
+                  type="checkbox"
+                  checked={notifyWaiting}
+                  disabled={!notificationsEnabled}
+                  onChange={(e) => setNotifyWaiting(e.target.checked)}
+                />
+              </label>
+              <label className="settings-row settings-subrow">
+                <span>{t("settings.notifyDone")}</span>
+                <input
+                  type="checkbox"
+                  checked={notifyDone}
+                  disabled={!notificationsEnabled}
+                  onChange={(e) => setNotifyDone(e.target.checked)}
+                />
+              </label>
+              <label className="settings-row settings-subrow">
+                <span>{t("settings.notifyError")}</span>
+                <input
+                  type="checkbox"
+                  checked={notifyError}
+                  disabled={!notificationsEnabled}
+                  onChange={(e) => setNotifyError(e.target.checked)}
+                />
+              </label>
+
+              <label className="settings-row">
+                <span>{t("settings.defaultShell")}</span>
                 <input
                   type="text"
-                  value={customTheme.name}
-                  onChange={(e) =>
-                    updateCustomTheme(customTheme.id, { name: e.target.value })
-                  }
+                  value={defaultShell}
+                  placeholder={t("settings.defaultShellPlaceholder")}
+                  onChange={(e) => setDefaultShell(e.target.value)}
                 />
-                <button
-                  className="settings-theme-delete"
-                  onClick={() => deleteCustomTheme(customTheme.id)}
-                >
-                  {t("settings.themeCustomDelete")}
-                </button>
-              </div>
+              </label>
 
-              <div className="settings-section">{t("settings.themeUiColors")}</div>
-              <div className="settings-color-grid">
-                {UI_COLOR_FIELDS.map(({ key, labelKey }) => (
-                  <label key={key}>
-                    <input
-                      type="color"
-                      value={customTheme.ui[key] ?? "#000000"}
-                      onChange={(e) =>
-                        updateCustomTheme(customTheme.id, {
-                          ui: { ...customTheme.ui, [key]: e.target.value },
-                        })
-                      }
-                    />
-                    <span>{t(labelKey)}</span>
-                  </label>
-                ))}
-              </div>
-
-              <div className="settings-section">{t("settings.themeTerminalColors")}</div>
-              <div className="settings-color-grid">
-                {TERMINAL_COLOR_FIELDS.map(({ key, labelKey }) => (
-                  <label key={key}>
-                    <input
-                      type="color"
-                      value={customTheme.terminal[key] ?? "#000000"}
-                      onChange={(e) =>
-                        updateCustomTheme(customTheme.id, {
-                          terminal: { ...customTheme.terminal, [key]: e.target.value },
-                        })
-                      }
-                    />
-                    <span>{t(labelKey)}</span>
-                  </label>
-                ))}
-              </div>
-
-              <div className="settings-section">{t("settings.themeAnsiColors")}</div>
-              <div className="settings-color-grid">
-                {ANSI_COLOR_FIELDS.map(({ key, label }) => (
-                  <label key={key}>
-                    <input
-                      type="color"
-                      value={customTheme.terminal[key] ?? "#000000"}
-                      onChange={(e) =>
-                        updateCustomTheme(customTheme.id, {
-                          terminal: { ...customTheme.terminal, [key]: e.target.value },
-                        })
-                      }
-                    />
-                    <span>{label}</span>
-                  </label>
-                ))}
-              </div>
+              <label className="settings-row">
+                <span>{t("settings.defaultCwd")}</span>
+                <input
+                  type="text"
+                  value={defaultCwd}
+                  placeholder={t("settings.defaultCwdPlaceholder")}
+                  onChange={(e) => setDefaultCwd(e.target.value)}
+                />
+              </label>
             </>
           )}
 
-          <label className="settings-row">
-            <span>{t("settings.language")}</span>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as typeof language)}
-            >
-              {LANGUAGE_NAMES.map((name) => (
-                <option key={name} value={name}>
-                  {LANGUAGE_LABELS[name]}
-                </option>
-              ))}
-            </select>
-          </label>
+          {tab === "appearance" && (
+            <>
+              <label className="settings-row">
+                <span>{t("settings.theme")}</span>
+                <select value={themeName} onChange={(e) => setThemeName(e.target.value)}>
+                  {THEME_NAMES.map((name) => (
+                    <option key={name} value={name}>
+                      {THEME_LABEL_KEYS[name] ? t(THEME_LABEL_KEYS[name]) : THEME_LABELS[name]}
+                    </option>
+                  ))}
+                  {customThemes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          <label className="settings-row">
-            <span>{t("settings.fontFamily")}</span>
-            <select
-              value={selectedFontPresetId}
-              onChange={(e) => {
-                if (e.target.value === CUSTOM_FONT_FAMILY_ID) {
-                  setForceCustomFont(true);
-                  return;
-                }
-                setForceCustomFont(false);
-                const preset = fontOptions.find((p) => p.id === e.target.value);
-                if (preset) setFontFamily(preset.value);
-              }}
-            >
-              {fontOptions.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-              <option value={CUSTOM_FONT_FAMILY_ID}>{t("settings.fontFamilyCustom")}</option>
-            </select>
-          </label>
+              <div className="settings-row settings-row-actions">
+                <button className="settings-secondary" onClick={createCustomFromCurrent}>
+                  {t("settings.themeCustomCreate")}
+                </button>
+              </div>
 
-          {selectedFontPresetId === CUSTOM_FONT_FAMILY_ID && (
-            <label className="settings-row">
-              <span>{t("settings.fontFamilyCustomValue")}</span>
-              <input
-                type="text"
-                value={fontFamily}
-                onChange={(e) => setFontFamily(e.target.value)}
-              />
-            </label>
+              {customTheme && (
+                <>
+                  <div className="settings-row">
+                    <span>{t("settings.themeCustomName")}</span>
+                    <input
+                      type="text"
+                      value={customTheme.name}
+                      onChange={(e) =>
+                        updateCustomTheme(customTheme.id, { name: e.target.value })
+                      }
+                    />
+                    <button
+                      className="settings-theme-delete"
+                      onClick={() => deleteCustomTheme(customTheme.id)}
+                    >
+                      {t("settings.themeCustomDelete")}
+                    </button>
+                  </div>
+
+                  <div className="settings-section">{t("settings.themeUiColors")}</div>
+                  <div className="settings-color-grid">
+                    {UI_COLOR_FIELDS.map(({ key, labelKey }) => (
+                      <label key={key}>
+                        <input
+                          type="color"
+                          value={customTheme.ui[key] ?? "#000000"}
+                          onChange={(e) =>
+                            updateCustomTheme(customTheme.id, {
+                              ui: { ...customTheme.ui, [key]: e.target.value },
+                            })
+                          }
+                        />
+                        <span>{t(labelKey)}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="settings-section">{t("settings.themeTerminalColors")}</div>
+                  <div className="settings-color-grid">
+                    {TERMINAL_COLOR_FIELDS.map(({ key, labelKey }) => (
+                      <label key={key}>
+                        <input
+                          type="color"
+                          value={customTheme.terminal[key] ?? "#000000"}
+                          onChange={(e) =>
+                            updateCustomTheme(customTheme.id, {
+                              terminal: { ...customTheme.terminal, [key]: e.target.value },
+                            })
+                          }
+                        />
+                        <span>{t(labelKey)}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="settings-section">{t("settings.themeAnsiColors")}</div>
+                  <div className="settings-color-grid">
+                    {ANSI_COLOR_FIELDS.map(({ key, label }) => (
+                      <label key={key}>
+                        <input
+                          type="color"
+                          value={customTheme.terminal[key] ?? "#000000"}
+                          onChange={(e) =>
+                            updateCustomTheme(customTheme.id, {
+                              terminal: { ...customTheme.terminal, [key]: e.target.value },
+                            })
+                          }
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <label className="settings-row">
+                <span>{t("settings.fontFamily")}</span>
+                <select
+                  value={selectedFontPresetId}
+                  onChange={(e) => {
+                    if (e.target.value === CUSTOM_FONT_FAMILY_ID) {
+                      setForceCustomFont(true);
+                      return;
+                    }
+                    setForceCustomFont(false);
+                    const preset = fontOptions.find((p) => p.id === e.target.value);
+                    if (preset) setFontFamily(preset.value);
+                  }}
+                >
+                  {fontOptions.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_FONT_FAMILY_ID}>{t("settings.fontFamilyCustom")}</option>
+                </select>
+              </label>
+
+              {selectedFontPresetId === CUSTOM_FONT_FAMILY_ID && (
+                <label className="settings-row">
+                  <span>{t("settings.fontFamilyCustomValue")}</span>
+                  <input
+                    type="text"
+                    value={fontFamily}
+                    onChange={(e) => setFontFamily(e.target.value)}
+                  />
+                </label>
+              )}
+
+              <label className="settings-row">
+                <span>{t("settings.fontSize")}</span>
+                <input
+                  type="number"
+                  min={FONT_SIZE_MIN}
+                  max={FONT_SIZE_MAX}
+                  value={fontSize}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    // setFontSize 會夾在 FONT_SIZE_MIN/MAX 內；輸入中的空字串（NaN）略過。
+                    if (v > 0) setFontSize(v);
+                  }}
+                />
+              </label>
+
+              <label className="settings-row">
+                <span>{t("settings.cursorStyle")}</span>
+                <select
+                  value={cursorStyle}
+                  onChange={(e) => setCursorStyle(e.target.value as CursorStyle)}
+                >
+                  {CURSOR_STYLES.map((c) => (
+                    <option key={c} value={c}>
+                      {t(CURSOR_STYLE_KEYS[c])}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="settings-row">
+                <span>{t("settings.cursorBlink")}</span>
+                <input
+                  type="checkbox"
+                  checked={cursorBlink}
+                  onChange={(e) => setCursorBlink(e.target.checked)}
+                />
+              </label>
+            </>
           )}
 
-          <label className="settings-row">
-            <span>{t("settings.fontSize")}</span>
-            <input
-              type="number"
-              min={FONT_SIZE_MIN}
-              max={FONT_SIZE_MAX}
-              value={fontSize}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                // setFontSize 會夾在 FONT_SIZE_MIN/MAX 內；輸入中的空字串（NaN）略過。
-                if (v > 0) setFontSize(v);
-              }}
-            />
-          </label>
+          {tab === "integrations" && <IntegrationSection />}
 
-          <label className="settings-row">
-            <span>{t("settings.cursorStyle")}</span>
-            <select
-              value={cursorStyle}
-              onChange={(e) => setCursorStyle(e.target.value as CursorStyle)}
-            >
-              {CURSOR_STYLES.map((c) => (
-                <option key={c} value={c}>
-                  {t(CURSOR_STYLE_KEYS[c])}
-                </option>
-              ))}
-            </select>
-          </label>
+          {tab === "about" && (
+            <>
+              <div className="settings-row">
+                <span>{t("settings.updateVersion")}</span>
+                <span>{appVersion}</span>
+              </div>
 
-          <label className="settings-row">
-            <span>{t("settings.cursorBlink")}</span>
-            <input
-              type="checkbox"
-              checked={cursorBlink}
-              onChange={(e) => setCursorBlink(e.target.checked)}
-            />
-          </label>
-
-          <label className="settings-row">
-            <span>{t("settings.defaultShell")}</span>
-            <input
-              type="text"
-              value={defaultShell}
-              placeholder={t("settings.defaultShellPlaceholder")}
-              onChange={(e) => setDefaultShell(e.target.value)}
-            />
-          </label>
-
-          <label className="settings-row">
-            <span>{t("settings.defaultCwd")}</span>
-            <input
-              type="text"
-              value={defaultCwd}
-              placeholder={t("settings.defaultCwdPlaceholder")}
-              onChange={(e) => setDefaultCwd(e.target.value)}
-            />
-          </label>
-
-          <label className="settings-row">
-            <span>{t("settings.notifications")}</span>
-            <input
-              type="checkbox"
-              checked={notificationsEnabled}
-              onChange={(e) => setNotificationsEnabled(e.target.checked)}
-            />
-          </label>
-
-          <IntegrationSection />
-
-          <div className="settings-row">
-            <span>{t("settings.updateVersion")}</span>
-            <span>{appVersion}</span>
-          </div>
-
-          <div className="settings-row">
-            <span>{t("settings.updateStatus")}</span>
-            {updatePhase === "available" ? (
-              <span className="settings-update">
-                {t("update.available", { version: updateVersion ?? "" })}
-                <button
-                  className="settings-update-install"
-                  onClick={() => void installPendingUpdate()}
-                >
-                  {t("update.installNow")}
-                </button>
-              </span>
-            ) : (
-              <span>
-                {updatePhase === "idle" || updatePhase === "checking"
-                  ? t("update.checking")
-                  : t(`update.${updatePhase}`, { version: updateVersion ?? "" })}
-              </span>
-            )}
-          </div>
+              <div className="settings-row">
+                <span>{t("settings.updateStatus")}</span>
+                {updatePhase === "available" ? (
+                  <span className="settings-update">
+                    {t("update.available", { version: updateVersion ?? "" })}
+                    <button
+                      className="settings-update-install"
+                      onClick={() => void installPendingUpdate()}
+                    >
+                      {t("update.installNow")}
+                    </button>
+                  </span>
+                ) : (
+                  <span>
+                    {updatePhase === "idle" || updatePhase === "checking"
+                      ? t("update.checking")
+                      : t(`update.${updatePhase}`, { version: updateVersion ?? "" })}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

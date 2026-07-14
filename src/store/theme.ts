@@ -28,9 +28,10 @@ export const THEME_NAMES: ThemeName[] = [
   "githubLight",
 ];
 
+// dark/light 為通用名，SettingsDialog 以 THEME_LABEL_KEYS 走 i18n；此處僅作 fallback。
 export const THEME_LABELS: Record<ThemeName, string> = {
-  dark: "深色",
-  light: "淺色",
+  dark: "Dark",
+  light: "Light",
   solarized: "Solarized Dark",
   nord: "Nord",
   dracula: "Dracula",
