@@ -6,10 +6,19 @@
   box-sizing: border-box;
   background: var(--term-bg);
   overflow: hidden;
+  /* FitAddon 以 floor(高度/行高) 算列數，除不盡的餘數若不處理會全落在底部，
+     使底部留白大於頂部且隨視窗高度參差（等同 kitty 的 top-left placement）。
+     直向 flex + 垂直置中把餘數對半分到上下（比照 kitty center / alacritty
+     dynamic_padding）；align-items 預設 stretch，.xterm 仍佔滿寬度（水平不變）。 */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .terminal-pane .xterm {
-  height: 100%;
+  /* auto（非 100%）：收斂到實際格線高度（.xterm-screen 為流內節點，
+     .xterm-viewport 以 absolute top:0 bottom:0 跟隨），不再於底部留整段空白。 */
+  height: auto;
 }
 
 .terminal-pane .xterm-viewport {
