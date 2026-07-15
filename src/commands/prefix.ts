@@ -45,6 +45,7 @@ export const PREFIX_TABLE: PrefixBinding[] = [
   })),
   { key: "w", commandId: "workspace:new" },
   { key: "f", commandId: "view:toggle-files" },
+  { key: "e", commandId: "view:toggle-sidebar" },
   { key: "t", commandId: "theme:toggle" },
   { key: "s", commandId: "settings:open" },
   { key: "b", commandId: "broadcast:focus" },

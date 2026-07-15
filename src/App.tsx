@@ -347,6 +347,7 @@ function App() {
   const t = useT();
   const sessions = useSessionStore((s) => s.sessions);
   const activeId = useSessionStore((s) => s.activeId);
+  const sidebarHidden = useUiStore((s) => s.sidebarHidden);
   const theme = useThemeStore((s) => s.name);
   // 自訂主題：data-theme 落到 "custom"（App.css 無此區塊），9 個 UI 變數以 inline style 提供。
   const customTheme = useThemeStore((s) => s.customThemes.find((c) => c.id === s.name));
@@ -446,7 +447,7 @@ function App() {
       data-theme={customTheme ? "custom" : theme}
       style={customTheme ? customCssVars(customTheme) : undefined}
     >
-      <SessionSidebar />
+      {!sidebarHidden && <SessionSidebar />}
       <main className="app-body">
         <Toolbar />
         {/* 同一組 pane 始終掛載；可見性只靠 data 屬性 + inline style 切換，避免重建終端。

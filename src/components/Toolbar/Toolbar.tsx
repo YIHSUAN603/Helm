@@ -76,6 +76,8 @@ export function Toolbar() {
   const trees = useLayoutStore((s) => s.trees);
   const filesOpen = useUiStore((s) => s.filesOpen);
   const toggleFiles = useUiStore((s) => s.toggleFiles);
+  const sidebarHidden = useUiStore((s) => s.sidebarHidden);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const notifOpen = useUiStore((s) => s.notificationsOpen);
   const toggleNotifications = useUiStore((s) => s.toggleNotifications);
   const unread = useNotificationsStore((s) => unreadCount(s.items));
@@ -137,6 +139,13 @@ export function Toolbar() {
 
   return (
     <div className="toolbar" data-focus-region="toolbar">
+      {/* 側欄的「隱藏」入口在側欄自身右緣（«）；帶回的入口放工具列最左端
+          （側欄原本的位置），只在隱藏時顯示。 */}
+      {sidebarHidden && (
+        <button className="tb-files" onClick={toggleSidebar} title={t("toolbar.showSidebar")}>
+          ☰
+        </button>
+      )}
       <div className="tb-broadcast">
         <select value={target} onChange={(e) => setTarget(e.target.value as Target)}>
           <option value="agents">{t("toolbar.targetAgents")}</option>

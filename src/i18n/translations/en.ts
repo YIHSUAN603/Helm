@@ -17,6 +17,7 @@ export const en: Record<string, string> = {
   "toolbar.changedFilesLabel": "Changed {count}",
   "toolbar.totalCost": "Total cost for this workspace",
   "toolbar.notifications": "Notifications",
+  "toolbar.showSidebar": "Show sidebar",
   "toolbar.defaultAgent": "Agent",
 
   // App shell
@@ -106,6 +107,7 @@ export const en: Record<string, string> = {
 
   // Sidebar
   "sidebar.newWorkspace": "New workspace",
+  "sidebar.hide": "Hide sidebar",
   "sidebar.settings": "Settings",
   "sidebar.pendingApprovalBadge": "{count} awaiting your input — click to go",
   "sidebar.addSession": "New shell in this workspace",
@@ -186,6 +188,7 @@ export const en: Record<string, string> = {
   "command.switchToIndex": "Switch to Session {n}",
   "command.newWorkspace": "New Workspace",
   "command.toggleFiles": "Changed Files Panel",
+  "command.toggleSidebar": "Toggle Sidebar",
   "command.toggleTheme": "Toggle Theme",
   "command.openSettings": "Open Settings",
   "command.focusBroadcast": "Focus Broadcast Input",

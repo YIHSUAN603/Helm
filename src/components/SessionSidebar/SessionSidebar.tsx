@@ -26,6 +26,7 @@ export function SessionSidebar() {
   const setRenamingId = useUiStore((s) => s.setRenamingWorkspaceId);
   const settingsOpen = useUiStore((s) => s.settingsOpen);
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
+  const setSidebarHidden = useUiStore((s) => s.setSidebarHidden);
   const listRef = useRef<HTMLDivElement>(null);
 
   const groups = useMemo(() => {
@@ -47,6 +48,15 @@ export function SessionSidebar() {
         <div className="sidebar-actions">
           <button className="icon-btn" title={t("sidebar.newWorkspace")} onClick={addWorkspace}>
             +
+          </button>
+          {/* 摺疊按鈕放在側欄右緣：位置本身就說明「收起這個面板」；
+              收起後由 Toolbar 的 ☰（僅隱藏時顯示）帶回。 */}
+          <button
+            className="icon-btn"
+            title={t("sidebar.hide")}
+            onClick={() => setSidebarHidden(true)}
+          >
+            «
           </button>
         </div>
       </div>

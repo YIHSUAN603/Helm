@@ -17,6 +17,7 @@ export const zhTW: Record<string, string> = {
   "toolbar.changedFilesLabel": "變更 {count}",
   "toolbar.totalCost": "此 Workspace 成本總計",
   "toolbar.notifications": "通知中心",
+  "toolbar.showSidebar": "顯示側欄",
   "toolbar.defaultAgent": "Agent",
 
   // App shell
@@ -106,6 +107,7 @@ export const zhTW: Record<string, string> = {
 
   // Sidebar
   "sidebar.newWorkspace": "新增 Workspace",
+  "sidebar.hide": "隱藏側欄",
   "sidebar.settings": "設定",
   "sidebar.pendingApprovalBadge": "{count} 個待處理 — 點擊前往",
   "sidebar.addSession": "在此 Workspace 新增 Shell",
@@ -186,6 +188,7 @@ export const zhTW: Record<string, string> = {
   "command.switchToIndex": "切換到第 {n} 個 Session",
   "command.newWorkspace": "新增 Workspace",
   "command.toggleFiles": "檔案變更面板",
+  "command.toggleSidebar": "切換側欄",
   "command.toggleTheme": "切換主題",
   "command.openSettings": "開啟設定",
   "command.focusBroadcast": "聚焦派工輸入框",

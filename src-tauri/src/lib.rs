@@ -25,6 +25,7 @@ struct MenuLabels {
     view: &'static str,
     palette: &'static str,
     toggle_files: &'static str,
+    toggle_sidebar: &'static str,
     toggle_theme: &'static str,
 }
 
@@ -41,6 +42,7 @@ const LABELS_ZH_TW: MenuLabels = MenuLabels {
     view: "檢視",
     palette: "命令面板",
     toggle_files: "檔案變更面板",
+    toggle_sidebar: "切換側欄",
     toggle_theme: "切換主題",
 };
 
@@ -57,6 +59,7 @@ const LABELS_EN: MenuLabels = MenuLabels {
     view: "View",
     palette: "Command Palette",
     toggle_files: "Changed Files Panel",
+    toggle_sidebar: "Toggle Sidebar",
     toggle_theme: "Toggle Theme",
 };
 
@@ -99,9 +102,10 @@ fn build_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<tauri::Wry>
         .accelerator("CmdOrCtrl+Shift+P")
         .build(app)?;
     let toggle_files = item("view:toggle-files", l.toggle_files, "f")?;
+    let toggle_sidebar = item("view:toggle-sidebar", l.toggle_sidebar, "e")?;
     let toggle_theme = item("theme:toggle", l.toggle_theme, "t")?;
     let view_menu = SubmenuBuilder::new(app, l.view)
-        .items(&[&palette, &toggle_files, &toggle_theme])
+        .items(&[&palette, &toggle_files, &toggle_sidebar, &toggle_theme])
         .build()?;
 
     let menu = Menu::default(app)?;

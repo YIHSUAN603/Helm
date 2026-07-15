@@ -194,6 +194,13 @@ function staticCommands(): Command[] {
       run: () => useUiStore.getState().toggleFiles(),
     },
     {
+      id: "view:toggle-sidebar",
+      title: t("command.toggleSidebar"),
+      category: t("category.view"),
+      keywords: "sidebar sessions hide show",
+      run: () => useUiStore.getState().toggleSidebar(),
+    },
+    {
       id: "theme:toggle",
       title: t("command.toggleTheme"),
       category: t("category.view"),
