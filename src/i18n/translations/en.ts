@@ -72,6 +72,7 @@ export const en: Record<string, string> = {
   "settings.notifyWaiting": "When approval / reply is needed",
   "settings.notifyDone": "When an agent turn completes",
   "settings.notifyError": "When an agent errors",
+  "settings.notifyHiddenPanes": "Off-screen sessions even when focused",
   "settings.updateVersion": "Version",
   "settings.updateStatus": "Update status",
   "settings.integrations": "Agent integrations",

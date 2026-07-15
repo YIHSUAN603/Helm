@@ -37,6 +37,8 @@ const base: DesktopNotifyContext = {
   enabled: true,
   windowFocused: false,
   inFocusedWorkspace: true,
+  paneVisible: true,
+  notifyHiddenPanes: true,
 };
 
 check("失焦時 waiting 應通知", shouldDesktopNotify("s1", "approval", "Run ls?", base, T0));
@@ -74,17 +76,17 @@ check(
   );
 }
 
-// 聚焦抑制：waiting 只抑制聚焦 workspace；且抑制不留紀錄（blur 後補發）
+// 聚焦抑制：waiting 只抑制畫面上的 pane；且抑制不留紀錄（blur 後補發）
 {
   const t = T0 + 20_000;
   const focused = { ...base, windowFocused: true };
   check(
-    "聚焦 + 聚焦 workspace → waiting 抑制",
+    "聚焦 + pane 在畫面上 → waiting 抑制",
     !shouldDesktopNotify("s3", "approval", "Run build?", focused, t),
   );
   check(
-    "聚焦但其他 workspace → waiting 仍通知",
-    shouldDesktopNotify("s3", "approval", "Run build?", { ...focused, inFocusedWorkspace: false }, t + 1_000),
+    "聚焦但 pane 不在畫面上 → waiting 仍通知（同 workspace 的隱藏 pane）",
+    shouldDesktopNotify("s3", "approval", "Run build?", { ...focused, paneVisible: false }, t + 1_000),
   );
   check(
     "抑制不留紀錄：blur 後同 prompt 可補發",
@@ -93,12 +95,50 @@ check(
   );
 }
 
-// done / error：視窗聚焦即抑制（不分 workspace）
+// notifyHiddenPanes 關閉 → 沿用舊規則（聚焦 workspace 即抑制，不看 pane）
+{
+  const t = T0 + 25_000;
+  const off = { ...base, windowFocused: true, notifyHiddenPanes: false };
+  check(
+    "開關關閉：聚焦 workspace 的隱藏 pane → waiting 抑制（舊行為）",
+    !shouldDesktopNotify("s9", "approval", "Run build?", { ...off, paneVisible: false }, t),
+  );
+  check(
+    "開關關閉：其他 workspace → waiting 仍通知（舊行為）",
+    shouldDesktopNotify(
+      "s9",
+      "approval",
+      "Run build?",
+      { ...off, paneVisible: false, inFocusedWorkspace: false },
+      t + 1_000,
+    ),
+  );
+}
+
+// done：視窗聚焦即抑制；error：聚焦時只抑制畫面上的 pane（開關開啟時）
 {
   const t = T0 + 30_000;
   const focused = { ...base, windowFocused: true, inFocusedWorkspace: false };
   check("聚焦時 done 抑制", !shouldDesktopNotify("s5", "done", "", focused, t));
-  check("聚焦時 error 抑制", !shouldDesktopNotify("s5", "error", "", focused, t));
+  check(
+    "聚焦時 done 抑制（pane 不在畫面上也一樣）",
+    !shouldDesktopNotify("s5", "done", "", { ...focused, paneVisible: false }, t),
+  );
+  check("聚焦 + pane 在畫面上 → error 抑制", !shouldDesktopNotify("s5", "error", "", focused, t));
+  check(
+    "聚焦但 pane 不在畫面上 → error 仍通知",
+    shouldDesktopNotify("s5", "error", "", { ...focused, paneVisible: false }, t + 500),
+  );
+  check(
+    "開關關閉：聚焦時 error 一律抑制（舊行為）",
+    !shouldDesktopNotify(
+      "s10",
+      "error",
+      "",
+      { ...focused, paneVisible: false, notifyHiddenPanes: false },
+      t + 600,
+    ),
+  );
   check("失焦時 done 通知", shouldDesktopNotify("s5", "done", "", base, t + 1_000));
   check(
     "done 同內容 cooldown 內不重發",

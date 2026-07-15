@@ -272,6 +272,7 @@ function SettingsDialogInner() {
   const notifyWaiting = useSettingsStore((s) => s.notifyWaiting);
   const notifyDone = useSettingsStore((s) => s.notifyDone);
   const notifyError = useSettingsStore((s) => s.notifyError);
+  const notifyHiddenPanes = useSettingsStore((s) => s.notifyHiddenPanes);
   const setFontFamily = useSettingsStore((s) => s.setFontFamily);
   const setFontSize = useSettingsStore((s) => s.setFontSize);
   const setCursorStyle = useSettingsStore((s) => s.setCursorStyle);
@@ -282,6 +283,7 @@ function SettingsDialogInner() {
   const setNotifyWaiting = useSettingsStore((s) => s.setNotifyWaiting);
   const setNotifyDone = useSettingsStore((s) => s.setNotifyDone);
   const setNotifyError = useSettingsStore((s) => s.setNotifyError);
+  const setNotifyHiddenPanes = useSettingsStore((s) => s.setNotifyHiddenPanes);
 
   // 系統等寬字型清單；載入中(null)、清單為空或純瀏覽器環境時退回內建 preset。
   const [systemFonts, setSystemFonts] = useState<string[] | null>(null);
@@ -439,6 +441,15 @@ function SettingsDialogInner() {
                   checked={notifyError}
                   disabled={!notificationsEnabled}
                   onChange={(e) => setNotifyError(e.target.checked)}
+                />
+              </label>
+              <label className="settings-row settings-subrow">
+                <span>{t("settings.notifyHiddenPanes")}</span>
+                <input
+                  type="checkbox"
+                  checked={notifyHiddenPanes}
+                  disabled={!notificationsEnabled}
+                  onChange={(e) => setNotifyHiddenPanes(e.target.checked)}
                 />
               </label>
 

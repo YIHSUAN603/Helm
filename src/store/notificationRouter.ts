@@ -49,15 +49,22 @@ export interface DesktopNotifyContext {
   windowFocused: boolean;
   /** session 是否在聚焦 workspace（waiting 類的提示此時已在畫面上）。 */
   inFocusedWorkspace: boolean;
+  /** session 的終端 pane 是否在畫面上（active 分割群組成員或 active 本身）。 */
+  paneVisible: boolean;
+  /** 設定開關：聚焦時畫面外 pane 的 waiting / error 仍發通知。 */
+  notifyHiddenPanes: boolean;
 }
 
 /**
  * 這筆事件該不該發桌面通知。抑制檢查在去重記錄之前：被抑制的通知不留
  * 紀錄，之後失焦（App.tsx 的 blur 補發）仍可送出。規則：
  * - 開關關閉 → 不發。
- * - waiting 類：視窗聚焦且在聚焦 workspace → 抑制（ApprovalPanel / 對話框
- *   已在畫面上）；其他 workspace 的提示只有側欄徽章，仍要發。
- * - done / error：視窗聚焦即抑制（狀態點與通知中心已足夠）。
+ * - waiting 類：視窗聚焦時，notifyHiddenPanes 開啟 → 只有 pane 在畫面上才
+ *   抑制（提示就在終端裡）；關閉 → 沿用舊規則，聚焦 workspace 即抑制
+ *   （ApprovalPanel / 側欄徽章已在畫面上），其他 workspace 仍要發。
+ * - error：視窗聚焦時，notifyHiddenPanes 開啟且 pane 不在畫面上 → 仍發；
+ *   否則抑制。
+ * - done：視窗聚焦即抑制（狀態點與通知中心已足夠）。
  * - 通過後查去重：同 session+kind 的相同內容於冷卻期內不重發。
  */
 export function shouldDesktopNotify(
@@ -69,8 +76,12 @@ export function shouldDesktopNotify(
 ): boolean {
   if (!ctx.enabled) return false;
   if (ctx.windowFocused) {
-    if (!WAITING_KINDS.includes(kind)) return false;
-    if (ctx.inFocusedWorkspace) return false;
+    if (kind === "done") return false;
+    if (!WAITING_KINDS.includes(kind)) {
+      if (!ctx.notifyHiddenPanes || ctx.paneVisible) return false;
+    } else if (ctx.notifyHiddenPanes ? ctx.paneVisible : ctx.inFocusedWorkspace) {
+      return false;
+    }
   }
   const key = dedupeKey(sessionId, kind);
   const last = lastNotified.get(key);

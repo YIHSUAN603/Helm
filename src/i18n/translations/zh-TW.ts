@@ -72,6 +72,7 @@ export const zhTW: Record<string, string> = {
   "settings.notifyWaiting": "需要核准／回覆時",
   "settings.notifyDone": "Agent 回合完成時",
   "settings.notifyError": "Agent 發生錯誤時",
+  "settings.notifyHiddenPanes": "視窗聚焦時仍通知畫面外的 session",
   "settings.updateVersion": "版本",
   "settings.updateStatus": "更新狀態",
   "settings.integrations": "Agent 整合",

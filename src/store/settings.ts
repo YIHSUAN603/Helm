@@ -79,6 +79,7 @@ const KEYS = {
   notifyWaiting: "helm.notifyWaiting",
   notifyDone: "helm.notifyDone",
   notifyError: "helm.notifyError",
+  notifyHiddenPanes: "helm.notifyHiddenPanes",
 } as const;
 
 interface SettingsState {
@@ -93,6 +94,8 @@ interface SettingsState {
   notifyWaiting: boolean; // 需要核准/回覆（approval / question / plan）
   notifyDone: boolean; // agent 回合完成
   notifyError: boolean; // agent 錯誤
+  // 視窗聚焦時，畫面外 pane（不在目前分割群組）的 waiting / error 仍發桌面通知。
+  notifyHiddenPanes: boolean;
   setFontFamily: (v: string) => void;
   setFontSize: (v: number) => void;
   setCursorStyle: (v: CursorStyle) => void;
@@ -103,6 +106,7 @@ interface SettingsState {
   setNotifyWaiting: (v: boolean) => void;
   setNotifyDone: (v: boolean) => void;
   setNotifyError: (v: boolean) => void;
+  setNotifyHiddenPanes: (v: boolean) => void;
 }
 
 function initialFontFamily(): string {
@@ -140,6 +144,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   notifyWaiting: initialBool(KEYS.notifyWaiting),
   notifyDone: initialBool(KEYS.notifyDone),
   notifyError: initialBool(KEYS.notifyError),
+  notifyHiddenPanes: initialBool(KEYS.notifyHiddenPanes),
 
   setFontFamily: (v) => {
     localStorage.setItem(KEYS.fontFamily, v);
@@ -183,5 +188,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setNotifyError: (v) => {
     localStorage.setItem(KEYS.notifyError, String(v));
     set({ notifyError: v });
+  },
+  setNotifyHiddenPanes: (v) => {
+    localStorage.setItem(KEYS.notifyHiddenPanes, String(v));
+    set({ notifyHiddenPanes: v });
   },
 }));

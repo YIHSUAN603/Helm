@@ -1,7 +1,7 @@
 // 多 session 狀態管理 + agent 感知。
 import { create } from "zustand";
 import { groupTreeOf, useLayoutStore } from "./layout";
-import { siblingFirstSession } from "./layoutTree";
+import { collectSessionIds, siblingFirstSession } from "./layoutTree";
 import { resolveFocusedWorkspace } from "./workspaceGroups";
 import {
   clearNotifyDedupe,
@@ -87,16 +87,22 @@ function samePlanUsage(a?: PlanUsage, b?: PlanUsage): boolean {
   );
 }
 
-/** 桌面通知 gating 所需的環境：類型開關（settings）+ 視窗焦點 + workspace 歸屬。 */
+/** 桌面通知 gating 所需的環境：類型開關（settings）+ 視窗焦點 + workspace/pane 歸屬。 */
 function desktopNotifyContext(sess: Session, kind: NotifyKind): DesktopNotifyContext {
   const st = useSettingsStore.getState();
   const perKind =
     kind === "done" ? st.notifyDone : kind === "error" ? st.notifyError : st.notifyWaiting;
   const { sessions, activeId } = useSessionStore.getState();
+  // 畫面上的 pane = active 的分割群組成員；未分組時只有 active 自己
+  //（與 Toolbar 的派工對象同一套定義）。
+  const tree = groupTreeOf(useLayoutStore.getState().trees, activeId);
+  const visibleIds = tree ? collectSessionIds(tree) : activeId ? [activeId] : [];
   return {
     enabled: st.notificationsEnabled && perKind,
     windowFocused: document.hasFocus(),
     inFocusedWorkspace: sess.workspaceId === resolveFocusedWorkspace(sessions, activeId),
+    paneVisible: visibleIds.includes(sess.id),
+    notifyHiddenPanes: st.notifyHiddenPanes,
   };
 }
 
