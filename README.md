@@ -15,7 +15,7 @@ individually.
 ## Installing
 
 Download the installer for your platform from the
-[GitHub Releases page](https://github.com/5l4u4vm00/Helm/releases). Helm
+[GitHub Releases page](https://github.com/YIHSUAN603/Helm/releases). Helm
 checks for updates automatically every time it starts and installs them in
 the background — there's nothing to do manually.
 
