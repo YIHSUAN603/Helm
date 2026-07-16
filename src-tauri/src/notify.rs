@@ -72,6 +72,7 @@ pub fn init(app: &AppHandle) {
 #[cfg(target_os = "macos")]
 mod macos {
     use std::process::Command;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::OnceLock;
 
     use block2::RcBlock;
@@ -88,6 +89,11 @@ mod macos {
 
     /// 於 `init` 設定；delegate 讀取它以 emit `notify://activate`。
     static APP: OnceLock<AppHandle> = OnceLock::new();
+
+    /// UNUserNotificationCenter 授權是否成功。未簽章的 app（codesign 缺失時
+    /// requestAuthorization 直接回錯誤、不會跳提示）或使用者拒絕授權時維持
+    /// false，`send` 據此退回 osascript，而不是把通知丟進送不出去的 UN request。
+    static AUTH_GRANTED: AtomicBool = AtomicBool::new(false);
 
     /// 是否從真正的 `.app` bundle 執行。未包裝的行程（如 `tauri dev`）呼叫
     /// UNUserNotificationCenter 會擲例外，故所有 UN 呼叫都先過此檢查，否則退回
@@ -146,7 +152,20 @@ mod macos {
         center.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
         std::mem::forget(delegate);
 
-        let handler = RcBlock::new(|_granted: Bool, _err: *mut NSError| {});
+        // 授權結果寫入 AUTH_GRANTED；失敗（未簽章 app、使用者拒絕）要留下可診斷
+        // 的訊息，否則通知會無聲消失。
+        let handler = RcBlock::new(|granted: Bool, err: *mut NSError| {
+            AUTH_GRANTED.store(granted.as_bool(), Ordering::Relaxed);
+            if !granted.as_bool() {
+                match unsafe { err.as_ref() } {
+                    Some(e) => eprintln!(
+                        "[helm] notification authorization failed: {}",
+                        e.localizedDescription()
+                    ),
+                    None => eprintln!("[helm] notification authorization denied by user"),
+                }
+            }
+        });
         center.requestAuthorizationWithOptions_completionHandler(
             UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound,
             &handler,
@@ -154,7 +173,7 @@ mod macos {
     }
 
     pub fn send(app: AppHandle, session_id: String, title: String, body: String) {
-        if is_bundled() {
+        if is_bundled() && AUTH_GRANTED.load(Ordering::Relaxed) {
             let content = UNMutableNotificationContent::new();
             content.setTitle(&NSString::from_str(&title));
             content.setBody(&NSString::from_str(&body));
@@ -167,7 +186,7 @@ mod macos {
                 .addNotificationRequest_withCompletionHandler(&request, None);
             let _ = app;
         } else {
-            // Dev 退回：osascript。文字以 argv 傳入（不插入腳本字串）以避免 AppleScript
+            // Dev 或授權失敗時退回：osascript。文字以 argv 傳入（不插入腳本字串）以避免 AppleScript
             // 注入。title 為 item 1（受控/已在地化，不會以 '-' 開頭），body 為 item 2。
             let _ = Command::new("osascript")
                 .arg("-e")
