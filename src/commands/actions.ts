@@ -18,7 +18,8 @@ import {
 import { computeLayout, findTreeBySession, type LayoutNode, type SplitDir } from "../store/layoutTree";
 import { getProfile } from "../agents/registry";
 import { ptyWrite } from "../ipc/pty";
-import { focusActiveTerminal } from "../focus/focusUtils";
+import { focusActiveTerminal, focusRegion } from "../focus/focusUtils";
+import { useUiStore } from "../store/ui";
 import {
   nextPaneCyclic,
   nextPaneDirectional,
@@ -161,17 +162,33 @@ function activeGroupTree(): LayoutNode | null {
   return groupTreeOf(useLayoutStore.getState().trees, activeId);
 }
 
-/** Move pane focus directionally or cyclically (no-op when ungrouped). */
+/** Jump keyboard focus into the sidebar, unhiding it first when collapsed. */
+export function focusSidebar(): void {
+  const ui = useUiStore.getState();
+  if (ui.sidebarHidden) ui.setSidebarHidden(false);
+  // The sidebar (or its entry row) may only exist after the next render.
+  requestAnimationFrame(() => focusRegion("sidebar"));
+}
+
+/**
+ * Move pane focus directionally or cyclically. Moving left past the leftmost
+ * pane (or when ungrouped) overflows into the sidebar, vim-tmux-navigator
+ * style; other directions stay no-ops at the edge.
+ */
 export function focusPane(dir: NavDir | "next"): void {
   const root = activeGroupTree();
   const active = useSessionStore.getState().activeId;
-  if (!root || !active) return;
+  if (!root || !active) {
+    if (dir === "left") focusSidebar();
+    return;
+  }
   const { leaves } = computeLayout(root);
   const next =
     dir === "next"
       ? nextPaneCyclic(leaves, active)
       : nextPaneDirectional(leaves, active, dir);
   if (next) activateSession(next);
+  else if (dir === "left") focusSidebar();
 }
 
 /** Nudge the active pane's nearest matching split by one keyboard step. */

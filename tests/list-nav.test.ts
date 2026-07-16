@@ -69,4 +69,13 @@ check(
 check("Home 聚焦第一項", handleListKey("Home", container, ".x") === true && focused === items[0]);
 check("End 聚焦最後一項", handleListKey("End", container, ".x") === true && focused === items[2]);
 
+// vim 別名:j/k = ↓/↑,g/G = Home/End。
+focused = items[0];
+check("j 移到下一項", handleListKey("j", container, ".x") === true && focused === items[1]);
+check("k 移到上一項", handleListKey("k", container, ".x") === true && focused === items[0]);
+focused = items[2];
+check("g 聚焦第一項", handleListKey("g", container, ".x") === true && focused === items[0]);
+check("G 聚焦最後一項", handleListKey("G", container, ".x") === true && focused === items[2]);
+check("非別名字元不處理", handleListKey("m", container, ".x") === false);
+
 console.log(`list-nav: ${passed} checks passed`);

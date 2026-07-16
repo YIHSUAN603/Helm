@@ -65,9 +65,26 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       toggleCollapsed(w.id);
-    } else if (e.key === "F2") {
+    } else if (e.key === "h" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      if (!w.collapsed) toggleCollapsed(w.id);
+    } else if (e.key === "l" || e.key === "ArrowRight") {
+      // Tree-view expand: collapsed → open; open → dive into the first row.
+      e.preventDefault();
+      if (w.collapsed) {
+        toggleCollapsed(w.id);
+      } else {
+        e.currentTarget
+          .closest(".workspace-group")
+          ?.querySelector<HTMLElement>(".session-item")
+          ?.focus();
+      }
+    } else if (e.key === "F2" || e.key === "r") {
       e.preventDefault();
       onRenameStart();
+    } else if (e.key === "a") {
+      e.preventDefault();
+      addSession();
     } else if (e.key === "Escape") {
       e.preventDefault();
       focusActiveTerminal();

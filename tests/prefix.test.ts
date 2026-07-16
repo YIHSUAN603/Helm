@@ -68,6 +68,7 @@ function runId(armed: boolean, e: KeyEventLike): string | null {
   check("prefix n → session:next", runId(true, ev({ key: "n", code: "KeyN" })) === "session:next");
   check("prefix p → session:prev", runId(true, ev({ key: "p", code: "KeyP" })) === "session:prev");
   check("prefix w → workspace:new", runId(true, ev({ key: "w", code: "KeyW" })) === "workspace:new");
+  check("prefix g → focus:sidebar", runId(true, ev({ key: "g", code: "KeyG" })) === "focus:sidebar");
   check(
     "prefix N（Shift+n）→ reject-active，與小寫 n 區分",
     runId(true, ev({ key: "N", code: "KeyN", shiftKey: true })) === "approval:reject-active",

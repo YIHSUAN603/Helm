@@ -1,9 +1,18 @@
 // Roving focus for vertical lists / menus, driven by the live DOM
 // (no index state to keep in sync with dynamic lists).
 
+/** Vim aliases (list items are never text inputs, so always active). */
+const VIM_ALIASES: Record<string, string> = {
+  j: "ArrowDown",
+  k: "ArrowUp",
+  g: "Home",
+  G: "End",
+};
+
 /**
- * Move focus among the container's items for ArrowUp/ArrowDown/Home/End.
- * Returns true when the key was handled (caller should preventDefault).
+ * Move focus among the container's items for ArrowUp/ArrowDown/Home/End
+ * (vim: j/k/g/G). Returns true when the key was handled (caller should
+ * preventDefault).
  */
 export function handleListKey(
   key: string,
@@ -11,6 +20,7 @@ export function handleListKey(
   itemSelector: string,
 ): boolean {
   if (!container) return false;
+  key = VIM_ALIASES[key] ?? key;
   const items = [...container.querySelectorAll<HTMLElement>(itemSelector)];
   if (items.length === 0) return false;
   const idx = items.indexOf(document.activeElement as HTMLElement);

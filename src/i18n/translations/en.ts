@@ -200,6 +200,7 @@ export const en: Record<string, string> = {
   "command.cycleFocusRegion": "Cycle Focus Region",
   "command.cycleFocusRegionBack": "Cycle Focus Region (Backward)",
   "command.focusTerminal": "Back to Terminal",
+  "command.focusSidebar": "Focus Sidebar",
   "command.switchToSession": "Switch to: {title}",
   "command.newSessionWith": "New Session: {label}",
   "command.splitRightWith": "Split Right: {label}",

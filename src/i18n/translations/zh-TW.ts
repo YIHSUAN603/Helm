@@ -200,6 +200,7 @@ export const zhTW: Record<string, string> = {
   "command.cycleFocusRegion": "循環焦點區域",
   "command.cycleFocusRegionBack": "循環焦點區域（反向）",
   "command.focusTerminal": "回到終端機",
+  "command.focusSidebar": "跳到側欄",
   "command.switchToSession": "切換到：{title}",
   "command.newSessionWith": "新增 Session：{label}",
   "command.splitRightWith": "向右分割：{label}",

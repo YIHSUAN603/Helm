@@ -22,6 +22,7 @@ import {
   cycleSession,
   focusBroadcastInput,
   focusPane,
+  focusSidebar,
   newSession,
   newWorkspace,
   resizeActivePane,
@@ -80,7 +81,9 @@ function layoutCommands(): Command[] {
     title: t("command.focusPane", { dir: t(dirKey) }),
     category: t("category.layout"),
     keywords: "focus pane",
-    enabled: activeIsGrouped,
+    // Left stays enabled when ungrouped: at the left edge it overflows
+    // into the sidebar (see focusPane).
+    enabled: dir === "left" ? hasActive : activeIsGrouped,
     run: () => focusPane(dir),
   }));
   const resize: Command[] = PANE_DIRS.map(([dir]) => ({
@@ -278,6 +281,13 @@ function staticCommands(): Command[] {
       keywords: "focus terminal",
       enabled: hasActive,
       run: focusActiveTerminal,
+    },
+    {
+      id: "focus:sidebar",
+      title: t("command.focusSidebar"),
+      category: t("category.view"),
+      keywords: "focus sidebar sessions list",
+      run: focusSidebar,
     },
     {
       // Keyboard-only escape hatch (C-a a): meaningless as a mouse action.

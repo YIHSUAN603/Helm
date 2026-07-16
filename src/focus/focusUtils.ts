@@ -68,6 +68,11 @@ function entryPoint(region: FocusRegion): HTMLElement | null {
   );
 }
 
+/** Focus a region's entry point directly; no-op when the region is absent. */
+export function focusRegion(region: FocusRegion): void {
+  entryPoint(region)?.focus();
+}
+
 /** Move focus to the next/previous visible region (F6 / Shift+F6). */
 export function cycleFocusRegion(step: 1 | -1): void {
   const n = REGION_ORDER.length;

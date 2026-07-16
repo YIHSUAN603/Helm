@@ -43,6 +43,7 @@ export const PREFIX_TABLE: PrefixBinding[] = [
     code: `Digit${i + 1}`,
     commandId: `session:switch-${i + 1}`,
   })),
+  { key: "g", commandId: "focus:sidebar" },
   { key: "w", commandId: "workspace:new" },
   { key: "f", commandId: "view:toggle-files" },
   { key: "e", commandId: "view:toggle-sidebar" },

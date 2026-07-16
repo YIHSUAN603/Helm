@@ -7,7 +7,7 @@ import { memo } from "react";
 import { useSessionStore } from "../../store/sessions";
 import type { SidebarSession } from "../../store/sidebarProjection";
 import type { SplitClusterInfo } from "../../store/workspaceGroups";
-import { activateSession } from "../../commands/actions";
+import { activateSession, newSession } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey } from "../../focus/listNav";
 import { useT } from "../../i18n";
@@ -54,9 +54,19 @@ export const SessionItem = memo(function SessionItem({
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       activateSession(s.id);
-    } else if (e.key === "Delete" || e.key === "Backspace") {
+    } else if (e.key === "Delete" || e.key === "Backspace" || e.key === "d") {
       e.preventDefault();
       closeSession(s.id);
+    } else if (e.key === "h" || e.key === "ArrowLeft") {
+      // Tree-view collapse direction: jump up to the owning workspace header.
+      e.preventDefault();
+      e.currentTarget
+        .closest(".workspace-group")
+        ?.querySelector<HTMLElement>(".workspace-header")
+        ?.focus();
+    } else if (e.key === "a") {
+      e.preventDefault();
+      newSession(undefined, s.workspaceId);
     } else if (e.key === "Escape") {
       e.preventDefault();
       focusActiveTerminal();
