@@ -138,6 +138,4 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
 
 export const BUILTIN_LAUNCHERS: AgentLauncher[] = [
   { label: "Shell", command: "", profileId: null },
-  { label: "Claude Code", command: "claude", profileId: "claude-code" },
-  { label: "Codex", command: "codex", profileId: "codex" },
 ];
