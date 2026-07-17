@@ -104,13 +104,13 @@ export function newWorkspace(): string {
   return id;
 }
 
-/** Delete a workspace; its sessions move to the default one (never destroyed). */
+/** Delete a workspace together with every session in it (PTYs die on unmount). */
 export function removeWorkspace(id: string): void {
   if (id === DEFAULT_WORKSPACE_ID) return;
   const sessionStore = useSessionStore.getState();
   for (const s of sessionStore.sessions) {
     if (s.workspaceId === id) {
-      sessionStore.moveSessionToWorkspace(s.id, DEFAULT_WORKSPACE_ID);
+      sessionStore.closeSession(s.id);
     }
   }
   useWorkspaceStore.getState().deleteWorkspace(id);

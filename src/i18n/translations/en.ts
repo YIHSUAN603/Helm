@@ -117,7 +117,7 @@ export const en: Record<string, string> = {
   "sidebar.settings": "Settings",
   "sidebar.pendingApprovalBadge": "{count} awaiting your input — click to go",
   "sidebar.addSession": "New shell in this workspace",
-  "sidebar.removeWorkspace": "Delete workspace (sessions move to default)",
+  "sidebar.removeWorkspace": "Delete workspace and its sessions",
   "sidebar.selectFolder": "Set default folder for new sessions",
   "sidebar.clearFolder": "Clear default folder",
   "sidebar.close": "Close",
