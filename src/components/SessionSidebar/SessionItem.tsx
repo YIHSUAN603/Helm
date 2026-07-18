@@ -12,8 +12,9 @@ import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey } from "../../focus/listNav";
 import { useT } from "../../i18n";
 
-/** Roving-focus targets in the sidebar: workspace headers + visible sessions. */
-export const SIDEBAR_NAV_SELECTOR = ".workspace-header, .session-item";
+/** Roving-focus targets in the sidebar: session rows only — j/k moves
+ *  between sessions; workspace headers are entered/left via h/l. */
+export const SIDEBAR_NAV_SELECTOR = ".session-item";
 
 // 綜合狀態燈：有 agent 狀態優先，否則用活動狀態。
 function dotClass(s: SidebarSession): string {

@@ -166,6 +166,11 @@ function activeGroupTree(): LayoutNode | null {
 export function focusSidebar(): void {
   const ui = useUiStore.getState();
   if (ui.sidebarHidden) ui.setSidebarHidden(false);
+  // Expand the active session's workspace so its row (the region entry
+  // point) is rendered; otherwise focus would fall back to a header button.
+  const { sessions, activeId } = useSessionStore.getState();
+  const active = sessions.find((s) => s.id === activeId);
+  if (active) expandWorkspace(active.workspaceId);
   // The sidebar (or its entry row) may only exist after the next render.
   requestAnimationFrame(() => focusRegion("sidebar"));
 }

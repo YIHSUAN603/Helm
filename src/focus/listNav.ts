@@ -14,6 +14,35 @@ const VIM_ALIASES: Record<string, string> = {
  * (vim: j/k/g/G). Returns true when the key was handled (caller should
  * preventDefault).
  */
+// compareDocumentPosition bitmasks (local so test stubs don't need a Node global).
+const POSITION_FOLLOWING = 4;
+const POSITION_PRECEDING = 2;
+
+/**
+ * Focus the nearest item after (dir=1) / before (dir=-1) `from` in document
+ * order, wrapping to the first/last item when none. For callers whose focused
+ * element is not itself a list item (e.g. a workspace header between session
+ * rows). Returns true when the key was handled.
+ */
+export function focusNearestItem(
+  from: HTMLElement,
+  container: HTMLElement | null,
+  itemSelector: string,
+  dir: 1 | -1,
+): boolean {
+  if (!container) return false;
+  const items = [...container.querySelectorAll<HTMLElement>(itemSelector)];
+  if (items.length === 0) return false;
+  const mask = dir === 1 ? POSITION_FOLLOWING : POSITION_PRECEDING;
+  const candidates = items.filter((el) => from.compareDocumentPosition(el) & mask);
+  const next =
+    dir === 1
+      ? (candidates[0] ?? items[0])
+      : (candidates[candidates.length - 1] ?? items[items.length - 1]);
+  next.focus();
+  return true;
+}
+
 export function handleListKey(
   key: string,
   container: HTMLElement | null,

@@ -13,7 +13,7 @@ import {
   removeWorkspace,
 } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
-import { handleListKey } from "../../focus/listNav";
+import { focusNearestItem, handleListKey } from "../../focus/listNav";
 import { pickFolder } from "../../ipc/dialog";
 import { SessionItem, SIDEBAR_NAV_SELECTOR } from "./SessionItem";
 import { useT } from "../../i18n";
@@ -60,7 +60,7 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
     onRenameEnd();
   };
 
-  const onHeaderKeyDown = (e: React.KeyboardEvent) => {
+  const onHeaderKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (renaming) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -88,6 +88,14 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
     } else if (e.key === "Escape") {
       e.preventDefault();
       focusActiveTerminal();
+    } else if (e.key === "j" || e.key === "ArrowDown" || e.key === "k" || e.key === "ArrowUp") {
+      // The header itself is not a nav item; continue to the nearest session
+      // row below/above it (sessions of collapsed groups aren't rendered, so
+      // they are skipped naturally).
+      const dir = e.key === "j" || e.key === "ArrowDown" ? 1 : -1;
+      if (focusNearestItem(e.currentTarget, listRef.current, SIDEBAR_NAV_SELECTOR, dir)) {
+        e.preventDefault();
+      }
     } else if (handleListKey(e.key, listRef.current, SIDEBAR_NAV_SELECTOR)) {
       e.preventDefault();
     }
