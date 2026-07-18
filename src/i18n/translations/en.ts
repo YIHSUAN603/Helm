@@ -73,6 +73,12 @@ export const en: Record<string, string> = {
   "settings.notifyDone": "When an agent turn completes",
   "settings.notifyError": "When an agent errors",
   "settings.notifyHiddenPanes": "Off-screen sessions even when focused",
+  "settings.notifyFallbackWarning":
+    "System notification authorization failed; using compatibility mode (clicking a notification cannot focus Helm): {reason}",
+  "settings.notifyFallbackUnknown": "unknown (authorization may still be pending)",
+  "settings.notifyFallbackDev":
+    "Notifications cannot focus Helm on click in dev mode; use the packaged app",
+  "settings.openSystemSettings": "Open System Settings",
   "settings.updateVersion": "Version",
   "settings.updateStatus": "Update status",
   "settings.integrations": "Agent integrations",

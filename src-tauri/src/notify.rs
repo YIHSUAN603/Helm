@@ -8,6 +8,51 @@
 // 回呼）。註冊 delegate 與請求授權在 `init`（於 lib.rs setup 呼叫）。
 use tauri::AppHandle;
 
+/// 通知後端狀態，供前端（SettingsDialog）顯示與引導修復。macOS 的 osascript
+/// fallback 通知歸屬 Script Editor、點擊無法聚焦回 Helm，必須讓使用者看得到
+/// 目前走哪條路徑、以及授權失敗的原因。
+#[derive(serde::Serialize)]
+pub struct NotificationStatus {
+    /// "system" = 原生通知（點擊可聚焦）；"fallback" = osascript（點擊無回呼）。
+    backend: &'static str,
+    /// 是否從真正的 .app bundle 執行（false = `tauri dev`，只能走 fallback）。
+    bundled: bool,
+    /// UNUserNotificationCenter 授權是否成功。
+    granted: bool,
+    /// 授權失敗原因（NSError 描述或 "denied by user"）。
+    reason: Option<String>,
+}
+
+/// 查詢目前通知後端狀態。Windows / Linux 的原生 backend 一律有點擊回呼。
+#[tauri::command]
+pub fn notification_status() -> NotificationStatus {
+    #[cfg(target_os = "macos")]
+    {
+        macos::status()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        NotificationStatus {
+            backend: "system",
+            bundled: true,
+            granted: true,
+            reason: None,
+        }
+    }
+}
+
+/// 開啟系統的通知設定頁（macOS），讓使用者把 Helm 的通知改為允許。
+/// 其他平台為 no-op。
+#[tauri::command]
+pub fn open_notification_settings() {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.notifications")
+            .spawn();
+    }
+}
+
 /// 送出通知，並在使用者點擊時 emit `notify://activate`（payload = session_id）。
 /// 通知本身送不出去時靜默忽略（沿用前端原本的行為）。
 #[tauri::command]
@@ -73,7 +118,7 @@ pub fn init(app: &AppHandle) {
 mod macos {
     use std::process::Command;
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::OnceLock;
+    use std::sync::{Mutex, OnceLock};
 
     use block2::RcBlock;
     use objc2::rc::Retained;
@@ -94,6 +139,10 @@ mod macos {
     /// requestAuthorization 直接回錯誤、不會跳提示）或使用者拒絕授權時維持
     /// false，`send` 據此退回 osascript，而不是把通知丟進送不出去的 UN request。
     static AUTH_GRANTED: AtomicBool = AtomicBool::new(false);
+
+    /// 最近一次授權失敗的原因（NSError 描述或 "denied by user"）。授權成功時清空。
+    /// 打包後 stderr 看不到，前端經 `notification_status` 讀取顯示給使用者。
+    static AUTH_ERROR: Mutex<Option<String>> = Mutex::new(None);
 
     /// 是否從真正的 `.app` bundle 執行。未包裝的行程（如 `tauri dev`）呼叫
     /// UNUserNotificationCenter 會擲例外，故所有 UN 呼叫都先過此檢查，否則退回
@@ -152,24 +201,49 @@ mod macos {
         center.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
         std::mem::forget(delegate);
 
-        // 授權結果寫入 AUTH_GRANTED；失敗（未簽章 app、使用者拒絕）要留下可診斷
-        // 的訊息，否則通知會無聲消失。
+        request_authorization();
+    }
+
+    /// 呼叫 requestAuthorization，結果寫入 AUTH_GRANTED / AUTH_ERROR。失敗
+    /// （未簽章 app、使用者拒絕）要留下可診斷的訊息，否則通知會無聲消失。
+    /// 授權狀態為 undetermined 時系統會跳提示；已 denied 時立即回 false 不打擾，
+    /// 但使用者事後在系統設定改為允許後，重呼叫即可翻正 AUTH_GRANTED。
+    fn request_authorization() {
         let handler = RcBlock::new(|granted: Bool, err: *mut NSError| {
             AUTH_GRANTED.store(granted.as_bool(), Ordering::Relaxed);
-            if !granted.as_bool() {
-                match unsafe { err.as_ref() } {
-                    Some(e) => eprintln!(
-                        "[helm] notification authorization failed: {}",
-                        e.localizedDescription()
-                    ),
-                    None => eprintln!("[helm] notification authorization denied by user"),
-                }
+            let reason = if granted.as_bool() {
+                None
+            } else {
+                Some(match unsafe { err.as_ref() } {
+                    Some(e) => e.localizedDescription().to_string(),
+                    None => "denied by user".to_string(),
+                })
+            };
+            if let Some(r) = &reason {
+                eprintln!("[helm] notification authorization failed: {r}");
             }
+            *AUTH_ERROR.lock().unwrap() = reason;
         });
-        center.requestAuthorizationWithOptions_completionHandler(
-            UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound,
-            &handler,
-        );
+        UNUserNotificationCenter::currentNotificationCenter()
+            .requestAuthorizationWithOptions_completionHandler(
+                UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound,
+                &handler,
+            );
+    }
+
+    pub fn status() -> super::NotificationStatus {
+        let bundled = is_bundled();
+        let granted = AUTH_GRANTED.load(Ordering::Relaxed);
+        super::NotificationStatus {
+            backend: if bundled && granted {
+                "system"
+            } else {
+                "fallback"
+            },
+            bundled,
+            granted,
+            reason: AUTH_ERROR.lock().unwrap().clone(),
+        }
     }
 
     pub fn send(app: AppHandle, session_id: String, title: String, body: String) {
@@ -186,6 +260,11 @@ mod macos {
                 .addNotificationRequest_withCompletionHandler(&request, None);
             let _ = app;
         } else {
+            // 授權失敗但已打包：重試授權（非同步）。使用者事後才在系統設定允許
+            // 通知時，下一則通知就能走原生路徑，不必重啟 app。
+            if is_bundled() {
+                request_authorization();
+            }
             // Dev 或授權失敗時退回：osascript。文字以 argv 傳入（不插入腳本字串）以避免 AppleScript
             // 注入。title 為 item 1（受控/已在地化，不會以 '-' 開頭），body 為 item 2。
             let _ = Command::new("osascript")

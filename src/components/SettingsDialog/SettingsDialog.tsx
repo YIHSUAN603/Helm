@@ -29,6 +29,11 @@ import {
   integrationStatus,
   type IntegrationStatus,
 } from "../../ipc/integrations";
+import {
+  notificationStatus,
+  openNotificationSettings,
+  type NotificationStatus,
+} from "../../ipc/notify";
 import { useLanguageStore, LANGUAGE_NAMES, LANGUAGE_LABELS } from "../../store/language";
 import { installPendingUpdate, useUpdateStore } from "../../store/update";
 import { focusActiveTerminal, trapTabKey } from "../../focus/focusUtils";
@@ -285,6 +290,21 @@ function SettingsDialogInner() {
   const setNotifyError = useSettingsStore((s) => s.setNotifyError);
   const setNotifyHiddenPanes = useSettingsStore((s) => s.setNotifyHiddenPanes);
 
+  // 通知後端狀態：macOS 授權失敗或 dev 模式時退回 osascript（通知歸屬
+  // Script Editor、點擊無法聚焦 Helm），在總開關下方顯示警告與修復入口。
+  const [notifStatus, setNotifStatus] = useState<NotificationStatus | null>(null);
+  useEffect(() => {
+    let alive = true;
+    notificationStatus().then((status) => {
+      if (alive) {
+        setNotifStatus(status);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   // 系統等寬字型清單；載入中(null)、清單為空或純瀏覽器環境時退回內建 preset。
   const [systemFonts, setSystemFonts] = useState<string[] | null>(null);
   useEffect(() => {
@@ -414,6 +434,27 @@ function SettingsDialogInner() {
                   onChange={(e) => setNotificationsEnabled(e.target.checked)}
                 />
               </label>
+
+              {/* macOS fallback 警告：osascript 通知點擊無法聚焦 Helm。 */}
+              {notifStatus?.backend === "fallback" && (
+                <div className="settings-subrow settings-notify-warning">
+                  <span>
+                    {notifStatus.bundled
+                      ? t("settings.notifyFallbackWarning", {
+                          reason: notifStatus.reason ?? t("settings.notifyFallbackUnknown"),
+                        })
+                      : t("settings.notifyFallbackDev")}
+                  </span>
+                  {notifStatus.bundled && (
+                    <button
+                      className="settings-secondary"
+                      onClick={() => openNotificationSettings()}
+                    >
+                      {t("settings.openSystemSettings")}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* 類型子開關：總開關關閉時停用（桌面通知全不發，通知中心仍記錄）。 */}
               <label className="settings-row settings-subrow">

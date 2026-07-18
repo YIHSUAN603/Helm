@@ -73,6 +73,11 @@ export const zhTW: Record<string, string> = {
   "settings.notifyDone": "Agent 回合完成時",
   "settings.notifyError": "Agent 發生錯誤時",
   "settings.notifyHiddenPanes": "視窗聚焦時仍通知畫面外的 session",
+  "settings.notifyFallbackWarning":
+    "系統通知授權失敗，目前使用相容模式（點擊通知無法聚焦 Helm）：{reason}",
+  "settings.notifyFallbackUnknown": "原因不明（可能仍在等待授權）",
+  "settings.notifyFallbackDev": "開發模式下通知不支援點擊聚焦，需使用打包後的 app",
+  "settings.openSystemSettings": "開啟系統設定",
   "settings.updateVersion": "版本",
   "settings.updateStatus": "更新狀態",
   "settings.integrations": "Agent 整合",

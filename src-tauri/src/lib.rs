@@ -174,6 +174,8 @@ pub fn run() {
             integrations::install_claude_statusline,
             fonts::list_monospace_fonts,
             notify::notify_session,
+            notify::notification_status,
+            notify::open_notification_settings,
             set_menu_language,
         ])
         .run(tauri::generate_context!())
