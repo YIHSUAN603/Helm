@@ -16,6 +16,7 @@ import {
   sessionsInWorkspace,
 } from "../store/workspaceGroups";
 import { computeLayout, findTreeBySession, type LayoutNode, type SplitDir } from "../store/layoutTree";
+import { fleetStateOf, nextIdInState, type FleetState } from "../store/fleet";
 import { getProfile } from "../agents/registry";
 import { ptyWrite } from "../ipc/pty";
 import { focusActiveTerminal, focusRegion } from "../focus/focusUtils";
@@ -140,6 +141,16 @@ export function respondAllApprovals(approve: boolean): void {
 }
 
 /** Jump to the first waiting session (approval / question / plan) in a workspace. */
+/** Toolbar fleet chip: jump to the next session in the given state (sidebar
+ * order, wraps around; repeated clicks cycle through all of them). */
+export function activateNextInFleetState(state: FleetState): void {
+  const { sessions, activeId } = useSessionStore.getState();
+  const stateOf = (id: string) =>
+    fleetStateOf(sessions.find((s) => s.id === id)?.agentState);
+  const next = nextIdInState(sessionIdsInSidebarOrder(), stateOf, activeId, state);
+  if (next) activateSession(next);
+}
+
 export function activateFirstPendingApproval(workspaceId: string): void {
   const { sessions } = useSessionStore.getState();
   const target = sessionsInWorkspace(sessions, workspaceId).find(
@@ -205,10 +216,6 @@ export function resizeActivePane(dir: NavDir): void {
   if (target) {
     useLayoutStore.getState().setRatio(target.splitId, target.ratio);
   }
-}
-
-export function focusBroadcastInput(): void {
-  document.querySelector<HTMLElement>(".tb-broadcast input")?.focus();
 }
 
 /** screen-style C-a a / C-a C-a: write a literal Ctrl+A (0x01) to the active PTY. */

@@ -29,15 +29,15 @@ check(`en 的 key 都在 zh-TW（缺: ${missingInZh.join(", ") || "無"}）`, mi
 
 // t()：查詢 + 插值（直接 setState，避開 setName 的 localStorage / IPC 副作用）
 useLanguageStore.setState({ name: "en" });
-check("en 查詢", t("toolbar.send") === "Send");
-check("插值替換變數", t("toolbar.broadcastPlaceholder", { count: 3 }).includes("3"));
+check("en 查詢", t("toolbar.notifications") === "Notifications");
+check("插值替換變數", t("toolbar.changedFilesLabel", { count: 3 }).includes("3"));
 check(
   "缺變數時保留佔位符",
-  t("toolbar.broadcastPlaceholder").includes("{count}"),
+  t("toolbar.changedFilesLabel").includes("{count}"),
 );
 check("未知 key 回傳 key 本身", t("no.such.key") === "no.such.key");
 
 useLanguageStore.setState({ name: "zh-TW" });
-check("zh-TW 查詢", t("toolbar.send") === "送出");
+check("zh-TW 查詢", t("toolbar.notifications") === "通知中心");
 
 console.log(`i18n: ${passed} checks passed`);

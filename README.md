@@ -119,15 +119,6 @@ them for instant, precise detection:
 Screen reading stays on as a fallback, so everything keeps working if you
 skip this — approvals just take a moment longer to detect.
 
-## Broadcasting to multiple agents
-
-Type a message once in the toolbar's broadcast box, choose whether it goes
-to **agents only** or **every session** currently visible on screen (the
-active split group, or just the active session when it's fullscreen), and
-press Enter (or Send, or `Ctrl+A b` to jump to the box) — it's typed
-into all of them at once. Handy for answering the same question across
-several agents in one go.
-
 ## Command Palette
 
 Press `Ctrl/⌘+Shift+P` to open a searchable list of everything Helm can do
@@ -181,7 +172,6 @@ terminal.
 | `f` | Toggle changed-files panel |
 | `t` | Toggle light/dark theme |
 | `s` | Open Settings |
-| `b` | Focus the broadcast box |
 | `Tab` / `Shift+Tab` | Cycle focus between UI regions forward/back |
 | `a` or `Ctrl+A` | Send a literal Ctrl+A to the terminal |
 

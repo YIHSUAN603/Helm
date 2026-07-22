@@ -43,14 +43,15 @@ export interface Session {
   tokensIn?: number;
   tokensOut?: number;
   contextLeftPercent?: number;
-  // 方案速率限制剩餘（Claude Code Pro/Max，來自 statusline rate_limits；帳號級、跨 session）
-  planUsage?: PlanUsage;
   changedFiles?: { op: string; path: string }[];
 }
 
 interface SessionState {
   sessions: Session[];
   activeId: string | null;
+  // 方案速率限制剩餘（Claude Code Pro/Max，來自 statusline rate_limits）。
+  // 帳號級、跨 session 同一份，故存全 app 最新值而非掛在個別 session 上。
+  accountPlanUsage?: PlanUsage;
   createSession: (launcher?: AgentLauncher, workspaceId?: string, cwd?: string) => string;
   closeSession: (id: string) => void;
   moveSessionToWorkspace: (sessionId: string, workspaceId: string) => void;
@@ -281,26 +282,27 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   setUsage: (id, usage) => {
+    // statusline 每次整包送來 rate_limits，以整個物件替換即可（無須逐欄合併）。
+    if (usage.planUsage && !samePlanUsage(usage.planUsage, get().accountPlanUsage)) {
+      set({ accountPlanUsage: usage.planUsage });
+    }
     const cur = get().sessions.find((x) => x.id === id);
     if (!cur) return;
     const cost = usage.cost ?? cur.cost;
     const tokensIn = usage.tokensIn ?? cur.tokensIn;
     const tokensOut = usage.tokensOut ?? cur.tokensOut;
     const contextLeftPercent = usage.contextLeftPercent ?? cur.contextLeftPercent;
-    // statusline 每次整包送來 rate_limits，以整個物件替換即可（無須逐欄合併）。
-    const planUsage = usage.planUsage ?? cur.planUsage;
     if (
       cost === cur.cost &&
       tokensIn === cur.tokensIn &&
       tokensOut === cur.tokensOut &&
-      contextLeftPercent === cur.contextLeftPercent &&
-      samePlanUsage(planUsage, cur.planUsage)
+      contextLeftPercent === cur.contextLeftPercent
     ) {
       return;
     }
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id ? { ...x, cost, tokensIn, tokensOut, contextLeftPercent, planUsage } : x,
+        x.id === id ? { ...x, cost, tokensIn, tokensOut, contextLeftPercent } : x,
       ),
     }));
   },

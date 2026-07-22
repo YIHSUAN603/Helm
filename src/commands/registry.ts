@@ -20,7 +20,6 @@ import { t } from "../i18n";
 import {
   activateSession,
   cycleSession,
-  focusBroadcastInput,
   focusPane,
   focusSidebar,
   newSession,
@@ -219,13 +218,6 @@ function staticCommands(): Command[] {
         const ui = useUiStore.getState();
         ui.setSettingsOpen(!ui.settingsOpen);
       },
-    },
-    {
-      id: "broadcast:focus",
-      title: t("command.focusBroadcast"),
-      category: t("category.view"),
-      keywords: "broadcast input",
-      run: focusBroadcastInput,
     },
     {
       id: "approval:approve-active",

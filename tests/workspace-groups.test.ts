@@ -10,7 +10,6 @@ import {
   resolveFocusedWorkspace,
   sessionsInWorkspace,
   workspaceChangedFileCount,
-  workspaceTotalCost,
   type Workspace,
 } from "../src/store/workspaceGroups.ts";
 
@@ -28,7 +27,7 @@ function ws(id: string, name = id): Workspace {
 function sess(
   id: string,
   workspaceId: string,
-  extra: { pendingApproval?: string; cost?: number; changedFiles?: unknown[] } = {},
+  extra: { pendingApproval?: string; changedFiles?: unknown[] } = {},
 ) {
   return { id, workspaceId, ...extra };
 }
@@ -93,18 +92,6 @@ function sess(
     "no pending → empty array",
     pendingApprovalsInWorkspace([sess("s4", "w3")], "w3").length === 0,
   );
-}
-
-// workspaceTotalCost: per-workspace sum, missing cost = 0
-{
-  const sessions = [
-    sess("s1", "w1", { cost: 0.5 }),
-    sess("s2", "w1"),
-    sess("s3", "w2", { cost: 2 }),
-  ];
-  check("sums only the workspace's costs", workspaceTotalCost(sessions, "w1") === 0.5);
-  check("other workspace not mixed in", workspaceTotalCost(sessions, "w2") === 2);
-  check("empty workspace → 0", workspaceTotalCost(sessions, "nope") === 0);
 }
 
 // workspaceChangedFileCount: per-workspace file totals

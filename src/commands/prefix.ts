@@ -49,7 +49,6 @@ export const PREFIX_TABLE: PrefixBinding[] = [
   { key: "e", commandId: "view:toggle-sidebar" },
   { key: "t", commandId: "theme:toggle" },
   { key: "s", commandId: "settings:open" },
-  { key: "b", commandId: "broadcast:focus" },
   { key: "y", commandId: "approval:approve-active" },
   { key: "N", commandId: "approval:reject-active" },
   { key: "Tab", commandId: "focus:cycle-region" },

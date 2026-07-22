@@ -57,17 +57,6 @@ export function pendingApprovalsInWorkspace<
   return sessions.filter((s) => s.workspaceId === workspaceId && s.pendingApproval);
 }
 
-/** Sum of session costs inside one workspace (missing cost counts as 0). */
-export function workspaceTotalCost(
-  sessions: { workspaceId: string; cost?: number }[],
-  workspaceId: string,
-): number {
-  return sessionsInWorkspace(sessions, workspaceId).reduce(
-    (sum, s) => sum + (s.cost ?? 0),
-    0,
-  );
-}
-
 /** Total changed-file entries across all sessions in one workspace. */
 export function workspaceChangedFileCount(
   sessions: { workspaceId: string; changedFiles?: unknown[] }[],

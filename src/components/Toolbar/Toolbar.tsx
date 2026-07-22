@@ -1,33 +1,25 @@
-// 頂部工具列：broadcast 派工、以及成本/用量。
-// 派工以「畫面上可見的 session」為對象（active session 的分割群組，
-// 未分組時只有它自己）；Σ 成本、變更計數則限縮在聚焦 workspace 內。
-import { useMemo, useState } from "react";
+// 頂部工具列：左側是全局艦隊狀態 chips（誰在跑/誰在等你，點擊輪替跳轉），
+// 右側是方案剩餘額度 meter、active session 用量、變更/通知入口。
+// planUsage 是帳號級（statusline rate_limits，跨 session 同一份），讀 store 的
+// 全域最新值、只要存在就顯示；變更計數則限縮在聚焦 workspace 內。
 import { useShallow } from "zustand/react/shallow";
 import { useSessionStore } from "../../store/sessions";
+import { FLEET_STATES, fleetCounts, type FleetState } from "../../store/fleet";
+import { activateNextInFleetState } from "../../commands/actions";
 import { useNotificationsStore } from "../../store/notifications";
 import { unreadCount } from "../../store/notificationCenter";
 import { useUiStore } from "../../store/ui";
-import { groupTreeOf, useLayoutStore } from "../../store/layout";
-import { collectSessionIds } from "../../store/layoutTree";
 import { installPendingUpdate, useUpdateStore } from "../../store/update";
 import {
   resolveFocusedWorkspace,
   workspaceChangedFileCount,
-  workspaceTotalCost,
 } from "../../store/workspaceGroups";
 import type { PlanUsage } from "../../agents/hookEvents";
-import { ptyWrite } from "../../ipc/pty";
-import { focusActiveTerminal } from "../../focus/focusUtils";
 import { useT } from "../../i18n";
 import "./Toolbar.css";
 
-type Target = "all" | "agents";
-
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
-function fmtCost(n?: number): string {
-  return n === undefined ? "—" : `$${n.toFixed(4)}`;
-}
 function fmtNum(n?: number): string {
   return n === undefined ? "—" : n.toLocaleString();
 }
@@ -44,36 +36,49 @@ function fmtResetTime(unixSec?: number): string | undefined {
   return new Date(unixSec * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-// 緊湊顯示：僅存在的視窗才顯示，以 · 併排（例：「5h 77% · 週 59%」）。
-function planUsageText(pu: PlanUsage, t: Translate): string {
-  const parts: string[] = [];
-  if (pu.fiveHourLeftPercent !== undefined) {
-    parts.push(t("toolbar.planUsage5h", { percent: Math.round(pu.fiveHourLeftPercent) }));
-  }
-  if (pu.sevenDayLeftPercent !== undefined) {
-    parts.push(t("toolbar.planUsageWeek", { percent: Math.round(pu.sevenDayLeftPercent) }));
-  }
-  return parts.join(" · ");
+// meter 顏色門檻：剩餘 ≤10% 紅、≤25% 黃、其餘綠（CSS 依 data-level 上色）。
+function meterLevel(percent: number): "ok" | "warn" | "low" {
+  if (percent <= 10) return "low";
+  if (percent <= 25) return "warn";
+  return "ok";
 }
 
-// tooltip：標題 + 各視窗重置時間。
-function planUsageTitle(pu: PlanUsage, t: Translate): string {
-  const bits = [t("toolbar.planUsage")];
-  const r5 = fmtResetTime(pu.fiveHourResetsAt);
-  if (pu.fiveHourLeftPercent !== undefined && r5) {
-    bits.push(`5h ${t("toolbar.planUsageReset", { time: r5 })}`);
-  }
-  const rw = fmtResetTime(pu.sevenDayResetsAt);
-  if (pu.sevenDayLeftPercent !== undefined && rw) {
-    bits.push(`${t("toolbar.planUsageWeekLabel")} ${t("toolbar.planUsageReset", { time: rw })}`);
-  }
-  return bits.join(" · ");
+/** 單一額度視窗的迷你進度條 + 剩餘 % 文字，tooltip 帶重置時間。 */
+function UsageMeter({
+  text,
+  percent,
+  resetsAt,
+  t,
+}: {
+  text: string;
+  percent: number;
+  resetsAt?: number;
+  t: Translate;
+}) {
+  const pct = Math.max(0, Math.min(100, percent));
+  const reset = fmtResetTime(resetsAt);
+  const title = reset
+    ? `${t("toolbar.planUsage")} · ${t("toolbar.planUsageReset", { time: reset })}`
+    : t("toolbar.planUsage");
+  return (
+    <span className="tb-meter tb-mono" data-level={meterLevel(pct)} title={title}>
+      <span className="tb-meter-track">
+        <span className="tb-meter-fill" style={{ width: `${pct}%` }} />
+      </span>
+      {text}
+    </span>
+  );
 }
+
+const FLEET_LABEL_KEY: Record<FleetState, string> = {
+  busy: "toolbar.fleetBusy",
+  waiting: "toolbar.fleetWaiting",
+  error: "toolbar.fleetError",
+  done: "toolbar.fleetDone",
+};
 
 export function Toolbar() {
   const t = useT();
-  const activeId = useSessionStore((s) => s.activeId);
-  const trees = useLayoutStore((s) => s.trees);
   const filesOpen = useUiStore((s) => s.filesOpen);
   const toggleFiles = useUiStore((s) => s.toggleFiles);
   const sidebarHidden = useUiStore((s) => s.sidebarHidden);
@@ -86,14 +91,11 @@ export function Toolbar() {
   const updateDismissed = useUpdateStore((s) => s.dismissed);
   const dismissUpdate = useUpdateStore((s) => s.dismiss);
 
-  const [text, setText] = useState("");
-  const [target, setTarget] = useState<Target>("agents");
-
-  // 窄訂閱（值/引用沒變就不重繪）：Σ成本與變更數是 primitive；active 只投影
-  // 工具列實際顯示的欄位（shallow 比對擋掉 agentState 等無關 tick）。
-  const totalCost = useSessionStore((s) =>
-    workspaceTotalCost(s.sessions, resolveFocusedWorkspace(s.sessions, s.activeId)),
-  );
+  // 窄訂閱（值/引用沒變就不重繪）：fleet/變更數是 primitive；active 只投影
+  // 工具列實際顯示的欄位（shallow 比對擋掉無關 tick）。
+  const fleet = useSessionStore(useShallow((s) => fleetCounts(s.sessions)));
+  const sessionCount = useSessionStore((s) => s.sessions.length);
+  const planUsage = useSessionStore((s) => s.accountPlanUsage);
   const changedCount = useSessionStore((s) =>
     workspaceChangedFileCount(s.sessions, resolveFocusedWorkspace(s.sessions, s.activeId)),
   );
@@ -104,38 +106,15 @@ export function Toolbar() {
         a && {
           agentId: a.agentId,
           agentLabel: a.agentLabel,
-          cost: a.cost,
           tokensIn: a.tokensIn,
           tokensOut: a.tokensOut,
           contextLeftPercent: a.contextLeftPercent,
-          planUsage: a.planUsage,
         }
       );
     }),
   );
 
-  // 派工對象 = 畫面上可見的 session：active 的分割群組成員，未分組時只有它自己。
-  // broadcast 只需要 id（agents 目標再過濾有 agentId 的），不必訂閱 session 物件。
-  const visibleIds = useMemo(() => {
-    const groupRoot = groupTreeOf(trees, activeId);
-    return groupRoot ? collectSessionIds(groupRoot) : activeId ? [activeId] : [];
-  }, [trees, activeId]);
-  const visibleAgentIds = useSessionStore(
-    useShallow((s) =>
-      visibleIds.filter((id) => s.sessions.find((x) => x.id === id)?.agentId),
-    ),
-  );
-
-  const targetIds = () => (target === "agents" ? visibleAgentIds : visibleIds);
-
-  const broadcast = () => {
-    const t = text.trim();
-    if (!t) return;
-    for (const id of targetIds()) void ptyWrite(id, `${t}\r`);
-    setText("");
-  };
-
-  const targetCount = targetIds().length;
+  const showPlan = hasPlanUsage(planUsage);
 
   return (
     <div className="toolbar" data-focus-region="toolbar">
@@ -146,27 +125,26 @@ export function Toolbar() {
           ☰
         </button>
       )}
-      <div className="tb-broadcast">
-        <select value={target} onChange={(e) => setTarget(e.target.value as Target)}>
-          <option value="agents">{t("toolbar.targetAgents")}</option>
-          <option value="all">{t("toolbar.targetAll")}</option>
-        </select>
-        <input
-          value={text}
-          placeholder={t("toolbar.broadcastPlaceholder", { count: targetCount })}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              broadcast();
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              focusActiveTerminal();
-            }
-          }}
-        />
-        <button className="tb-send" onClick={broadcast} disabled={!text.trim() || targetCount === 0}>
-          {t("toolbar.send")}
-        </button>
+
+      {/* 艦隊狀態：灰字總數恆在；非零狀態才長出 chip，點擊輪替跳到下一個
+          該狀態的 session（sidebar 視覺順序，環繞）。 */}
+      <div className="tb-fleet">
+        <span className="tb-fleet-count">
+          {t("toolbar.fleetSessions", { count: sessionCount })}
+        </span>
+        {FLEET_STATES.some((st) => fleet[st] > 0) && <span className="tb-divider" />}
+        {FLEET_STATES.filter((st) => fleet[st] > 0).map((st) => (
+          <button
+            key={st}
+            className="tb-chip"
+            data-state={st}
+            title={t("toolbar.fleetJump")}
+            onClick={() => activateNextInFleetState(st)}
+          >
+            <span className="tb-chip-dot" />
+            {t(FLEET_LABEL_KEY[st], { count: fleet[st] })}
+          </button>
+        ))}
       </div>
 
       <div className="tb-spacer" />
@@ -189,25 +167,45 @@ export function Toolbar() {
         </span>
       )}
 
-      {active?.agentId && (
-        <div className="tb-cost">
-          <span className="tb-agent">{active.agentLabel ?? t("toolbar.defaultAgent")}</span>
-          <span className="tb-mono" title={t("toolbar.cost")}>
-            {fmtCost(active.cost)}
-          </span>
-          {hasPlanUsage(active.planUsage) ? (
-            <span className="tb-mono" title={planUsageTitle(active.planUsage!, t)}>
-              {planUsageText(active.planUsage!, t)}
-            </span>
-          ) : active.contextLeftPercent !== undefined ? (
-            <span className="tb-mono" title={t("toolbar.contextLeft")}>
-              {t("toolbar.contextLeftValue", { percent: active.contextLeftPercent })}
-            </span>
-          ) : (
-            <span className="tb-mono" title={t("toolbar.tokens")}>
-              ↑{fmtNum(active.tokensIn)} ↓{fmtNum(active.tokensOut)}
-            </span>
+      {(showPlan || active?.agentId) && (
+        <div className="tb-usage">
+          {active?.agentId && (
+            <span className="tb-agent">{active.agentLabel ?? t("toolbar.defaultAgent")}</span>
           )}
+          {showPlan ? (
+            <>
+              {planUsage!.fiveHourLeftPercent !== undefined && (
+                <UsageMeter
+                  text={t("toolbar.planUsage5h", {
+                    percent: Math.round(planUsage!.fiveHourLeftPercent),
+                  })}
+                  percent={planUsage!.fiveHourLeftPercent}
+                  resetsAt={planUsage!.fiveHourResetsAt}
+                  t={t}
+                />
+              )}
+              {planUsage!.sevenDayLeftPercent !== undefined && (
+                <UsageMeter
+                  text={t("toolbar.planUsageWeek", {
+                    percent: Math.round(planUsage!.sevenDayLeftPercent),
+                  })}
+                  percent={planUsage!.sevenDayLeftPercent}
+                  resetsAt={planUsage!.sevenDayResetsAt}
+                  t={t}
+                />
+              )}
+            </>
+          ) : active?.agentId ? (
+            active.contextLeftPercent !== undefined ? (
+              <span className="tb-mono" title={t("toolbar.contextLeft")}>
+                {t("toolbar.contextLeftValue", { percent: active.contextLeftPercent })}
+              </span>
+            ) : (
+              <span className="tb-mono" title={t("toolbar.tokens")}>
+                ↑{fmtNum(active.tokensIn)} ↓{fmtNum(active.tokensOut)}
+              </span>
+            )
+          ) : null}
         </div>
       )}
       <button
@@ -227,9 +225,6 @@ export function Toolbar() {
         🔔
         {unread > 0 && <span className="tb-bell-badge">{unread}</span>}
       </button>
-      <span className="tb-total" title={t("toolbar.totalCost")}>
-        Σ ${totalCost.toFixed(4)}
-      </span>
     </div>
   );
 }

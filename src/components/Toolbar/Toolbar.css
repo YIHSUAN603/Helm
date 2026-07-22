@@ -13,54 +13,126 @@
   user-select: none;
 }
 
-.tb-broadcast {
+/* 艦隊狀態叢集：灰字總數 + 分隔線 + 各狀態 chip。 */
+.tb-fleet {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
-.tb-broadcast select,
-.tb-broadcast input {
-  background: var(--term-bg);
-  border: 1px solid var(--border);
-  color: var(--fg);
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.tb-broadcast input {
-  width: 260px;
-}
-
-.tb-broadcast input::placeholder {
+.tb-fleet-count {
   color: var(--muted);
+  white-space: nowrap;
 }
 
-.tb-send {
+.tb-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+}
+
+.tb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: none;
-  background: #89b4fa;
-  color: #11111b;
-  font-weight: 600;
-  font-size: 12px;
-  padding: 5px 12px;
-  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.tb-send:disabled {
-  opacity: 0.4;
-  cursor: default;
+.tb-chip:hover {
+  background: var(--hover);
+}
+
+.tb-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* 狀態色沿用 sidebar status-dot 色彙（busy 取 thinking 藍）。 */
+.tb-chip[data-state="busy"] .tb-chip-dot {
+  background: #89b4fa;
+  box-shadow: 0 0 6px #89b4fa;
+  animation: tb-pulse 1.2s ease-in-out infinite;
+}
+
+.tb-chip[data-state="waiting"] .tb-chip-dot {
+  background: #fab387;
+  box-shadow: 0 0 8px #fab387;
+  animation: tb-pulse 0.8s ease-in-out infinite;
+}
+
+.tb-chip[data-state="error"] .tb-chip-dot {
+  background: #f38ba8;
+  box-shadow: 0 0 6px #f38ba8;
+}
+
+.tb-chip[data-state="done"] .tb-chip-dot {
+  background: #a6e3a1;
+}
+
+@keyframes tb-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-chip-dot {
+    animation: none !important;
+  }
 }
 
 .tb-spacer {
   flex: 1 1 auto;
 }
 
-.tb-cost {
+.tb-usage {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* 額度 meter：迷你進度條 + 剩餘 % 文字，data-level 決定顏色。 */
+.tb-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tb-meter-track {
+  width: 44px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.tb-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #a6e3a1;
+}
+
+.tb-meter[data-level="warn"] .tb-meter-fill {
+  background: #f9e2af;
+}
+
+.tb-meter[data-level="low"] .tb-meter-fill {
+  background: #f38ba8;
 }
 
 .tb-agent {
@@ -142,11 +214,5 @@
 
 .tb-update-later:hover {
   background: var(--active);
-}
-
-.tb-total {
-  font-family: "SF Mono", Menlo, monospace;
-  font-variant-numeric: tabular-nums;
-  color: #a6e3a1;
 }
 
