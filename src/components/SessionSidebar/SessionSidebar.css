@@ -207,6 +207,18 @@
   bottom: 50%;
 }
 
+/* Roving focus (j/k) moves focus via script; WebKit (the macOS Tauri
+   WKWebView) never matches :focus-visible for script-initiated focus on
+   plain divs, so the global :focus-visible ring stays invisible there.
+   Use :focus directly — these rows are keyboard-nav targets only (a mouse
+   click refocuses the terminal on the next frame). Inset offset keeps the
+   ring inside the scrolling list so it can't be clipped. */
+.session-item:focus,
+.workspace-header:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .session-item:hover {
   background: var(--hover);
 }
@@ -318,6 +330,14 @@
 
 .launcher-menu button:hover {
   background: var(--hover);
+}
+
+/* Same WebKit limitation as the roving rows above: the menu is arrow-key
+   navigated via script focus, which never matches :focus-visible there. */
+.launcher-menu button:focus {
+  background: var(--hover);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .icon-btn {

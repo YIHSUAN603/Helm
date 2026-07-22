@@ -151,6 +151,9 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
         className="workspace-header"
         role="button"
         tabIndex={-1}
+        // A j/k stop only when it has no visible session rows (collapsed or
+        // empty) — otherwise the workspace would be keyboard-unreachable.
+        data-nav-stop={w.collapsed || sessions.length === 0 ? "true" : undefined}
         aria-expanded={!w.collapsed}
         onClick={() => {
           if (!renaming) toggleCollapsed(w.id);

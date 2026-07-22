@@ -12,9 +12,11 @@ import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey } from "../../focus/listNav";
 import { useT } from "../../i18n";
 
-/** Roving-focus targets in the sidebar: session rows only — j/k moves
- *  between sessions; workspace headers are entered/left via h/l. */
-export const SIDEBAR_NAV_SELECTOR = ".session-item";
+/** Roving-focus targets in the sidebar: session rows, plus workspace
+ *  headers that have no visible session rows (collapsed or empty — marked
+ *  data-nav-stop) so every workspace stays keyboard-reachable; headers with
+ *  visible sessions are skipped by j/k and entered/left via h/l. */
+export const SIDEBAR_NAV_SELECTOR = ".session-item, .workspace-header[data-nav-stop]";
 
 // 綜合狀態燈：有 agent 狀態優先，否則用活動狀態。
 function dotClass(s: SidebarSession): string {
