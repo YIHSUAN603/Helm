@@ -181,10 +181,9 @@ pub fn install_claude_statusline(app: AppHandle) -> Result<(), String> {
     {
         let path = claude_settings_path()?;
         let mut settings = read_json(&path)?;
-        match statusline_state(&settings) {
-            "helm" => return Ok(()), // 冪等
-            "other" => return Err("已有自訂 statusline，請手動整合".into()),
-            _ => {}
+        // "helm" 不提前返回：照樣重寫，修復舊版未加引號的安裝。
+        if statusline_state(&settings) == "other" {
+            return Err("已有自訂 statusline，請手動整合".into());
         }
         let dir = app
             .path()
@@ -203,7 +202,12 @@ pub fn install_claude_statusline(app: AppHandle) -> Result<(), String> {
             .ok_or("settings.json 頂層不是物件")?;
         root.insert(
             "statusLine".into(),
-            json!({ "type": "command", "command": script.to_string_lossy() }),
+            // Claude Code 以 shell 執行這個字串；macOS 的 app config dir 含空格
+            // （"Application Support"），必須加引號否則在空格處被切斷（exit 127）。
+            json!({
+                "type": "command",
+                "command": format!("\"{}\"", script.to_string_lossy()),
+            }),
         );
         write_json(&path, &settings)
     }
@@ -265,5 +269,23 @@ mod tests {
         assert!(merge_claude_hooks(&mut s, CMD).is_err());
         let mut s = json!({ "hooks": { "Stop": {} } });
         assert!(merge_claude_hooks(&mut s, CMD).is_err());
+    }
+
+    // statusline 偵測：quoted / 未加引號的舊安裝都判為 "helm"；其他 command 判 "other"。
+    #[test]
+    fn statusline_state_detects_helm_quoted_or_not() {
+        let quoted = json!({ "statusLine": {
+            "type": "command",
+            "command": "\"/Users/x/Library/Application Support/com.x.helm/helm-statusline.sh\""
+        }});
+        assert_eq!(statusline_state(&quoted), "helm");
+        let unquoted = json!({ "statusLine": {
+            "type": "command",
+            "command": "/Users/x/Library/Application Support/com.x.helm/helm-statusline.sh"
+        }});
+        assert_eq!(statusline_state(&unquoted), "helm");
+        assert_eq!(statusline_state(&json!({})), "none");
+        let other = json!({ "statusLine": { "type": "command", "command": "my-statusline" } });
+        assert_eq!(statusline_state(&other), "other");
     }
 }
