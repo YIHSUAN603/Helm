@@ -15,6 +15,7 @@ import {
   ptyWrite,
 } from "../../ipc/pty";
 import { resolveXtermTheme, useThemeStore } from "../../store/theme";
+import { decodeOsc52 } from "./osc52";
 import { useSettingsStore } from "../../store/settings";
 import { SYMBOLS_NERD_FONT, withSymbolsFallback } from "../../store/fontFamily";
 import "./Terminal.css";
@@ -180,6 +181,14 @@ function TerminalImpl({
       return true;
     });
 
+    // OSC 52（剪貼簿）：nvim/tmux 等 TUI 以 `\x1b]52;c;<base64>\x07` 要求
+    // 終端機把 yank 內容寫進系統剪貼簿。只支援寫入，查詢（`?`）刻意不回應。
+    const osc52Disposable = term.parser.registerOscHandler(52, (data) => {
+      const text = decodeOsc52(data);
+      if (text !== null) void navigator.clipboard.writeText(text);
+      return true;
+    });
+
     // Switching to/from the alternate screen (nvim and other full-screen TUIs)
     // can change the usable cell grid; refit on the swap so cols/rows stay
     // correct.
@@ -316,6 +325,7 @@ function TerminalImpl({
       resizeDisposable.dispose();
       titleDisposable.dispose();
       oscDisposable.dispose();
+      osc52Disposable.dispose();
       bufferDisposable.dispose();
       dataDisposable.dispose();
       unlistenExit?.();
