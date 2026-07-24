@@ -6,3 +6,13 @@ export async function pickFolder(defaultPath?: string): Promise<string | null> {
   const res = await open({ directory: true, multiple: false, defaultPath });
   return typeof res === "string" ? res : null;
 }
+
+/** Native image-file picker; returns the chosen absolute path or null if cancelled. */
+export async function pickImage(): Promise<string | null> {
+  const res = await open({
+    directory: false,
+    multiple: false,
+    filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }],
+  });
+  return typeof res === "string" ? res : null;
+}

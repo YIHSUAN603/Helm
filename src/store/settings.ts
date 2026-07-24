@@ -80,7 +80,11 @@ const KEYS = {
   notifyDone: "helm.notifyDone",
   notifyError: "helm.notifyError",
   notifyHiddenPanes: "helm.notifyHiddenPanes",
+  backgroundImage: "helm.backgroundImage",
+  backgroundDim: "helm.backgroundDim",
 } as const;
+
+const DEFAULT_BACKGROUND_DIM = 40;
 
 interface SettingsState {
   fontFamily: string;
@@ -96,6 +100,9 @@ interface SettingsState {
   notifyError: boolean; // agent 錯誤
   // 視窗聚焦時，畫面外 pane（不在目前分割群組）的 waiting / error 仍發桌面通知。
   notifyHiddenPanes: boolean;
+  // 自訂背景圖：檔案絕對路徑（""=無），與遮罩強度 0-100（越大畫面越暗，維持文字可讀）。
+  backgroundImage: string;
+  backgroundDim: number;
   setFontFamily: (v: string) => void;
   setFontSize: (v: number) => void;
   setCursorStyle: (v: CursorStyle) => void;
@@ -107,6 +114,8 @@ interface SettingsState {
   setNotifyDone: (v: boolean) => void;
   setNotifyError: (v: boolean) => void;
   setNotifyHiddenPanes: (v: boolean) => void;
+  setBackgroundImage: (v: string) => void;
+  setBackgroundDim: (v: number) => void;
 }
 
 function initialFontFamily(): string {
@@ -133,6 +142,11 @@ function initialBool(key: string): boolean {
   return v === null ? true : v === "true";
 }
 
+function initialBackgroundDim(): number {
+  const v = Number(localStorage.getItem(KEYS.backgroundDim));
+  return Number.isFinite(v) && v >= 0 && v <= 100 ? v : DEFAULT_BACKGROUND_DIM;
+}
+
 export const useSettingsStore = create<SettingsState>((set) => ({
   fontFamily: initialFontFamily(),
   fontSize: initialFontSize(),
@@ -145,6 +159,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   notifyDone: initialBool(KEYS.notifyDone),
   notifyError: initialBool(KEYS.notifyError),
   notifyHiddenPanes: initialBool(KEYS.notifyHiddenPanes),
+  backgroundImage: localStorage.getItem(KEYS.backgroundImage) || "",
+  backgroundDim: initialBackgroundDim(),
 
   setFontFamily: (v) => {
     localStorage.setItem(KEYS.fontFamily, v);
@@ -192,5 +208,15 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setNotifyHiddenPanes: (v) => {
     localStorage.setItem(KEYS.notifyHiddenPanes, String(v));
     set({ notifyHiddenPanes: v });
+  },
+  setBackgroundImage: (v) => {
+    localStorage.setItem(KEYS.backgroundImage, v);
+    set({ backgroundImage: v });
+  },
+  setBackgroundDim: (v) => {
+    if (!Number.isFinite(v)) return;
+    const dim = Math.min(100, Math.max(0, v));
+    localStorage.setItem(KEYS.backgroundDim, String(dim));
+    set({ backgroundDim: dim });
   },
 }));

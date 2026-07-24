@@ -31,6 +31,39 @@ body {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  position: relative;
+}
+
+/* 自訂背景圖層：鋪滿視窗、置於所有 chrome 之後（xterm 畫布仍不透明，
+   故圖只在終端區塊四周/panes 之間與空白處可見）。 */
+.app::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--app-bg-image, none);
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  pointer-events: none;
+}
+/* 可讀性遮罩：強度由設定的 dim slider 提供。 */
+.app[data-bg-image="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, var(--app-bg-dim, 0.4));
+  z-index: 0;
+  pointer-events: none;
+}
+/* 有背景圖時讓終端區塊透出圖（app-body 平時填不透明 --term-bg 會蓋住圖）。 */
+.app[data-bg-image="true"] .app-body {
+  background: transparent;
+}
+/* chrome 疊在背景層之上。 */
+.app > .sidebar,
+.app > .app-body {
+  position: relative;
+  z-index: 1;
 }
 
 /* 深色主題（預設） */

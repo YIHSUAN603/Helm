@@ -30,6 +30,7 @@ import {
   setTitleSignal,
 } from "./store/scanState";
 import { customCssVars, useThemeStore } from "./store/theme";
+import { useSettingsStore } from "./store/settings";
 import { groupTreeOf, useLayoutStore } from "./store/layout";
 import { computeLayout, type RectPct } from "./store/layoutTree";
 import { useUiStore } from "./store/ui";
@@ -39,6 +40,7 @@ import { usePrefixStore } from "./store/prefix";
 import { WhichKey } from "./components/WhichKey/WhichKey";
 import { runCommand } from "./commands/registry";
 import { listen } from "@tauri-apps/api/event";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { activateSession } from "./commands/actions";
 import { setMenuLanguage } from "./ipc/menu";
@@ -351,6 +353,8 @@ function App() {
   const theme = useThemeStore((s) => s.name);
   // 自訂主題：data-theme 落到 "custom"（App.css 無此區塊），9 個 UI 變數以 inline style 提供。
   const customTheme = useThemeStore((s) => s.customThemes.find((c) => c.id === s.name));
+  const backgroundImage = useSettingsStore((s) => s.backgroundImage);
+  const backgroundDim = useSettingsStore((s) => s.backgroundDim);
   const trees = useLayoutStore((s) => s.trees);
   // 只渲染 active session 所在群組的樹；其他 session 的 pane 拿不到
   // rect → data-in-layout="false" 隱藏（Terminal 保持掛載）。
@@ -441,11 +445,24 @@ function App() {
     })();
   }, []);
 
+  // 自訂背景圖：路徑經 asset protocol 轉為可載入 URL；遮罩 0-100 → 0-1 alpha。
+  const bgUrl = backgroundImage ? convertFileSrc(backgroundImage) : "";
+  const appStyle: CSSProperties = {
+    ...(customTheme ? customCssVars(customTheme) : {}),
+    ...(bgUrl
+      ? ({
+          "--app-bg-image": `url("${bgUrl}")`,
+          "--app-bg-dim": String(backgroundDim / 100),
+        } as CSSProperties)
+      : {}),
+  };
+
   return (
     <div
       className="app"
       data-theme={customTheme ? "custom" : theme}
-      style={customTheme ? customCssVars(customTheme) : undefined}
+      data-bg-image={bgUrl ? "true" : undefined}
+      style={appStyle}
     >
       {!sidebarHidden && <SessionSidebar />}
       <main className="app-body">

@@ -175,6 +175,20 @@
   justify-content: flex-end;
 }
 
+/* 自訂背景圖控制項 */
+.settings-bg-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-bg-filename {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .settings-secondary {
   border: 1px solid var(--border);
   background: none;

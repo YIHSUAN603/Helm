@@ -22,6 +22,7 @@ import {
   type CursorStyle,
 } from "../../store/settings";
 import { firstFontFamily, toFontFamilyValue } from "../../store/fontFamily";
+import { pickImage } from "../../ipc/dialog";
 import { listMonospaceFonts } from "../../ipc/fonts";
 import {
   installClaudeHooks,
@@ -278,6 +279,8 @@ function SettingsDialogInner() {
   const notifyDone = useSettingsStore((s) => s.notifyDone);
   const notifyError = useSettingsStore((s) => s.notifyError);
   const notifyHiddenPanes = useSettingsStore((s) => s.notifyHiddenPanes);
+  const backgroundImage = useSettingsStore((s) => s.backgroundImage);
+  const backgroundDim = useSettingsStore((s) => s.backgroundDim);
   const setFontFamily = useSettingsStore((s) => s.setFontFamily);
   const setFontSize = useSettingsStore((s) => s.setFontSize);
   const setCursorStyle = useSettingsStore((s) => s.setCursorStyle);
@@ -289,6 +292,8 @@ function SettingsDialogInner() {
   const setNotifyDone = useSettingsStore((s) => s.setNotifyDone);
   const setNotifyError = useSettingsStore((s) => s.setNotifyError);
   const setNotifyHiddenPanes = useSettingsStore((s) => s.setNotifyHiddenPanes);
+  const setBackgroundImage = useSettingsStore((s) => s.setBackgroundImage);
+  const setBackgroundDim = useSettingsStore((s) => s.setBackgroundDim);
 
   // 通知後端狀態：macOS 授權失敗或 dev 模式時退回 osascript（通知歸屬
   // Script Editor、點擊無法聚焦 Helm），在總開關下方顯示警告與修復入口。
@@ -686,6 +691,48 @@ function SettingsDialogInner() {
                   onChange={(e) => setCursorBlink(e.target.checked)}
                 />
               </label>
+
+              <div className="settings-row">
+                <span>{t("settings.backgroundImage")}</span>
+                <span className="settings-bg-controls">
+                  <button
+                    className="settings-secondary"
+                    onClick={async () => {
+                      const path = await pickImage();
+                      if (path) setBackgroundImage(path);
+                    }}
+                  >
+                    {t("settings.backgroundImageChoose")}
+                  </button>
+                  {backgroundImage && (
+                    <button
+                      className="settings-theme-delete"
+                      onClick={() => setBackgroundImage("")}
+                    >
+                      {t("settings.backgroundImageClear")}
+                    </button>
+                  )}
+                </span>
+              </div>
+              {backgroundImage && (
+                <>
+                  <div className="settings-row">
+                    <span className="settings-bg-filename">
+                      {backgroundImage.split(/[\\/]/).pop()}
+                    </span>
+                  </div>
+                  <label className="settings-row">
+                    <span>{t("settings.backgroundDim")}</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={backgroundDim}
+                      onChange={(e) => setBackgroundDim(Number(e.target.value))}
+                    />
+                  </label>
+                </>
+              )}
             </>
           )}
 
