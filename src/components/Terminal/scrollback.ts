@@ -12,6 +12,7 @@
 // 本檔只放副作用（檔案讀寫、定時器、term.write）；格式、重接、裁切等純邏輯全
 // 在 replay.ts，由 tests/terminal-replay.test.ts 直接測。
 import type { Terminal as XTerm } from "@xterm/xterm";
+import { writeReplayBuffer } from "./replayBuffer";
 import {
   deleteAppFile,
   listAppFiles,
@@ -125,12 +126,9 @@ export async function replayScrollback(term: XTerm, sessionId: string): Promise<
     });
     if (!replayText) return 0;
 
-    // 等 xterm 真的寫完才量 floor：write 是排隊處理的，太早讀 cursor 會量到
-    // 重播開始前的位置，floor 就會落在歷史中間。
-    await new Promise<void>((resolve) => term.write(replayText, resolve));
-
-    const buf = term.buffer.active;
-    const floor = buf.baseY + buf.cursorY;
+    // 歷史必須離開活動畫面，否則 Windows 新 PTY 的絕對游標座標會落在
+    // 歷史內。等寫完與歸位後才量 floor，也涵蓋回捲上限造成的列淘汰。
+    const floor = await writeReplayBuffer(term, replayText);
     replaySkip.set(sessionId, floor);
     return floor;
   } catch {
