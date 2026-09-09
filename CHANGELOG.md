@@ -4,6 +4,16 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.20.3](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.3) - 2026-09-09
+
+### Fixed
+
+- Restored Windows terminals no longer jump to the top or overwrite saved history when typing. Previous output is moved into scrollback, and the new shell starts on a clean screen. Scroll up to view restored history.
+
+### Validation
+
+- Added 55 regression checks and verified actual ConPTY output from Windows PowerShell and PowerShell 7.
+
 ## [0.20.2](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.2) - 2026-08-31
 
 _Restored panes come back the right size_
