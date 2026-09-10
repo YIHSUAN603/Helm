@@ -22,7 +22,7 @@ sys.path.insert(0, str(HERE))
 
 from harness import dev_server  # noqa: E402
 
-SUITES = ("test_sidebar_drag", "test_pane_sizing")
+SUITES = ("test_sidebar_drag", "test_pane_sizing", "test_terminal_restore")
 
 
 def main() -> int:

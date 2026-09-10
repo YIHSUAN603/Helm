@@ -101,7 +101,12 @@ const replaySkip = new Map<string, number>();
  * 掃描會從重播的舊畫面撈出過期的審批提示 —— 症狀是「重啟後莫名跳出上次的核准
  * 請求」。沒有可重播的內容時回 0（代表沒有 floor）。
  */
-export async function replayScrollback(term: XTerm, sessionId: string): Promise<number> {
+export async function replayScrollback(
+  term: XTerm,
+  sessionId: string,
+  onHistory?: (text: string) => void,
+): Promise<number> {
+  onHistory?.("");
   // 同步登記（不能等到 await 之後）：effect 重跑時舊的 replayScrollback 可能還
   // 在飛，晚一步寫入會用已 dispose 的舊 term 蓋掉新的。
   terms.set(sessionId, term);
@@ -115,6 +120,8 @@ export async function replayScrollback(term: XTerm, sessionId: string): Promise<
     const text = await readAppFileOr(scrollbackFileName(sessionId), "");
     const snapshot = parseSnapshot(text);
     if (!snapshot) return 0;
+    // 保留獨立的純文字入口，讓 alt-screen／清屏後仍能查看這次還原的紀錄。
+    onHistory?.(snapshot.lines.join("\n"));
 
     const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
     const label = resumeLabel(session);

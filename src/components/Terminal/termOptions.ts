@@ -28,13 +28,15 @@ interface TermOptionsInput {
  * 每格都得先清空再疊字，不能靠不透明底色直接覆蓋）。這是背景圖功能的必要代價，
  * 調 renderer 效能時不要誤以為它是可以順手拿掉的旋鈕。
  */
-export function buildTermOptions(input: TermOptionsInput, theme: ITheme): ITerminalOptions {
+export function buildTermOptions(input: TermOptionsInput, theme: ITheme, isWindows = false): ITerminalOptions {
   return {
     fontFamily: withSymbolsFallback(input.fontFamily),
     fontSize: input.fontSize,
     cursorStyle: input.cursorStyle,
     cursorBlink: input.cursorBlink,
     scrollback: input.scrollback,
+    // ConPTY 自行重畫 resize 後的畫面；放大時不可把歷史拉回活動列。
+    ...(isWindows ? { windowsPty: { backend: "conpty" as const } } : {}),
     allowProposedApi: true,
     allowTransparency: true,
     theme,

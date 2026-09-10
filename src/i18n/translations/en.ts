@@ -239,6 +239,8 @@ export const en: Record<string, string> = {
 
   // Restored scrollback block (framed as a dead record, not live output)
   "terminal.replayHeader": "── history from your last session ──",
+  "terminal.showHistory": "Previous session history",
+  "terminal.hideHistory": "Close history",
   "terminal.replayFooter": "── static record above; the shell below is new ──",
   "terminal.replayResumeHint": "── press Ctrl+A R to resume {label} ──",
 

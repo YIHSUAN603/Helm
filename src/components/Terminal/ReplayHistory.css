@@ -1,0 +1,37 @@
+.replay-history {
+  position: absolute;
+  top: 4px;
+  right: 12px;
+  /* 要高於 canvas renderer 的 cursor 層（xterm-cursor-layer），否則按鈕被畫布蓋住點不到；與搜尋列同級。 */
+  z-index: 5;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.replay-history button {
+  color: var(--muted);
+  background: var(--term-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.replay-history-content {
+  min-height: 0;
+  max-width: 100%;
+  margin: 4px 0 0;
+  padding: 12px;
+  box-sizing: border-box;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+  background: var(--term-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  user-select: text;
+}

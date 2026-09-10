@@ -233,6 +233,8 @@ export const zhTW: Record<string, string> = {
 
   // Restored scrollback block (framed as a dead record, not live output)
   "terminal.replayHeader": "── 上次啟動的畫面 ──",
+  "terminal.showHistory": "查看上次紀錄",
+  "terminal.hideHistory": "關閉紀錄",
   "terminal.replayFooter": "── 以上為靜態記錄，shell 是新開的 ──",
   "terminal.replayResumeHint": "── 按 Ctrl+A R 接續 {label} 的對話 ──",
 

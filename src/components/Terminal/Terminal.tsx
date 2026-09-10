@@ -3,7 +3,9 @@
 // agent 感知：輸出後 debounce 讀取已渲染的 buffer 文字餵給 onScan。
 import { memo, useEffect, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
+import type { FitAddon } from "@xterm/addon-fit";
+import { VisibleFitAddon } from "./visibleFitAddon";
+import { ReplayHistory } from "./ReplayHistory";
 // CanvasAddon 不在這裡 import：renderer 的掛載與落回鏈都在 ./renderer。
 import { SearchAddon } from "@xterm/addon-search";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -131,6 +133,7 @@ function TerminalImpl({
   const fitRef = useRef<FitAddon | null>(null);
   // State (not a ref): the search bar must re-render once the addon exists.
   const [searchAddon, setSearchAddon] = useState<SearchAddon | null>(null);
+  const [replayHistory, setReplayHistory] = useState<string | null>(null);
   const themeName = useThemeStore((s) => s.name);
   const customThemes = useThemeStore((s) => s.customThemes);
   // 有自訂背景圖時終端底色改為透明，讓背景圖透出（見 resolveXtermTheme / App.css）。
@@ -180,6 +183,7 @@ function TerminalImpl({
           useThemeStore.getState().customThemes,
           !!settings.backgroundImage,
         ),
+        navigator.platform.startsWith("Win"),
       ),
     );
     // xterm.js 不對映 Ctrl+/ → 0x1F(^_);補上讓 nvim 的 <C-/> 綁定可用。
@@ -205,7 +209,7 @@ function TerminalImpl({
       }
       return true;
     });
-    const fitAddon = new FitAddon();
+    const fitAddon = new VisibleFitAddon(container);
     term.loadAddon(fitAddon);
     // Unicode 11 寬度表(CJK 全形、emoji)必須在 open() 之前生效,否則首次
     // 量測會用內建的 v6 表,中文/emoji 會算錯欄寬導致游標錯位。
@@ -439,7 +443,9 @@ function TerminalImpl({
       // 是有序的，所以之後的 PTY 位元組不可能插進重播區塊；而重播用裸 write，
       // 不經過 onOutput，因此 onBusy/onIdle/onScan/onStream 與 OSC handler 全都
       // 不會被這些歷史文字觸發。
-      scanFloor = await replayScrollback(term, id);
+      scanFloor = await replayScrollback(term, id, (text) => {
+        if (!disposed) setReplayHistory(text);
+      });
       if (disposed) return;
 
       // A persisted workspace folder can point at an unmounted volume or a
@@ -620,6 +626,7 @@ function TerminalImpl({
   return (
     <div className="terminal-pane">
       <div className="terminal-host" ref={containerRef} />
+      {replayHistory && <ReplayHistory text={replayHistory} />}
       {searchOpen && (
         <TerminalSearchBar search={searchAddon} onClose={closeSearch} />
       )}
