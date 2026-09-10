@@ -118,6 +118,24 @@ export function buildSnapshotLines(rows: readonly SnapshotRow[], skip = 0): stri
   return hasReplayBanner(lines) ? [] : lines;
 }
 
+/**
+ * 還原過的 pane 寫快照時，把上次重播的**原始行**接在這一輪的新內容前面。
+ *
+ * 沒有這一步，重啟後 shell 印出的第一行提示字元就是「唯一的新內容」，會用一行
+ * `PS C:\...>` 蓋掉整份舊歷史 —— 症狀是「每次重開歷史都不見了」。接的是檔案
+ * 裡的原始行而不是重讀 buffer 的重播區塊，所以框線不會被存進去、也不會一層層
+ * 疊；上限照樣留尾，最舊的那一輪自然先被淘汰。
+ */
+export function mergeSnapshotLines(
+  previous: readonly string[],
+  fresh: readonly string[],
+  maxLines = MAX_SNAPSHOT_LINES,
+  maxChars = MAX_SNAPSHOT_CHARS,
+): string[] {
+  if (fresh.length === 0) return [];
+  return capTail([...previous, ...fresh], maxLines, maxChars);
+}
+
 export function serializeSnapshot(lines: readonly string[], savedAt: number): string {
   const stamp = Number.isFinite(savedAt) ? Math.max(0, Math.floor(savedAt)) : 0;
   return `${MAGIC} ${SNAPSHOT_VERSION} ${stamp}\n${lines.join("\n")}\n`;

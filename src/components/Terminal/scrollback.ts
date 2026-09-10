@@ -29,6 +29,7 @@ import {
   buildReplayText,
   buildSnapshotLines,
   fingerprintKey,
+  mergeSnapshotLines,
   parseSnapshot,
   relativeAge,
   resumeLabel,
@@ -96,6 +97,13 @@ const replayed = new Set<string>();
 const replaySkip = new Map<string, number>();
 
 /**
+ * 重播進這個 session 的原始行（檔案裡的 `snapshot.lines`，不含框線）。寫快照時
+ * 接在新內容前面（見 `mergeSnapshotLines`）：replaySkip 讓新內容不含框線，這裡
+ * 則讓舊歷史不因為「shell 印了一行提示字元」就被整份蓋掉。
+ */
+const replayedLines = new Map<string, string[]>();
+
+/**
  * 重播這個 session 存下來的畫面，回傳 **scan floor**：重播內容之後第一列的
  * 絕對列號。Terminal 的 readBufferText 會跳過 floor 以下的列，否則第一次真實
  * 掃描會從重播的舊畫面撈出過期的審批提示 —— 症狀是「重啟後莫名跳出上次的核准
@@ -112,6 +120,7 @@ export async function replayScrollback(
   terms.set(sessionId, term);
   // 已經重播過 → 這個 term 是重建出來的空 buffer，沒有歷史也沒有 floor。
   replaySkip.set(sessionId, 0);
+  replayedLines.delete(sessionId);
   if (replayed.has(sessionId)) return 0;
   replayed.add(sessionId);
   if (!useSettingsStore.getState().restoreScrollback) return 0;
@@ -137,6 +146,7 @@ export async function replayScrollback(
     // 歷史內。等寫完與歸位後才量 floor，也涵蓋回捲上限造成的列淘汰。
     const floor = await writeReplayBuffer(term, replayText);
     replaySkip.set(sessionId, floor);
+    replayedLines.set(sessionId, snapshot.lines);
     return floor;
   } catch {
     // 沒有 Tauri runtime、term 已被 dispose、檔案壞掉 —— 一律當成「沒有快照」。
@@ -252,10 +262,13 @@ async function persistPane(sessionId: string): Promise<void> {
   } catch {
     return;
   }
-  const lines = buildSnapshotLines(rows, replaySkip.get(sessionId) ?? 0);
+  const fresh = buildSnapshotLines(rows, replaySkip.get(sessionId) ?? 0);
   // 沒有新內容 → 什麼都不做，**尤其不刪檔**：重播過但還沒被用過的 pane 正是
   // 這個情形，刪掉就等於「開著不動反而弄丟歷史」。
-  if (lines.length === 0) return;
+  if (fresh.length === 0) return;
+  // 有新內容時也不能只存新內容：重啟後 shell 的第一行提示字元就會把舊歷史整份
+  // 蓋掉。接上這一輪重播進來的原始行，歷史才會跨重啟累積（上限留尾）。
+  const lines = mergeSnapshotLines(replayedLines.get(sessionId) ?? [], fresh);
   await writeAppFile(scrollbackFileName(sessionId), serializeSnapshot(lines, Date.now()));
 }
 
@@ -277,6 +290,7 @@ async function sweepOrphans(): Promise<void> {
   // 這裡清 —— 它是「同一 session 只重播一次」的守衛，effect 重跑時必須還在。
   for (const id of replayed) if (!liveIds.has(id)) replayed.delete(id);
   for (const id of replaySkip.keys()) if (!liveIds.has(id)) replaySkip.delete(id);
+  for (const id of replayedLines.keys()) if (!liveIds.has(id)) replayedLines.delete(id);
   const files = await listAppFiles(SCROLLBACK_PREFIX);
   await Promise.all(files.filter((name) => !live.has(name)).map((name) => deleteAppFile(name)));
 }
@@ -290,5 +304,6 @@ export async function flushScrollback(): Promise<void> {
 export async function clearScrollback(sessionId: string): Promise<void> {
   watches.delete(sessionId);
   replaySkip.delete(sessionId);
+  replayedLines.delete(sessionId);
   await deleteAppFile(scrollbackFileName(sessionId));
 }

@@ -5,6 +5,7 @@ import assert from "node:assert";
 import {
   buildReplayText,
   buildSnapshotLines,
+  mergeSnapshotLines,
   hasReplayBanner,
   parseSnapshot,
   capTail,
@@ -115,6 +116,26 @@ check(
   JSON.stringify(buildSnapshotLines([row("head"), wrap("tail")], 1)) === '["tail"]',
 );
 check("負的 skip 當成 0", JSON.stringify(buildSnapshotLines([row("a")], -5)) === '["a"]');
+
+// ---- mergeSnapshotLines：還原後的新內容接在上次歷史後面 ----
+
+check(
+  "重啟後只印了一行提示字元 → 舊歷史保留、新行接在後面（不是被蓋掉）",
+  JSON.stringify(mergeSnapshotLines(["old1", "old2"], ["PS C:>"])) === '["old1","old2","PS C:>"]',
+);
+check(
+  "沒有新內容 → 空陣列（呼叫端據此不寫檔，不能只回舊歷史去改寫時間戳）",
+  mergeSnapshotLines(["old"], []).length === 0,
+);
+check(
+  "沒有上次歷史（非還原的 pane）→ 就是新內容",
+  JSON.stringify(mergeSnapshotLines([], ["a", "b"])) === '["a","b"]',
+);
+check(
+  "合併後超過上限 → 留尾，最舊的歷史先淘汰",
+  JSON.stringify(mergeSnapshotLines(["o1", "o2", "o3"], ["n1", "n2"], 3)) ===
+    '["o3","n1","n2"]',
+);
 
 // ---- 重播框線污染的自癒（floor 漏掉框線時的第二道防線） ----
 //
