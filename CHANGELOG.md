@@ -4,6 +4,21 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.20.4](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.4) - 2026-09-10
+
+### Added
+
+- A restored pane now shows a **Previous session history** button in its top-right corner. It opens the last session's scrollback in a separate plain-text panel that survives `clear`, alt-screen TUIs and anything else the new shell does to the terminal. Press Escape or the button again to close it.
+
+### Fixed
+
+- A hidden pane restored on startup no longer sends a collapsed grid to its PTY. Every fit path, including the delayed callbacks, now checks the container's live size through `canFit` before resizing.
+- On Windows, growing the window no longer pulls history back into the active screen. xterm now runs with the ConPTY backend option, which leaves the redraw to ConPTY.
+
+### Validation
+
+- Added a third Playwright suite, `test_terminal_restore` (17 checks), covering the restore flow end to end: grid size, cursor row, history in scrollback, the history panel, and ConPTY resize behaviour.
+
 ## [0.20.3](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.3) - 2026-09-09
 
 ### Fixed
