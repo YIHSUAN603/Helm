@@ -4,6 +4,16 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.20.5](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.5) - 2026-09-10
+
+### Fixed
+
+- Restoring a pane no longer wipes its saved history. Since 0.20.3 the new shell's first prompt line landed after the replayed history, so the next snapshot was written with only that line and every restart lost the previous session's output. Snapshots now carry the replayed history forward and append the new output after it, within the existing 1000-line cap.
+
+### Validation
+
+- Added 4 regression checks for the snapshot merge, and reproduced the loss against 0.20.4 with a Playwright restore scenario (history → prompt → second launch).
+
 ## [0.20.4](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.4) - 2026-09-10
 
 ### Added
