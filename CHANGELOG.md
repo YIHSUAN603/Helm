@@ -4,6 +4,29 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.20.7](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.7) - 2026-10-19
+
+### Added
+
+- Codex hooks integration: Settings → Agent integrations generates the Codex `hooks.json` snippet and detects whether it is installed (in `hooks.json` or `config.toml`'s `[hooks]`). Approval prompts, turn completion and changed files now arrive from Codex directly instead of being inferred from the screen.
+- Codex sessions can be resumed (`codex resume <id>` / `--last`), and Codex approvals now take a single `y` keypress.
+- Changed files for Codex `apply_patch` edits are read from the patch headers, and the approval prompt lists the file paths being changed.
+
+### Changed
+
+- Hook events must now carry a random token generated each time Helm starts. Events without it are dropped before their body is read, so other local processes and web pages can no longer inject fake agent events. Installed Helm forwarder scripts are updated automatically at startup. An older Unix inline hook command without the token shows as not installed until you reinstall it.
+
+### Fixed
+
+- The status light no longer stays on the green "done" color while Codex or Claude Code is thinking. Their spinner redraws every ~100ms, which kept postponing the screen scan for the whole turn. Scans now have a maximum wait (500ms for visible panes, 2000ms for hidden ones).
+- Codex no longer goes back to "thinking" after a turn ends because the word "reasoning" appeared in the intro text or your prompt. Detection now keys only on "esc to interrupt".
+- Hook events sent through Windows PowerShell 5.1 are accepted even when it adds a BOM, and Helm's `.ps1` scripts are always written with CRLF line endings.
+
+### Validation
+
+- Added regression tests for Codex hook event normalization, resume commands, the scan scheduler's maximum wait, and Codex state patterns.
+- Tested live against Codex 0.163.0: hooks run on Windows, the token is delivered, a single `y` approves, and a missing session is reported. The two-turn status-light fix was verified by replaying captured output through a headless xterm.
+
 ## [0.20.6](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.6) - 2026-10-19
 
 ### Added
