@@ -49,6 +49,11 @@ import "./Terminal.css";
 // extra latency is invisible there and the viewport regex sweep is not free.
 const SCAN_DEBOUNCE_VISIBLE_MS = 150;
 const SCAN_DEBOUNCE_HIDDEN_MS = 1000;
+// Upper bound on how long continuous output may postpone a scan. A working
+// agent's spinner repaints faster than the debounce, so without this cap the
+// light never leaves the state it had when the turn began (see scanScheduler).
+const SCAN_MAX_WAIT_VISIBLE_MS = 500;
+const SCAN_MAX_WAIT_HIDDEN_MS = 2000;
 
 // Trailing refit delay after a pane-size change settles (see the ResizeObserver
 // below). Long enough to outlast the macOS window zoom / full-screen animation.
@@ -320,6 +325,7 @@ function TerminalImpl({
       }, 400);
       scans.schedule(
         visibleRef.current ? SCAN_DEBOUNCE_VISIBLE_MS : SCAN_DEBOUNCE_HIDDEN_MS,
+        visibleRef.current ? SCAN_MAX_WAIT_VISIBLE_MS : SCAN_MAX_WAIT_HIDDEN_MS,
       );
     };
 
