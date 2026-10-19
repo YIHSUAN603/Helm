@@ -126,6 +126,9 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
       waiting:
         "[›❯]\\s*\\d+\\.\\s*(Yes|Approve|Allow|Run|Proceed)|Allow command|Run this command|[Aa]pprove\\?|Apply patch\\?|\\([yY]\\/[nN]\\)\\s*:?\\s*$",
       thinking: "Thinking|Working|Reasoning",
+      // 回答後 composer 會恢復；其上方殘留的選單不再是待核准。
+      // 排除帶編號的選項列，避免把仍有效的選單當成 composer。
+      inputBox: "^\\s*›(?!\\s*\\d+\\.\\s)(?:\\s|$)",
       tool: "Running|exec|\\$\\s|patch",
       error: "\\berror\\b|failed",
       done: "\\bdone\\b|completed",

@@ -167,6 +167,26 @@ check(
     derived.prompt === "Would you like to run the following command?",
   );
 }
+// 回答後殘留的 Codex 選單不得讓右下角核准面板重新出現。
+{
+  const menu = "Would you like to run this command?\n› 1. Yes, proceed (y)";
+  check(
+    "codex 回答後 composer 下方出現，不再將殘留選單當成 waiting",
+    deriveState(codex, `${menu}\n› `).state === "done",
+  );
+  check(
+    "codex 繼續工作時，舊選單不能讓核准面板重新出現",
+    deriveState(codex, `${menu}\nWorking\n› `, "busy").state !== "waiting",
+  );
+  check(
+    "codex 舊 composer 在有效選單上方時，仍須等待核准",
+    deriveState(codex, `› previous input\n${menu}`).state === "waiting",
+  );
+  check(
+    "codex 後續編號選項不能誤認為 composer 而隱藏有效選單",
+    deriveState(codex, `${menu}\n› 2. No`).state === "waiting",
+  );
+}
 // Question 選單（任意選項文字，AskUserQuestion 風格）：靠 menuOption + 上方問題行
 {
   const screen = [

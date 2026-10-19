@@ -379,8 +379,8 @@ function handleScan(id: string, text: string) {
   const pendingText = sess.pendingApproval ?? sess.pendingPrompt?.text;
   if (pendingText) {
     // Hook 剛宣告 waiting：對話框可能還沒重繪到 viewport，寬限期內不清除。
-    if (isHookWaitingFresh(id, Date.now())) return;
-    if (bumpNonWaitingStreak(id) < 2) return;
+    if (isHookWaitingFresh(id, Date.now())) return true;
+    if (bumpNonWaitingStreak(id) < 2) return true;
     // The dialog left the screen without a panel response — the user answered
     // inside the terminal. Record it so a stale copy of the same prompt
     // resurfacing (e.g. a resize reflow) cannot resurrect the prompt,

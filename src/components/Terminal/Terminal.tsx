@@ -30,6 +30,7 @@ import { canFit } from "./fitGuard";
 import { trackTerminalInput } from "./trackInput";
 import { initialSessionTracker } from "../../store/initialSession";
 import { scanRows } from "./scanRows";
+import { createScanScheduler } from "./scanScheduler";
 import {
   registerScrollbackSource,
   replayScrollback,
@@ -82,8 +83,8 @@ interface TerminalProps {
   onSpawnError?: () => void;
   /** Reports whether the requested cwd started, before any startup command is sent. */
   onSpawned?: (requestedFolderStarted: boolean) => void;
-  /** debounce 後把近期已渲染文字交出去做 agent 狀態偵測。 */
-  onScan?: (text: string) => void;
+  /** 回傳 true 表示提示清除尚待確認，無新輸出時也要再掃描。 */
+  onScan?: (text: string) => boolean | void;
   /** 原始輸出串流（已解碼文字），供逐行擷取成本/檔案變更。 */
   onStream?: (text: string) => void;
 }
@@ -301,10 +302,13 @@ function TerminalImpl({
 
     // 活動燈 + agent 掃描（皆 debounce）。
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
-    let scanTimer: ReturnType<typeof setTimeout> | undefined;
     // 還原重播的界線：重播內容之後第一列的絕對列號（0 = 沒有重播）。
     // 掃描要跳過它以下的列，否則第一次真實掃描會從上次的畫面撈出過期提示。
     let scanFloor = 0;
+    const scans = createScanScheduler(
+      () => cbRef.current.onScan?.(readBufferText(term, scanFloor)),
+      SCAN_DEBOUNCE_VISIBLE_MS,
+    );
     const onOutput = () => {
       // Leading-edge busy: onBusy fires once per busy period (first chunk),
       // not per chunk — the idle timeout re-arms it.
@@ -314,11 +318,7 @@ function TerminalImpl({
         idleTimer = undefined;
         cbRef.current.onIdle?.();
       }, 400);
-      if (scanTimer) clearTimeout(scanTimer);
-      scanTimer = setTimeout(
-        () => {
-          cbRef.current.onScan?.(readBufferText(term, scanFloor));
-        },
+      scans.schedule(
         visibleRef.current ? SCAN_DEBOUNCE_VISIBLE_MS : SCAN_DEBOUNCE_HIDDEN_MS,
       );
     };
@@ -539,7 +539,7 @@ function TerminalImpl({
     return () => {
       disposed = true;
       if (idleTimer) clearTimeout(idleTimer);
-      if (scanTimer) clearTimeout(scanTimer);
+      scans.cancel();
       if (fitRaf) cancelAnimationFrame(fitRaf);
       if (fitSettleTimer) clearTimeout(fitSettleTimer);
       if (ptyResizeTimer) clearTimeout(ptyResizeTimer);

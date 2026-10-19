@@ -5,6 +5,7 @@ import { useSessionStore, type Session } from "../store/sessions";
 import { initialSessionTracker } from "../store/initialSession";
 import { clearNotifyDedupe, isBusyState } from "../store/notificationRouter";
 import { markApprovalAnswered } from "../store/approvalSuppress";
+import { clearHookWaiting } from "../store/scanState";
 import { useFolderStatusStore } from "../store/folderStatus";
 import { useSettingsStore } from "../store/settings";
 import {
@@ -268,13 +269,16 @@ export function removeWorkspace(id: string): void {
 /** Write the profile's approve/reject key sequence to the PTY and clear the prompt. */
 export function respondApproval(id: string, agentId: string | null, approve: boolean): void {
   const store = useSessionStore.getState();
-  const prompt = store.sessions.find((s) => s.id === id)?.pendingApproval;
+  const session = store.sessions.find((s) => s.id === id);
+  const prompt = session?.pendingApproval;
+  if (!prompt || session.agentState !== "waiting" || session.agentId !== agentId) return;
   const profile = getProfile(agentId);
-  void ptyWrite(id, approve ? profile.approve : profile.reject);
-  store.clearApproval(id);
   // The TUI repaints past the menu asynchronously; scans in that window still
   // see the old prompt and would resurrect the approval just answered.
-  if (prompt) markApprovalAnswered(id, prompt, Date.now());
+  markApprovalAnswered(id, prompt, Date.now());
+  clearHookWaiting(id);
+  store.clearApproval(id);
+  void ptyWrite(id, approve ? profile.approve : profile.reject);
   // Explicit response resets notification dedupe: a NEW approval with the
   // exact same prompt text must notify immediately.
   clearNotifyDedupe(id);
