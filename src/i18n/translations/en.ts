@@ -134,7 +134,7 @@ export const en: Record<string, string> = {
   "sidebar.pendingApprovalBadge": "{count} awaiting your input — click to go",
   "sidebar.addSession": "New shell in this workspace",
   "sidebar.removeWorkspace": "Delete workspace and its sessions",
-  "sidebar.selectFolder": "Set default folder for new sessions",
+  "sidebar.selectFolder": "Choose a folder and open a session (replaces the unused initial session)",
   "sidebar.clearFolder": "Clear default folder",
   "sidebar.folderMissing":
     "This folder is not reachable right now — new sessions will start in your home directory.",
@@ -318,7 +318,7 @@ export const en: Record<string, string> = {
   "shortcut.sidebar.rename": "Rename",
   "shortcut.sidebar.newSession": "New session in this workspace",
   "shortcut.sidebar.newWorkspace": "New workspace",
-  "shortcut.sidebar.chooseFolder": "Set this workspace's folder",
+  "shortcut.sidebar.chooseFolder": "Choose a folder and open a new session",
   "shortcut.sidebar.delete": "Close session / delete workspace (asks first)",
   "shortcut.sidebar.focusTerminal": "Back to the terminal",
   "shortcut.sidebar.activateSession": "Activate session",

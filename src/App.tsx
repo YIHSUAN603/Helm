@@ -9,6 +9,7 @@ import {
   type CSSProperties,
 } from "react";
 import { Terminal } from "./components/Terminal/Terminal";
+import { completeFolderSession } from "./commands/workspaceFolder";
 import { SessionSidebar } from "./components/SessionSidebar/SessionSidebar";
 import { ApprovalPanel } from "./components/ApprovalPanel/ApprovalPanel";
 import { Toolbar } from "./components/Toolbar/Toolbar";
@@ -470,11 +471,13 @@ const Pane = memo(function Pane({ session: s, rect, active, solo }: PaneProps) {
         env={s.env}
         launchCommand={s.launchCommand}
         streamEnabled={streamEnabled}
+        onSpawned={(started) => completeFolderSession(s.id, started)}
         onTitle={(title) => handleTitle(s.id, title)}
         onNotify={(message) => handleNotify(s.id, message)}
         onBusy={() => useSessionStore.getState().setStatus(s.id, "busy")}
         onIdle={() => useSessionStore.getState().setStatus(s.id, "idle")}
         onExit={() => {
+          completeFolderSession(s.id, false);
           // PTY 真的死了。若 agent 當時還在工作，這是使用者唯一會收到的訊號 ——
           // 沒有「完成」邊緣可偵測，所以以前這條路徑完全靜默（等一個永遠不會來
           // 的通知）。必須在 clearApproval 之前，它需要讀死前的 agentState。

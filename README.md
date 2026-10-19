@@ -323,7 +323,7 @@ Bare keys only — held Ctrl / Alt / Cmd is left to the global layer and the OS.
 | `r · F2` | Rename |
 | `c` | New session in this workspace |
 | `w` | New workspace |
-| `f` | Set this workspace's folder |
+| `f` | Choose a folder and open a new session |
 | `Delete · Backspace · x` | Close session / delete workspace (asks first) |
 | `Esc` | Back to the terminal |
 | `Enter · Space` | Activate session |

@@ -2,6 +2,7 @@
 // Shared by the command registry and components so buttons and hotkeys
 // go through the exact same code path.
 import { useSessionStore, type Session } from "../store/sessions";
+import { initialSessionTracker } from "../store/initialSession";
 import { clearNotifyDedupe, isBusyState } from "../store/notificationRouter";
 import { markApprovalAnswered } from "../store/approvalSuppress";
 import { useFolderStatusStore } from "../store/folderStatus";
@@ -95,10 +96,10 @@ function startupForWorkspace(
 }
 
 /** Create an ungrouped session (optionally from a launcher) and focus its terminal. */
-export function newSession(launcher?: AgentLauncher, workspaceId?: string): void {
+export function newSession(launcher?: AgentLauncher, workspaceId?: string): string {
   const store = useSessionStore.getState();
   const targetWs = workspaceId ?? resolveFocusedWorkspace(store.sessions, store.activeId);
-  store.createSession(
+  const id = store.createSession(
     launcher,
     targetWs,
     folderForWorkspace(targetWs),
@@ -108,6 +109,7 @@ export function newSession(launcher?: AgentLauncher, workspaceId?: string): void
   // restart — so bootstrap can land in a workspace the user left collapsed.
   expandWorkspace(targetWs);
   requestAnimationFrame(() => focusActiveTerminal());
+  return id;
 }
 
 /**
@@ -246,7 +248,8 @@ export function switchToSessionIndex(index: number): void {
 /** Create a workspace, open a fresh session in it, and return the workspace id. */
 export function newWorkspace(): string {
   const id = useWorkspaceStore.getState().createWorkspace();
-  newSession(undefined, id);
+  const sessionId = newSession(undefined, id);
+  initialSessionTracker.register(id, sessionId);
   return id;
 }
 

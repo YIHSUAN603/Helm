@@ -2,6 +2,7 @@
 // Terminal pane 本體由 App.tsx 平鋪渲染（只渲染 active session 所在群組的樹）。
 // 不變量：群組樹恆有 ≥2 個 leaf（收合到 1 個 leaf 時整組解散）。
 import { create } from "zustand";
+import { initialSessionTracker } from "./initialSession";
 import {
   computeLayout,
   findLeafBySession,
@@ -86,6 +87,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
     },
 
     splitPane: (sessionId, dir, newSessionId) => {
+      initialSessionTracker.markUsed(sessionId);
+      initialSessionTracker.markUsed(newSessionId);
       const groupId = findTreeBySession(get().trees, sessionId);
       if (!groupId) {
         // 未分組 → 以該 session 為底新建群組再分割。

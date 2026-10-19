@@ -1,6 +1,7 @@
 // 前端呼叫 Rust PTY commands / 訂閱 PTY events 的封裝層。
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { initialSessionTracker } from "../store/initialSession";
 
 export interface SpawnOptions {
   id: string;
@@ -46,7 +47,11 @@ function ptyFireAndForget(cmd: string, args: Record<string, unknown>): Promise<v
   }
 }
 
-export function ptyWrite(id: string, data: string): Promise<void> {
+/** xterm protocol replies use false; its actual input is tracked at the UI source. */
+export function ptyWrite(id: string, data: string, isUserInput = true): Promise<void> {
+  if (isUserInput && data.length > 0) {
+    initialSessionTracker.markUsed(id);
+  }
   return ptyFireAndForget("pty_write", { id, data });
 }
 

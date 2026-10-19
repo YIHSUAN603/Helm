@@ -1,5 +1,6 @@
 // 多 session 狀態管理 + agent 感知。
 import { create } from "zustand";
+import { initialSessionTracker } from "./initialSession";
 import { groupTreeOf, useLayoutStore } from "./layout";
 import { findTreeBySession, siblingFirstSession } from "./layoutTree";
 import { resolveFocusedWorkspace, splitRunIds } from "./workspaceGroups";
@@ -224,11 +225,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       // 時生效。env 不受此影響，兩種情況都套用。
       launchCommand: launcher?.command || startup?.command || undefined,
     };
+    initialSessionTracker.invalidateWorkspace(session.workspaceId);
     set((s) => ({ sessions: [...s.sessions, session], activeId: id }));
     return id;
   },
 
   closeSession: (id) => {
+    initialSessionTracker.remove(id);
     const { sessions, activeId } = get();
     // 分割群組：先記下 sibling（focus 移交對象），再收合 leaf。
     const layout = useLayoutStore.getState();
@@ -253,6 +256,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { sessions } = get();
     const target = sessions.find((s) => s.id === sessionId);
     if (!target) return;
+    initialSessionTracker.markUsed(sessionId);
+    if (target.workspaceId !== targetWorkspaceId) {
+      initialSessionTracker.invalidateWorkspace(targetWorkspaceId);
+    }
 
     let ids: string[];
     if (target.workspaceId === targetWorkspaceId) {
@@ -288,6 +295,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   // Deliberately no identical-title short-circuit: pressing Enter on the
   // unchanged name is still a confirmation that has to flip the lock.
   renameSession: (id, title) => {
+    initialSessionTracker.markUsed(id);
     const cur = get().sessions.find((x) => x.id === id);
     if (!cur) return;
     const next = resolveRename(title);
@@ -301,6 +309,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   setStatus: (id, status) => {
+    if (status === "exited") {
+      initialSessionTracker.markUsed(id);
+    }
     const cur = get().sessions.find((x) => x.id === id);
     if (!cur || cur.status === status || cur.status === "exited") return;
     set((s) => ({
@@ -309,6 +320,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   setDetectedAgent: (id, profileId, label) => {
+    initialSessionTracker.markUsed(id);
     const cur = get().sessions.find((x) => x.id === id);
     if (!cur || cur.agentId) return;
     set((s) => ({
@@ -319,6 +331,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   setAgentState: (id, state, prompt, kind = "approval") => {
+    initialSessionTracker.markUsed(id);
     const prev = get().sessions.find((x) => x.id === id);
     if (!prev) return;
     const pendingApproval =
@@ -366,6 +379,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   // 跑在 hook 事件頻率上：id 已是最新一筆且 transcript 沒變就不動 store。
   setAgentIdentity: (id, identity) => {
+    initialSessionTracker.markUsed(id);
     const cur = get().sessions.find((x) => x.id === id);
     if (!cur) return;
     const ids = appendAgentSessionId(cur.agentSessionIds, identity.agentSessionId);
@@ -410,6 +424,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   // 一次置換：Terminal 的主 effect 依賴 [id, cwd, shell, launchCommand]，先建
   // session 再補 cwd 會讓它 teardown + ptyKill + 重開一次 PTY。
   restoreSessions: ({ sessions, activeId }) => {
+    initialSessionTracker.reset();
     if (sessions.length === 0) return;
     set({ sessions, activeId: activeId ?? sessions[0].id });
   },

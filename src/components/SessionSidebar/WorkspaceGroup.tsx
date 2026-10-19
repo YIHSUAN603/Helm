@@ -32,7 +32,7 @@ import {
 } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey, hasNonShiftModifier } from "../../focus/listNav";
-import { pickFolder } from "../../ipc/dialog";
+import { chooseWorkspaceFolder } from "../../commands/workspaceFolder";
 import {
   displayFolderPath,
   middleEllipsis,
@@ -228,10 +228,7 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
   // newSession expands the target workspace itself.
   const addSession = () => newSession(undefined, w.id);
 
-  const chooseFolder = async () => {
-    const path = await pickFolder(w.folder);
-    if (path) setWorkspaceFolder(w.id, path);
-  };
+  const chooseFolder = () => chooseWorkspaceFolder(w.id);
 
   const clearDrag = useCallback(() => {
     setDrag(null);

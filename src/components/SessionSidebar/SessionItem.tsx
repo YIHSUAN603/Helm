@@ -8,7 +8,6 @@
 import { memo } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
-import { useWorkspaceStore } from "../../store/workspaces";
 import type { SidebarSession } from "../../store/sidebarProjection";
 import type { SplitClusterInfo } from "../../store/workspaceGroups";
 import {
@@ -19,7 +18,7 @@ import {
 } from "../../commands/actions";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { handleListKey, hasNonShiftModifier } from "../../focus/listNav";
-import { pickFolder } from "../../ipc/dialog";
+import { chooseWorkspaceFolder } from "../../commands/workspaceFolder";
 import { useT } from "../../i18n";
 import { useSidebarDragContext } from "./dragContext";
 import { resolveSidebarShortcut } from "./sidebarKeymap";
@@ -73,8 +72,6 @@ export const SessionItem = memo(function SessionItem({
   const setRenamingWorkspaceId = useUiStore((x) => x.setRenamingWorkspaceId);
   const pendingAction = useUiStore((x) => x.sidebarPendingAction);
   const setPendingAction = useUiStore((x) => x.setSidebarPendingAction);
-  const workspaces = useWorkspaceStore((x) => x.workspaces);
-  const setWorkspaceFolder = useWorkspaceStore((x) => x.setWorkspaceFolder);
   const onRenameStart = () => setRenamingId(s.id);
   const onRenameEnd = () => setRenamingId(null);
   const confirming = pendingAction?.kind === "close-session" && pendingAction.id === s.id;
@@ -90,11 +87,7 @@ export const SessionItem = memo(function SessionItem({
     else if (e.key === "Escape") onRenameEnd();
   };
 
-  const chooseFolder = async () => {
-    const folder = workspaces.find((w) => w.id === s.workspaceId)?.folder;
-    const path = await pickFolder(folder);
-    if (path) setWorkspaceFolder(s.workspaceId, path);
-  };
+  const chooseFolder = () => chooseWorkspaceFolder(s.workspaceId);
 
   const focusAfterRemoval = (index: number) => {
     requestAnimationFrame(() => {

@@ -27,6 +27,8 @@ import { decodeOsc9 } from "./osc9";
 import { attachRenderer, repaintAfterFontChange } from "./renderer";
 import { buildTermOptions } from "./termOptions";
 import { canFit } from "./fitGuard";
+import { trackTerminalInput } from "./trackInput";
+import { initialSessionTracker } from "../../store/initialSession";
 import { scanRows } from "./scanRows";
 import {
   registerScrollbackSource,
@@ -78,6 +80,8 @@ interface TerminalProps {
   onExit?: () => void;
   /** PTY 完全開不起來（連退回 home 都失敗）；此 pane 沒有任何行程。 */
   onSpawnError?: () => void;
+  /** Reports whether the requested cwd started, before any startup command is sent. */
+  onSpawned?: (requestedFolderStarted: boolean) => void;
   /** debounce 後把近期已渲染文字交出去做 agent 狀態偵測。 */
   onScan?: (text: string) => void;
   /** 原始輸出串流（已解碼文字），供逐行擷取成本/檔案變更。 */
@@ -125,6 +129,7 @@ function TerminalImpl({
   onIdle,
   onExit,
   onSpawnError,
+  onSpawned,
   onScan,
   onStream,
 }: TerminalProps) {
@@ -140,13 +145,13 @@ function TerminalImpl({
   const bgImageActive = useSettingsStore((s) => !!s.backgroundImage);
 
   const cbRef = useRef({
-    onTitle, onNotify, onBusy, onIdle, onExit, onSpawnError, onScan, onStream,
+    onTitle, onNotify, onBusy, onIdle, onExit, onSpawnError, onSpawned, onScan, onStream,
   });
   // Latest-ref 模式（刻意在 render 期同步更新）：PTY 事件可能在 render 與
   // effect flush 之間到達，改在 effect 內指派會讀到過期 callback。
   // eslint-disable-next-line react-hooks/refs
   cbRef.current = {
-    onTitle, onNotify, onBusy, onIdle, onExit, onSpawnError, onScan, onStream,
+    onTitle, onNotify, onBusy, onIdle, onExit, onSpawnError, onSpawned, onScan, onStream,
   };
 
   // Renderer: xterm 5.x + the canvas addon (DOM renderer as fallback). xterm
@@ -193,6 +198,7 @@ function TerminalImpl({
         e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey &&
         e.key === "/"
       ) {
+        initialSessionTracker.markUsed(id);
         term.input("\x1f");
         return false; // 已處理,不讓 xterm 預設邏輯再碰
       }
@@ -475,6 +481,7 @@ function TerminalImpl({
         /* ignore */
       }
       void ptyResize(id, term.cols, term.rows);
+      cbRef.current.onSpawned?.(launched);
       // 啟動 agent：把指令當作使用者輸入送進 PTY（保留完整 shell 環境）。
       if (launchCommand && launched) {
         await ptyWrite(id, `${launchCommand}\r`);
@@ -485,14 +492,16 @@ function TerminalImpl({
       }
     })().catch((err) => {
       if (disposed) return;
+      cbRef.current.onSpawned?.(false);
       if (!reportErrors) return;
       term.write(`\r\n\x1b[31m${t("terminal.spawnFailed")}\x1b[0m\r\n`);
       term.write(`\x1b[2m${String(err)}\x1b[0m\r\n`);
       cbRef.current.onSpawnError?.();
     });
 
+    const stopTrackingInput = trackTerminalInput(id, term, container);
     const dataDisposable = term.onData((data) => {
-      void ptyWrite(id, data);
+      void ptyWrite(id, data, false);
     });
 
     // 拖曳分隔線時 resize 事件連發：fit 用 rAF 合併（畫面即時跟手），
@@ -541,6 +550,7 @@ function TerminalImpl({
       osc52Disposable.dispose();
       bufferDisposable.dispose();
       dataDisposable.dispose();
+      stopTrackingInput();
       unregisterScrollbackSource(id);
       renderer.dispose();
       unlistenExit?.();
