@@ -10,7 +10,8 @@ import type { ChangedFile } from "./extract.ts";
 export type AgentEvent =
   | { kind: "permission"; prompt: string }
   | { kind: "stop" }
-  | { kind: "toolDone"; file?: ChangedFile }
+  // 陣列而非單一檔案：Codex 的一次 apply_patch 可以同時新增/修改/刪除多個檔案。
+  | { kind: "toolDone"; files: ChangedFile[] }
   | {
       kind: "usage";
       usage: {
@@ -98,16 +99,50 @@ function parsePlanUsage(v: unknown): PlanUsage | undefined {
 }
 
 // tool_input 中常見的檔案路徑欄位（Claude Code：file_path / notebook_path；
-// Codex 的 patch 類工具用 path）。
+// 其他 CLI 的單檔工具常用 path）。
 function filePathOf(input: Record<string, unknown>): string | undefined {
   return str(input.file_path) ?? str(input.notebook_path) ?? str(input.path);
+}
+
+// Codex apply_patch 的檔案標頭（0.163.0 實測：路徑不在獨立欄位，整份 patch 文字
+// 放在 tool_input.command）。Move to 緊跟在 Update File 後面，表示改名。
+const PATCH_HEADER = /^\*\*\* (Add|Update|Delete) File: (.+)$|^\*\*\* Move to: (.+)$/;
+const PATCH_OPS: Record<string, string> = { Add: "Create", Update: "Update", Delete: "Delete" };
+
+/**
+ * 從 apply_patch 的 patch 文字取出它動到的檔案（依出現順序、同路徑只留一筆）。
+ * 改名記成新路徑：舊路徑已不存在，git diff 也只會在新路徑上看到變更。
+ */
+export function filesFromPatch(patch: string): { op: string; path: string }[] {
+  const out: { op: string; path: string }[] = [];
+  for (const raw of patch.split("\n")) {
+    const m = PATCH_HEADER.exec(raw.trimEnd());
+    if (!m) continue;
+    if (m[3]) {
+      const last = out[out.length - 1];
+      if (last) last.path = m[3].trim();
+      continue;
+    }
+    const path = m[2].trim();
+    if (path && !out.some((f) => f.path === path)) out.push({ op: PATCH_OPS[m[1]], path });
+  }
+  return out;
 }
 
 /** 審批提示：工具名 + 最能辨識這次動作的參數（指令或檔案路徑）。 */
 function summarizePermission(toolName: string, toolInput: unknown): string {
   let detail: string | undefined;
   if (isRecord(toolInput)) {
-    detail = str(toolInput.command) ?? filePathOf(toolInput) ?? str(toolInput.description);
+    // patch 文字本身（*** Begin Patch …）在提示列上沒有意義，改列它動到的檔案。
+    const patchFiles =
+      toolName === "apply_patch" && typeof toolInput.command === "string"
+        ? filesFromPatch(toolInput.command).map((f) => f.path)
+        : [];
+    detail =
+      (patchFiles.length > 0 ? patchFiles.join(", ") : undefined) ??
+      str(toolInput.command) ??
+      filePathOf(toolInput) ??
+      str(toolInput.description);
     if (!detail) {
       const json = JSON.stringify(toolInput);
       detail = json === "{}" ? undefined : json;
@@ -158,14 +193,22 @@ export function normalizeHookPayload(source: string, payload: unknown): AgentEve
       return { kind: "stop" };
     case "PostToolUse": {
       const op = toolName ? FILE_TOOL_OPS[toolName] : undefined;
-      const path =
-        op && isRecord(payload.tool_input) ? filePathOf(payload.tool_input) : undefined;
+      const input = isRecord(payload.tool_input) ? payload.tool_input : undefined;
+      let touched: { op: string; path: string }[] = [];
+      if (op && input) {
+        const path = filePathOf(input);
+        if (path) touched = [{ op, path }];
+        else if (toolName === "apply_patch" && typeof input.command === "string") {
+          touched = filesFromPatch(input.command);
+        }
+      }
       // payload.cwd is the agent CLI's live working directory for this call —
       // a better git anchor than the session's creation-time cwd snapshot,
       // and what makes Codex's workspace-relative paths resolvable.
+      const cwd = str(payload.cwd);
       return {
         kind: "toolDone",
-        file: op && path ? { op, path, source: "hook", cwd: str(payload.cwd) } : undefined,
+        files: touched.map((f) => ({ ...f, source: "hook" as const, cwd })),
       };
     }
     default:

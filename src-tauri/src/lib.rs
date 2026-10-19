@@ -211,6 +211,8 @@ pub fn run() {
             if let Err(e) = hookserver::start(app.handle().clone(), &app.state::<HookServer>()) {
                 eprintln!("hook server disabled: {e}");
             }
+            // 已安裝的 Helm 轉發腳本換成這一版（帶 token），舊腳本的事件會被丟棄。
+            integrations::refresh_installed_scripts(app.handle());
             // Register the desktop-notification delegate + request authorization
             // before the app finishes launching (required on macOS; no-op elsewhere).
             notify::init(app.handle());
@@ -241,6 +243,7 @@ pub fn run() {
             integrations::integration_status,
             integrations::install_claude_hooks,
             integrations::install_claude_statusline,
+            integrations::codex_hooks_snippet,
             fonts::list_monospace_fonts,
             git::git_diff_file,
             paths::dir_exists,

@@ -16,7 +16,8 @@ try {
     $curl = (Get-Command curl.exe -ErrorAction SilentlyContinue).Source
     if ($curl -and $json) {
       $uri = "http://127.0.0.1:$port/hook?session=$($env:HELM_SESSION_ID)&source=claude-code-statusline"
-      $json | & $curl -s -m 2 -X POST $uri --data-binary '@-' *> $null
+      $auth = "X-Helm-Token: $($env:HELM_EVENT_TOKEN)"
+      $json | & $curl -s -m 2 -X POST $uri -H $auth --data-binary '@-' *> $null
     }
   }
 } catch { }

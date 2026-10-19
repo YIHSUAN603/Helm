@@ -109,6 +109,11 @@ export const en: Record<string, string> = {
   "settings.integrationClaudeStatusline": "Claude Code statusline (cost/context)",
   "settings.integrationCodexOsc9": "Codex notifications (OSC 9)",
   "settings.integrationCodexHint": "Paste this snippet into ~/.codex/config.toml:",
+  "settings.integrationCodexHooks": "Codex hooks (approvals/state/resume)",
+  "settings.integrationCodexHooksHint":
+    "Copied. Merge it into {path} (create the file if it does not exist):",
+  "settings.integrationCodexHooksTrust":
+    "Codex skips new hooks until you trust them: run /hooks inside Codex once and trust the Helm entries.",
   "settings.integrationInstall": "Install",
   "settings.integrationInstalled": "✓ Installed",
   "settings.integrationConfigured": "✓ Configured",

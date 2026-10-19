@@ -3,7 +3,7 @@
 # (cost / context usage), then print a compact status line.
 json=$(cat)
 if [ -n "$HELM_EVENT_PORT" ]; then
-  printf '%s' "$json" | curl -s -m 2 -X POST \
+  printf '%s' "$json" | curl -s -m 2 -X POST -H "X-Helm-Token: $HELM_EVENT_TOKEN" \
     "http://127.0.0.1:$HELM_EVENT_PORT/hook?session=$HELM_SESSION_ID&source=claude-code-statusline" \
     --data-binary @- >/dev/null 2>&1
 fi

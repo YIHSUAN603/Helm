@@ -31,6 +31,8 @@ import {
   installClaudeHooks,
   installClaudeStatusline,
   integrationStatus,
+  codexHooksSnippet,
+  type CodexHooksSnippet,
   type IntegrationStatus,
 } from "../../ipc/integrations";
 import {
@@ -134,12 +136,13 @@ notification_method = "osc9"
 notification_condition = "always"`;
 
 // Agent 整合分頁：查詢/一鍵安裝 Claude Code hooks 與 statusline 轉發，
-// Codex 顯示可複製的 config 片段。純瀏覽器環境（查無狀態）不顯示。
+// Codex 顯示可複製的 config / hooks 片段。純瀏覽器環境（查無狀態）不顯示。
 function IntegrationSection() {
   const t = useT();
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [hooksSnippet, setHooksSnippet] = useState<CodexHooksSnippet | null>(null);
 
   useEffect(() => {
     void integrationStatus().then(setStatus);
@@ -213,6 +216,43 @@ function IntegrationSection() {
         <>
           <p className="settings-hint">{t("settings.integrationCodexHint")}</p>
           <pre className="settings-snippet">{CODEX_OSC9_SNIPPET}</pre>
+        </>
+      )}
+
+      {/* Codex hooks：片段由 Rust 產生（Windows 要先寫轉發腳本、指令裡含它的路徑），
+          產生時順便複製。Codex 另有 hook 信任審核，Helm 讀不到，只能提示。 */}
+      <div className="settings-row">
+        <span title={t("settings.integrationCodexHooksTrust")}>
+          {t("settings.integrationCodexHooks")}
+        </span>
+        {status.codexHooks ? (
+          <span title={t("settings.integrationCodexHooksTrust")}>
+            {t("settings.integrationConfigured")}
+          </span>
+        ) : (
+          <button
+            className="settings-update-install"
+            onClick={() => {
+              setError(null);
+              codexHooksSnippet()
+                .then((s) => {
+                  setHooksSnippet(s);
+                  void navigator.clipboard.writeText(s.snippet);
+                })
+                .catch((e) => setError(String(e)));
+            }}
+          >
+            {hooksSnippet ? t("settings.integrationCopied") : t("settings.integrationCopy")}
+          </button>
+        )}
+      </div>
+      {!status.codexHooks && hooksSnippet && (
+        <>
+          <p className="settings-hint">
+            {t("settings.integrationCodexHooksHint", { path: hooksSnippet.path })}
+          </p>
+          <pre className="settings-snippet">{hooksSnippet.snippet}</pre>
+          <p className="settings-hint">{t("settings.integrationCodexHooksTrust")}</p>
         </>
       )}
 

@@ -38,7 +38,7 @@ const ID_PLACEHOLDER = "{id}";
  * 3. 原本的啟動指令 → 標成 relaunch，不是接續。
  * 4. null → 沒有可送出的指令，UI 不顯示按鈕。
  *
- * profile 沒有 resume 欄位就直接 null：不支援接續的 agent（Codex / generic /
+ * profile 沒有 resume 欄位就直接 null：不支援接續的 agent（generic /
  * 純 shell）連 relaunch 都不該從這條路走 —— 那是「重開」而不是「接續」，
  * 混進來只會讓按鈕的語意變成「隨便再跑一次」。
  *
