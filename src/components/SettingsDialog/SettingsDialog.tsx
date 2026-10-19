@@ -43,6 +43,7 @@ import { installPendingUpdate, useUpdateStore } from "../../store/update";
 import { focusActiveTerminal, handleDismissKey, trapTabKey } from "../../focus/focusUtils";
 import { useT } from "../../i18n";
 import "./SettingsDialog.css";
+import { TerminalDiagnostics } from "./TerminalDiagnostics";
 
 type SettingsTab = "general" | "appearance" | "integrations" | "about";
 
@@ -858,6 +859,7 @@ function SettingsDialogInner() {
                   </span>
                 )}
               </div>
+              <TerminalDiagnostics />
             </>
           )}
         </div>

@@ -1,4 +1,10 @@
 export const en: Record<string, string> = {
+  "diagnostics.title": "Terminal diagnostics",
+  "diagnostics.hint": "Last 50 unexpected write, resize or close errors from this app run. Repeated errors within 30 seconds share a row. Input and environment variables are not recorded.",
+  "diagnostics.count": "{count} error records",
+  "diagnostics.clear": "Clear",
+  "diagnostics.empty": "No unexpected terminal errors recorded.",
+  "diagnostics.session": "Session: {id}",
   // Toolbar
   "toolbar.fleetSessions": "{count} sessions",
   "toolbar.fleetBusy": "{count} running",

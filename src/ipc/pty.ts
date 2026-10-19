@@ -1,7 +1,9 @@
 // 前端呼叫 Rust PTY commands / 訂閱 PTY events 的封裝層。
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { initialSessionTracker } from "../store/initialSession";
+import { useTerminalDiagnosticsStore } from "../store/terminalDiagnostics";
+import { runPtyOperation, type PtyOperation } from "./ptyErrors";
 
 export interface SpawnOptions {
   id: string;
@@ -28,23 +30,21 @@ export function ptySpawn(
   return invoke("pty_spawn", { options, onOutput: channel });
 }
 
-// Write/resize/kill reject with "no pty session" once the shell has exited (the
-// Rust reader thread removes the session on EOF); callers fire-and-forget
-// (`void ptyWrite(...)`), so swallow here — input to a dead session is a no-op,
-// not an error worth an unhandled rejection.
-//
-// try/catch 而不只是 .catch()：沒有 Tauri runtime 時（瀏覽器 npm run dev /
-// Playwright）invoke 是**同步 throw**（讀不到 __TAURI_INTERNALS__），根本走不到
-// .catch。少了它，Terminal 的 cleanup 在 `void ptyKill(id)` 就中斷，後面的
-// term.dispose() 不會執行，接著就是 xterm 在已拆掉的 viewport 上噴錯。
-// ptySpawn 刻意不套：它的 rejection 是有意義的訊號（Terminal 靠它落回 $HOME 並
-// 決定要不要跳過 launchCommand）。
-function ptyFireAndForget(cmd: string, args: Record<string, unknown>): Promise<void> {
-  try {
-    return invoke<void>(cmd, args).catch(() => {});
-  } catch {
-    return Promise.resolve();
-  }
+// Dead sessions and browser-only development are quiet. Other failures remain
+// non-throwing for cleanup/input handlers, but are visible in Settings → About.
+// Spawn retains its rejection contract for cwd fallback and launch handling.
+function ptyFireAndForget(
+  cmd: PtyOperation,
+  args: Record<string, unknown> & { id: string },
+): Promise<void> {
+  return runPtyOperation(
+    cmd,
+    args.id,
+    () => invoke<void>(cmd, args),
+    (failure) => {
+      if (isTauri()) useTerminalDiagnosticsStore.getState().record(failure);
+    },
+  );
 }
 
 /** xterm protocol replies use false; its actual input is tracked at the UI source. */

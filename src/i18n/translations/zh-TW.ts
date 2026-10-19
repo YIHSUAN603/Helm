@@ -1,4 +1,10 @@
 export const zhTW: Record<string, string> = {
+  "diagnostics.title": "終端診斷",
+  "diagnostics.hint": "保留本次執行最近 50 筆非預期的寫入、調整大小或關閉錯誤。30 秒內重複錯誤合併計次，不記錄輸入內容與環境變數。",
+  "diagnostics.count": "{count} 筆錯誤紀錄",
+  "diagnostics.clear": "清除",
+  "diagnostics.empty": "目前沒有非預期的終端錯誤紀錄。",
+  "diagnostics.session": "Session：{id}",
   // Toolbar
   "toolbar.fleetSessions": "{count} 個 session",
   "toolbar.fleetBusy": "{count} 執行中",
