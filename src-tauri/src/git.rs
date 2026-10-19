@@ -89,7 +89,7 @@ fn truncate_at_line(text: &str, cap: usize) -> (String, bool) {
 
 /// Build a unified diff for a file git does not track yet, so the frontend
 /// has exactly one parser path. `git add -N` would work but writes to the index.
-fn synth_untracked_patch(rel: &str, bytes: &[u8]) -> String {
+fn synth_untracked_patch(rel: &str, bytes: &[u8], complete: bool) -> String {
     let sniff = &bytes[..bytes.len().min(BINARY_SNIFF)];
     if sniff.contains(&0) {
         return format!("Binary files /dev/null and b/{rel} differ\n");
@@ -110,10 +110,42 @@ fn synth_untracked_patch(rel: &str, bytes: &[u8]) -> String {
         out.push_str(line);
         out.push('\n');
     }
-    if !text.ends_with('\n') {
+    if complete && !text.ends_with('\n') {
         out.push_str("\\ No newline at end of file\n");
     }
     out
+}
+
+/// Bound the source before decoding or expanding it into a patch. Read one
+/// extra byte to distinguish an exact fit from a truncated file, even if the
+/// file grows while it is being read.
+fn read_untracked_patch(rel: &str, reader: impl Read) -> std::io::Result<(String, bool)> {
+    let mut bytes = Vec::new();
+    reader
+        .take((PATCH_CAP + 1) as u64)
+        .read_to_end(&mut bytes)?;
+    let source_cut = bytes.len() > PATCH_CAP;
+    // Sniff before dropping a partial final line: that line may contain the
+    // NUL which identifies a binary file.
+    if bytes[..bytes.len().min(BINARY_SNIFF)].contains(&0) {
+        let (patch, patch_cut) =
+            truncate_at_line(&synth_untracked_patch(rel, &bytes, !source_cut), PATCH_CAP);
+        return Ok((patch, source_cut || patch_cut));
+    }
+    if source_cut {
+        bytes.truncate(PATCH_CAP);
+        // Prefer complete lines; keep a bounded prefix for a single long line.
+        if let Some(end) = bytes.iter().rposition(|b| *b == b'\n') {
+            bytes.truncate(end + 1);
+        } else if let Err(error) = std::str::from_utf8(&bytes) {
+            if error.error_len().is_none() {
+                bytes.truncate(error.valid_up_to());
+            }
+        }
+    }
+    let (patch, patch_cut) =
+        truncate_at_line(&synth_untracked_patch(rel, &bytes, !source_cut), PATCH_CAP);
+    Ok((patch, source_cut || patch_cut))
 }
 
 /// Classify `git status --porcelain` output for a single path.
@@ -292,8 +324,9 @@ pub async fn git_diff_file(base_dir: Option<String>, path: String) -> Result<Git
     let porcelain = String::from_utf8_lossy(&status_out.stdout);
 
     if classify_porcelain(&porcelain) == "untracked" {
-        let bytes = std::fs::read(&abs).unwrap_or_default();
-        let (capped, cut) = truncate_at_line(&synth_untracked_patch(&rel, &bytes), PATCH_CAP);
+        let file = std::fs::File::open(&abs).map_err(|e| format!("read file failed: {e}"))?;
+        let (capped, cut) =
+            read_untracked_patch(&rel, file).map_err(|e| format!("read file failed: {e}"))?;
         return Ok(GitDiff {
             status: "untracked".into(),
             path: rel,
@@ -376,14 +409,14 @@ mod tests {
 
     #[test]
     fn synth_untracked_counts_lines() {
-        let patch = synth_untracked_patch("a.txt", b"one\ntwo\n");
+        let patch = synth_untracked_patch("a.txt", b"one\ntwo\n", true);
         assert!(patch.starts_with("--- /dev/null\n+++ b/a.txt\n@@ -0,0 +1,2 @@\n"));
         assert!(patch.ends_with("+one\n+two\n"));
     }
 
     #[test]
     fn synth_untracked_marks_a_missing_final_newline() {
-        let patch = synth_untracked_patch("a.txt", b"one");
+        let patch = synth_untracked_patch("a.txt", b"one", true);
         assert!(patch.contains("@@ -0,0 +1,1 @@"));
         assert!(patch.ends_with("\\ No newline at end of file\n"));
     }
@@ -391,11 +424,68 @@ mod tests {
     #[test]
     fn synth_untracked_handles_empty_and_binary() {
         assert_eq!(
-            synth_untracked_patch("a.txt", b""),
+            synth_untracked_patch("a.txt", b"", true),
             "--- /dev/null\n+++ b/a.txt\n"
         );
-        let patch = synth_untracked_patch("a.png", b"\x89PNG\x00\x01");
+        let patch = synth_untracked_patch("a.png", b"\x89PNG\x00\x01", true);
         assert_eq!(patch, "Binary files /dev/null and b/a.png differ\n");
+    }
+
+    #[test]
+    fn untracked_reads_only_a_bounded_prefix() {
+        let mut reader = std::io::Cursor::new(vec![b'x'; PATCH_CAP * 4]);
+        let (patch, cut) = read_untracked_patch("large.log", &mut reader).unwrap();
+        assert_eq!(reader.position(), (PATCH_CAP + 1) as u64);
+        assert!(cut);
+        assert!(patch.len() <= PATCH_CAP);
+        // The source continues: do not claim it lacks a final newline.
+        assert!(!patch.contains("No newline at end of file"));
+    }
+
+    #[test]
+    fn untracked_exact_source_limit_is_not_itself_truncation() {
+        let bytes = vec![0; PATCH_CAP]; // A short binary patch isolates the source-read limit.
+        let (patch, cut) = read_untracked_patch("asset.bin", bytes.as_slice()).unwrap();
+        assert!(!cut);
+        assert!(patch.starts_with("Binary files"));
+    }
+
+    #[test]
+    fn untracked_binary_sniff_precedes_partial_line_truncation() {
+        let mut bytes = vec![b'x'; PATCH_CAP + 2];
+        bytes[0] = b'\n';
+        bytes[10] = 0;
+        let (patch, cut) = read_untracked_patch("asset.bin", bytes.as_slice()).unwrap();
+        assert!(cut);
+        assert!(patch.starts_with("Binary files"));
+    }
+
+    #[test]
+    fn untracked_truncation_keeps_complete_lines() {
+        let bytes = [b"first\n".as_slice(), &vec![b'x'; PATCH_CAP]].concat();
+        let (patch, cut) = read_untracked_patch("large.log", bytes.as_slice()).unwrap();
+        assert!(cut);
+        assert!(patch.contains("@@ -0,0 +1,1 @@\n+first\n"));
+        assert!(!patch.contains("No newline at end of file"));
+    }
+
+    #[test]
+    fn untracked_patch_expansion_is_also_capped() {
+        let bytes = b"\n".repeat(PATCH_CAP);
+        let (patch, cut) = read_untracked_patch("lines.txt", bytes.as_slice()).unwrap();
+        assert!(cut);
+        assert!(patch.len() <= PATCH_CAP);
+    }
+
+    #[test]
+    fn untracked_read_errors_are_not_empty_diffs() {
+        struct BrokenReader;
+        impl Read for BrokenReader {
+            fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("read failed"))
+            }
+        }
+        assert!(read_untracked_patch("bad.txt", BrokenReader).is_err());
     }
 
     // Regression: the pure test above hand-writes both paths, so it never sees
