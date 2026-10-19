@@ -57,7 +57,12 @@ pub struct SpawnOptions {
 
 /// PTY 環境變數中屬於 Helm 自己、recipe 不得覆寫的 key。
 /// 與前端 RESERVED_ENV_KEYS 對應，兩邊都擋。
-const RESERVED_ENV_KEYS: [&str; 3] = ["HELM_SESSION_ID", "HELM_EVENT_PORT", "TERM"];
+const RESERVED_ENV_KEYS: [&str; 4] = [
+    "HELM_SESSION_ID",
+    "HELM_EVENT_PORT",
+    "HELM_EVENT_TOKEN",
+    "TERM",
+];
 
 /// key 是否為 Helm 保留。Windows 的環境變數區塊不分大小寫，故該平台以
 /// 不分大小寫比對 —— 否則 `helm_session_id` 會繞過檢查再覆蓋掉真正的那個。
@@ -143,7 +148,7 @@ pub fn pty_spawn(
     cmd.args(&args);
     // Workspace recipe 的環境變數先套用，Helm 自己的隨後覆蓋上去。
     // 保留 key 已在上面濾掉，此處的順序是第二道保險：即使濾網有漏，
-    // 後寫的 HELM_SESSION_ID / TERM 仍然贏。
+    // 後寫的 HELM_SESSION_ID / HELM_EVENT_TOKEN / TERM 仍然贏。
     if let Some(env) = &options.env {
         for (key, value) in env {
             if is_valid_env_key(key) && !is_reserved_env_key(key) {
@@ -154,10 +159,15 @@ pub fn pty_spawn(
     cmd.env("TERM", "xterm-256color");
     // Agent hook 整合：CLI spawn 的 hook 程序繼承這兩個變數，把事件精準對回
     // 本 session（見 hookserver.rs）。port = 0 代表 hook server 沒起來，不注入。
+    // token 與 port 成對注入：沒有 token 的轉發會被 server 丟棄。
     cmd.env("HELM_SESSION_ID", &options.id);
-    let hook_port = app.state::<crate::hookserver::HookServer>().port();
+    let hook_server = app.state::<crate::hookserver::HookServer>();
+    let hook_port = hook_server.port();
     if hook_port > 0 {
         cmd.env("HELM_EVENT_PORT", hook_port.to_string());
+        if let Some(token) = hook_server.token() {
+            cmd.env("HELM_EVENT_TOKEN", token);
+        }
     }
     if let Some(cwd) = options.cwd {
         cmd.cwd(cwd);
@@ -343,6 +353,7 @@ mod tests {
     fn helm_owned_env_keys_are_reserved() {
         assert!(is_reserved_env_key("HELM_SESSION_ID"));
         assert!(is_reserved_env_key("HELM_EVENT_PORT"));
+        assert!(is_reserved_env_key("HELM_EVENT_TOKEN"));
         assert!(is_reserved_env_key("TERM"));
         assert!(!is_reserved_env_key("ANTHROPIC_API_KEY"));
         // Windows 環境變數不分大小寫，該平台的小寫拼法同樣要擋下。

@@ -146,10 +146,23 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
       contextLeftPercent: "([0-9]+(?:\\.[0-9]+)?)%\\s*context\\s*left",
       fileChange: "\\b(Apply patch|patch|edit|create|update)\\b.*?([^\\s]+\\.[A-Za-z0-9]+)",
     },
-    // 刻意沒有 resume：Codex 目前沒有「以 id 接續」的旗標可對應我們記下來的
-    // session id。留空 = pane 上不出現接續按鈕，勝過提供一個會靜默接到別段
-    // 對話的指令。
-    approve: "y\r",
+    // 接續對話（0.163.0 實測）。`{id}` 是 hook payload 的 session_id（Codex 的
+    // thread UUID，SessionStart 一開場就送）；`--last` 是沒裝 hook 時的降級，
+    // 只看目前目錄的 session（另有 --all 跨目錄），與 claude --continue 同語義。
+    // 失敗訊息：TUI 印 "No saved session found with ID …"，exec 路徑則是
+    // "no rollout found for thread id …"。`--last` 在該目錄沒有任何 session 時
+    // 不報錯、直接開新對話，所以它沒有 failure 可比對 —— 這正是 resume.ts 把它
+    // 標成 "continue" 而非 "resume" 的原因。
+    resume: {
+      byId: "codex resume {id}",
+      latest: "codex resume --last",
+      failure: "No saved session found|no rollout found",
+    },
+    // 選單的 "Yes, proceed (y)" 是單鍵快捷：按下 y 就核准並關閉選單，不需要
+    // Enter。多送的 \r 會落在接下來的畫面上 —— 若緊接著是下一個審批選單，
+    // Enter 會直接按下它預設 highlight 的 "Yes"，等於替使用者核准了一個他還沒
+    // 看到的指令。
+    approve: "y",
     // The menu binds "No" to Esc; "n\r" would press Enter on the highlighted
     // "Yes, proceed" and approve instead.
     reject: "\x1b",

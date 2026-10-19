@@ -3,6 +3,7 @@
 import assert from "node:assert";
 import {
   extractAgentIdentity,
+  filesFromPatch,
   normalizeHookPayload,
   profileIdForSource,
 } from "../src/agents/hookEvents.ts";
@@ -106,7 +107,10 @@ check(
   });
   check(
     "PostToolUse 檔案工具 → toolDone + file",
-    ev?.kind === "toolDone" && ev.file?.op === "Write" && ev.file.path === "docs/readme.md",
+    ev?.kind === "toolDone" &&
+      ev.files.length === 1 &&
+      ev.files[0].op === "Write" &&
+      ev.files[0].path === "docs/readme.md",
   );
 }
 {
@@ -115,7 +119,7 @@ check(
     tool_name: "Bash",
     tool_input: { command: "ls" },
   });
-  check("PostToolUse 非檔案工具 → toolDone 無 file", ev?.kind === "toolDone" && !ev.file);
+  check("PostToolUse 非檔案工具 → toolDone 無 file", ev?.kind === "toolDone" && ev.files.length === 0);
 }
 {
   // provenance：hook 來的路徑可信（絕對），且 payload.cwd 是這次工具呼叫當下
@@ -128,7 +132,7 @@ check(
   });
   check(
     "PostToolUse 標記 source: hook 並帶上 cwd",
-    ev?.kind === "toolDone" && ev.file?.source === "hook" && ev.file.cwd === "/repo",
+    ev?.kind === "toolDone" && ev.files[0]?.source === "hook" && ev.files[0].cwd === "/repo",
   );
 }
 {
@@ -139,8 +143,82 @@ check(
   });
   check(
     "payload 沒有 cwd 時 file.cwd 為 undefined",
-    ev?.kind === "toolDone" && ev.file?.source === "hook" && ev.file.cwd === undefined,
+    ev?.kind === "toolDone" && ev.files[0]?.source === "hook" && ev.files[0].cwd === undefined,
   );
+}
+
+// ---- Codex apply_patch（0.163.0 實測 payload：路徑只在 tool_input.command 的 patch 文字裡）----
+{
+  const ev = normalizeHookPayload("codex", {
+    session_id: "01a1534a-eac9-76a3-81d2-b62d0c0c17c7",
+    cwd: "C:\\work",
+    hook_event_name: "PostToolUse",
+    tool_name: "apply_patch",
+    tool_input: { command: "*** Begin Patch\n*** Add File: hello.txt\n+hi\n*** End Patch" },
+    tool_response: "Success. Updated the following files:\nA hello.txt\n",
+  });
+  check(
+    "Codex apply_patch PostToolUse → patch 標頭裡的檔案",
+    ev?.kind === "toolDone" &&
+      ev.files.length === 1 &&
+      ev.files[0].op === "Create" &&
+      ev.files[0].path === "hello.txt" &&
+      ev.files[0].source === "hook" &&
+      ev.files[0].cwd === "C:\\work",
+  );
+}
+{
+  const patch = [
+    "*** Begin Patch",
+    "*** Update File: src/a.ts",
+    "@@",
+    "-x",
+    "+y",
+    "*** Delete File: old.txt",
+    "*** Update File: src/name.ts",
+    "*** Move to: src/renamed.ts",
+    "@@",
+    "*** Update File: src/a.ts",
+    "*** End Patch",
+  ].join("\r\n");
+  const files = filesFromPatch(patch);
+  check(
+    "filesFromPatch：多檔、刪除、改名記新路徑、同路徑去重、容忍 CRLF",
+    JSON.stringify(files) ===
+      JSON.stringify([
+        { op: "Update", path: "src/a.ts" },
+        { op: "Delete", path: "old.txt" },
+        { op: "Update", path: "src/renamed.ts" },
+      ]),
+  );
+  // patch 內容行（以 +/-/空白 開頭）即使長得像標頭也不算。
+  check(
+    "filesFromPatch：內容行不誤判",
+    filesFromPatch("*** Begin Patch\n*** Add File: a.md\n+*** Add File: b.md\n*** End Patch")
+      .length === 1,
+  );
+}
+{
+  const ev = normalizeHookPayload("codex", {
+    hook_event_name: "PermissionRequest",
+    tool_name: "apply_patch",
+    tool_input: {
+      command: "*** Begin Patch\n*** Update File: src/a.ts\n@@\n*** Add File: b.md\n+x\n*** End Patch",
+    },
+  });
+  check(
+    "Codex apply_patch 審批提示列出檔案而非 patch 文字",
+    ev?.kind === "permission" && ev.prompt === "apply_patch: src/a.ts, b.md",
+  );
+}
+{
+  // 實測的 Codex shell 工具名是 Bash：照一般指令處理，不算檔案變更。
+  const ev = normalizeHookPayload("codex", {
+    hook_event_name: "PostToolUse",
+    tool_name: "Bash",
+    tool_input: { command: "echo hi" },
+  });
+  check("Codex Bash PostToolUse → 無檔案", ev?.kind === "toolDone" && ev.files.length === 0);
 }
 
 // ---- statusline usage ----

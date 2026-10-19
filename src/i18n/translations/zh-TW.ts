@@ -107,6 +107,10 @@ export const zhTW: Record<string, string> = {
   "settings.integrationClaudeStatusline": "Claude Code statusline（成本/context）",
   "settings.integrationCodexOsc9": "Codex 通知（OSC 9）",
   "settings.integrationCodexHint": "請把以下片段貼進 ~/.codex/config.toml：",
+  "settings.integrationCodexHooks": "Codex hooks（審批/狀態/接續對話）",
+  "settings.integrationCodexHooksHint": "已複製。請合併進 {path}（檔案不存在就直接建立）：",
+  "settings.integrationCodexHooksTrust":
+    "Codex 不會執行尚未信任的新 hook：請在 Codex 裡執行一次 /hooks，信任 Helm 的這幾項。",
   "settings.integrationInstall": "安裝",
   "settings.integrationInstalled": "✓ 已安裝",
   "settings.integrationConfigured": "✓ 已設定",

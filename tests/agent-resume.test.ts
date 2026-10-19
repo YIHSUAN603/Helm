@@ -30,7 +30,33 @@ check("claude-code 有 byId / latest / failure", Boolean(
   claude.resume?.byId && claude.resume.latest && claude.resume.failure,
 ));
 check("claude-code 的 byId 含 {id} 佔位符", claude.resume!.byId!.includes("{id}"));
-check("codex 沒有 resume（不支援接續 → 無按鈕）", codex.resume === undefined);
+// Codex 0.163.0 實測：`codex resume <id>` / `codex resume --last`。
+check("codex 有 byId / latest / failure", Boolean(
+  codex.resume?.byId && codex.resume.latest && codex.resume.failure,
+));
+check(
+  "codex 有 id 時接回那段對話",
+  resolveResumePlan(codex, ["01a1534a-eac9-76a3-81d2-b62d0c0c17c7"], "codex")?.command ===
+    "codex resume 01a1534a-eac9-76a3-81d2-b62d0c0c17c7",
+);
+check(
+  "codex 沒有 id（沒裝 hook）降級成 --last，標為 continue",
+  (() => {
+    const plan = resolveResumePlan(codex, [], "codex");
+    return plan?.kind === "continue" && plan.command === "codex resume --last";
+  })(),
+);
+check(
+  "codex failure 認得 TUI 與 exec 兩種實測訊息",
+  isResumeFailure(
+    codex,
+    "ERROR: No saved session found with ID 0000. Run `codex resume` without an ID to choose from existing sessions.",
+  ) &&
+    isResumeFailure(
+      codex,
+      "Error: thread/resume: thread/resume failed: no rollout found for thread id 0000 (code -32600)",
+    ),
+);
 check("generic 沒有 resume", GENERIC_PROFILE.resume === undefined);
 
 // ---- resolveResumePlan：解析順序 ----
@@ -40,7 +66,7 @@ check(
 );
 check(
   "profile 無 resume 回 null（即使有啟動指令，也不降級成 relaunch）",
-  resolveResumePlan(codex, ["a"], "codex") === null,
+  resolveResumePlan(GENERIC_PROFILE, ["a"], "aider") === null,
 );
 
 const byId = resolveResumePlan(claude, ["old", "new"], "claude");

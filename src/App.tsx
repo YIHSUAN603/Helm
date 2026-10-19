@@ -306,7 +306,7 @@ function handleHookEvent(id: string, source: string, payload: unknown) {
     case "toolDone":
       // 工具已執行 = 這次審批已被回答（核准）；狀態燈交回 scan 驅動。
       clearHookWaiting(id);
-      if (ev.file) store.addChangedFile(id, ev.file);
+      for (const f of ev.files) store.addChangedFile(id, f);
       break;
     case "usage":
       store.setUsage(id, ev.usage);

@@ -30,9 +30,10 @@ export interface Workspace {
 }
 
 /**
- * Environment variables a recipe may not set. The first two are how a hook
- * process finds its way back to *this* session (see hookserver.rs); letting a
- * recipe overwrite them would misroute or silently kill agent awareness, which
+ * Environment variables a recipe may not set. The first three are how a hook
+ * process finds its way back to *this* session and proves it came from a Helm
+ * PTY (see hookserver.rs); letting a recipe overwrite them would misroute or
+ * silently kill agent awareness, which
  * surfaces as "Helm stopped detecting my agent" and is near-undebuggable from
  * the UI. TERM is here because xterm.js is what actually decides the emulator's
  * capabilities — a mismatched TERM produces corrupted output, not a nicer one.
@@ -40,6 +41,7 @@ export interface Workspace {
 export const RESERVED_ENV_KEYS: readonly string[] = [
   "HELM_SESSION_ID",
   "HELM_EVENT_PORT",
+  "HELM_EVENT_TOKEN",
   "TERM",
 ];
 
