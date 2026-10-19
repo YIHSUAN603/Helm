@@ -4,6 +4,27 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.20.6](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.6) - 2026-10-19
+
+### Added
+
+- Terminal diagnostics in Settings → About shows up to 50 unexpected PTY errors from the current app run, with repeat counts and a Clear button.
+
+### Changed
+
+- Selecting a workspace folder replaces its unused initial session only after the new terminal starts successfully. Sessions already used are kept.
+
+### Fixed
+
+- Codex approval prompts clear after a response, preventing stale prompts and repeated actions.
+- Untracked-file diff previews limit reads before generating patches, preserve truncation indicators, and report read failures.
+
+### Validation
+
+- Added regression tests for bounded file reads and terminal diagnostics.
+- TypeScript, ESLint, frontend build, Rust diff tests and Clippy passed.
+- Workspace-folder interaction checks and diagnostic UI checks passed.
+
 ## [0.20.5](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.5) - 2026-09-10
 
 ### Fixed
