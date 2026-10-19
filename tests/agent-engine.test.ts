@@ -208,6 +208,31 @@ check(
     derived.prompt?.includes("context 剩餘率") === true,
   );
 }
+{
+  // Codex 0.163.0 實測畫面（headless xterm 重播擷取）。開場說明裡的 "reasoning"
+  // 與使用者自己打的提示，都曾被舊 pattern 當成「思考中」。
+  const banner = [
+    "  >_ OpenAI Codex (v0.163.0)",
+    "  To get started, describe a task or try one of these commands:",
+    "  /model - choose what model and reasoning effort to use",
+    "› List the first 15 primes above 10000 with one line of reasoning each, no commands.",
+  ].join("\n");
+  const footer = [
+    "› Ask Codex to do anything",
+    "  GPT-6.1-Sol medium · ~\\scratchpad\\emptydir",
+    "  ← for agents · ? for shortcuts",
+  ].join("\n");
+  check(
+    "codex 工作中的狀態列 → thinking（不依賴標題）",
+    deriveState(codex, `${banner}\n• Working (5s • esc to interrupt)\n${footer}`).state ===
+      "thinking",
+  );
+  check(
+    "codex 回合結束後，畫面上的 reasoning / Working 字樣不再讓燈號回到思考中",
+    deriveState(codex, `${banner}\n• 10007 is prime.\n  Worked for 11s • 5:15 PM\n${footer}`)
+      .state === "done",
+  );
+}
 check(
   "codex 無箭頭的編號清單不誤判為 waiting",
   deriveState(codex, "Next steps:\n  1. Yes, review the diff\n  2. Run the tests").state !==

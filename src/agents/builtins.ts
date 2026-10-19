@@ -125,7 +125,12 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
       // prompts stay visible on screen); waiting is matched case-sensitively.
       waiting:
         "[›❯]\\s*\\d+\\.\\s*(Yes|Approve|Allow|Run|Proceed)|Allow command|Run this command|[Aa]pprove\\?|Apply patch\\?|\\([yY]\\/[nN]\\)\\s*:?\\s*$",
-      thinking: "Thinking|Working|Reasoning",
+      // 工作中的狀態列（0.163.0 實測）：「• Working (5s • esc to interrupt)」，
+      // 完成後換成「Worked for 3s • 5:14 PM」。只錨定 esc to interrupt：舊的
+      // Thinking|Working|Reasoning 不分大小寫，會命中開場說明的「/model -
+      // choose what model and reasoning effort to use」與使用者自己打的提示，
+      // 回合結束後燈號因此跳回思考中。
+      thinking: "esc to interrupt",
       // 回答後 composer 會恢復；其上方殘留的選單不再是待核准。
       // 排除帶編號的選項列，避免把仍有效的選單當成 composer。
       inputBox: "^\\s*›(?!\\s*\\d+\\.\\s)(?:\\s|$)",
