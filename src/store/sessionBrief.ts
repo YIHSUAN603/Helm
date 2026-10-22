@@ -75,6 +75,12 @@ export function applyTaskUpdate(
   }
 }
 
+/** 目前在做的那一項：第一個 in_progress，沒有就第一個還沒做的。 */
+export function currentTask(list: readonly BriefTask[] | undefined): BriefTask | undefined {
+  const all = list ?? [];
+  return all.find((t) => t.status === "in_progress") ?? all.find((t) => t.status === "pending");
+}
+
 /** 進度：完成數 / 總數。 */
 export function taskProgress(list: readonly BriefTask[] | undefined): {
   done: number;

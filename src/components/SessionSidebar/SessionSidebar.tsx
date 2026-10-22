@@ -22,6 +22,7 @@ import { runCommand } from "../../commands/registry";
 import { WorkspaceGroup } from "./WorkspaceGroup";
 import { SidebarDragProvider, useSidebarDragContext } from "./dragContext";
 import { SidebarResizer } from "./SidebarResizer";
+import { SessionPeek } from "./SessionPeek";
 import { useSettingsStore } from "../../store/settings";
 import { useT } from "../../i18n";
 import "./SessionSidebar.css";
@@ -137,6 +138,7 @@ function SessionSidebarBody() {
         </div>
       </aside>
       <SidebarResizer sidebarRef={asideRef} />
+      <SessionPeek listRef={listRef} />
     </>
   );
 }

@@ -645,3 +645,67 @@
 .session-item[data-dragging="true"] {
   opacity: 0.4;
 }
+
+/* ---- hover 摘要卡（SessionPeek）：fixed 定位在側欄右側，不受列表捲動裁切。
+   pointer-events: none —— 它只是說明，滑鼠穿過它也不該擋到終端。 ---- */
+.session-peek {
+  position: fixed;
+  z-index: 50;
+  width: 280px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--sidebar-bg);
+  color: var(--fg);
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.session-peek-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.session-peek-title {
+  overflow-wrap: anywhere;
+}
+
+.session-peek-meta {
+  margin: 1px 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.session-peek-line {
+  padding-top: 3px;
+  overflow-wrap: anywhere;
+}
+
+.session-peek-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.session-peek-waiting {
+  color: #fab387;
+}
+
+.session-peek-doing {
+  color: var(--accent);
+}
+
+.session-peek-hint {
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10.5px;
+}

@@ -32,17 +32,6 @@ function dotClass(s: SidebarSession): string {
   return s.status;
 }
 
-const stateLabelKeys: Record<string, string> = {
-  "agent-thinking": "sidebar.state.thinking",
-  "agent-tool": "sidebar.state.tool",
-  "agent-waiting": "sidebar.state.waiting",
-  "agent-done": "sidebar.state.done",
-  "agent-error": "sidebar.state.error",
-  busy: "sidebar.state.busy",
-  idle: "sidebar.state.idle",
-  exited: "sidebar.state.exited",
-};
-
 interface SessionItemProps {
   session: SidebarSession;
   clusterPos: SplitClusterInfo["position"];
@@ -192,7 +181,9 @@ export const SessionItem = memo(function SessionItem({
       }}
       onKeyDown={onKeyDown}
     >
-      <span className={`status-dot ${cls}`} title={cls in stateLabelKeys ? t(stateLabelKeys[cls]) : ""} />
+      {/* 狀態文字、完整標題與改名提示都在 hover 摘要卡裡（SessionPeek）；
+          這裡再掛原生 title 會跟卡片疊在一起。 */}
+      <span className={`status-dot ${cls}`} />
       {confirming ? (
         <>
           <span className="sidebar-inline-confirm">{t("sidebar.confirmClose")}</span>
@@ -231,15 +222,10 @@ export const SessionItem = memo(function SessionItem({
           onBlur={(e) => commitRename(e.currentTarget.value)}
         />
       ) : (
-        /* Full title first, rename hint after (same value+hint tooltip shape
-           as the workspace folder line): agent CLIs write 40-char titles that
-           the row clips, and the clipped part is the informative half. */
-        <span
-          className="session-name"
-          title={`${s.title}\n${t("sidebar.renameSession")}`}
-        >
-          {s.title}
-        </span>
+        /* The full title (agent CLIs write 40-char titles that the row clips,
+           and the clipped part is the informative half) and the rename hint
+           live in the hover card, SessionPeek. */
+        <span className="session-name">{s.title}</span>
       )}
       {!confirming && (
         <button
