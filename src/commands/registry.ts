@@ -7,6 +7,7 @@
 import { useSessionStore } from "../store/sessions";
 import { groupTreeOf, useLayoutStore } from "../store/layout";
 import { useUiStore } from "../store/ui";
+import { useBriefStore } from "../store/briefs";
 import { useThemeStore } from "../store/theme";
 import { collectSessionIds } from "../store/layoutTree";
 import {
@@ -220,6 +221,18 @@ function staticCommands(): Command[] {
       category: t("category.view"),
       keywords: "notifications alerts bell center",
       run: () => useUiStore.getState().toggleNotifications(),
+    },
+    {
+      id: "view:toggle-brief",
+      title: t("command.toggleBrief"),
+      category: t("category.view"),
+      keywords: "brief reminder card goal summary what doing memo",
+      run: () => {
+        const brief = useBriefStore.getState();
+        const activeId = useSessionStore.getState().activeId;
+        if (brief.open || !activeId) brief.close();
+        else brief.show({ sessionId: activeId });
+      },
     },
     {
       id: "view:toggle-approval",

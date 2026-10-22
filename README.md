@@ -291,6 +291,7 @@ Press Ctrl+A, then the second key. Esc or 3 seconds cancels; an unrecognised sec
 | `f` | Changed Files Panel |
 | `e` | Toggle Sidebar |
 | `b` | Notifications |
+| `m` | Session brief |
 | `h` | Collapse Approval Panel |
 | `t` | Toggle Theme |
 | `s` | Open Settings |

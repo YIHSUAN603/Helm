@@ -10,8 +10,11 @@ import type { ChangedFile } from "./extract.ts";
 export type AgentEvent =
   | { kind: "permission"; prompt: string }
   | { kind: "stop" }
+  // 使用者剛送出的指令（UserPromptSubmit）→ 提醒卡的「目標」。
+  | { kind: "prompt"; text: string }
   // 陣列而非單一檔案：Codex 的一次 apply_patch 可以同時新增/修改/刪除多個檔案。
-  | { kind: "toolDone"; files: ChangedFile[] }
+  // tool 是工具名，供提醒卡統計「離開期間做了什麼」。
+  | { kind: "toolDone"; tool?: string; files: ChangedFile[] }
   | {
       kind: "usage";
       usage: {
@@ -69,6 +72,9 @@ export function profileIdForSource(source: string): string | null {
 
 // 與 engine.extractPromptLine 相同的提示長度上限。
 const PROMPT_MAX = 200;
+// 使用者指令（提醒卡的目標）上限：卡片以 CSS 截斷顯示，這裡只防超長貼上
+// 把整份檔案塞進 store 與 sessions.json。
+export const GOAL_MAX = 500;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
@@ -191,6 +197,11 @@ export function normalizeHookPayload(source: string, payload: unknown): AgentEve
       return { kind: "permission", prompt: summarizePermission(toolName ?? "?", payload.tool_input) };
     case "Stop":
       return { kind: "stop" };
+    case "UserPromptSubmit": {
+      // Claude Code 與 Codex（0.163.0 實測支援此事件）都把指令放在 prompt 欄位。
+      const text = str(payload.prompt)?.trim();
+      return text ? { kind: "prompt", text: text.slice(0, GOAL_MAX) } : undefined;
+    }
     case "PostToolUse": {
       const op = toolName ? FILE_TOOL_OPS[toolName] : undefined;
       const input = isRecord(payload.tool_input) ? payload.tool_input : undefined;
@@ -208,6 +219,7 @@ export function normalizeHookPayload(source: string, payload: unknown): AgentEve
       const cwd = str(payload.cwd);
       return {
         kind: "toolDone",
+        tool: toolName,
         files: touched.map((f) => ({ ...f, source: "hook" as const, cwd })),
       };
     }

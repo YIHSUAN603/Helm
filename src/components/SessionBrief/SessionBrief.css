@@ -1,0 +1,101 @@
+/* Session 提醒卡：浮在 pane 右上角（pane 標題列下方），不佔版面。 */
+.session-brief {
+  position: absolute;
+  top: 32px;
+  right: 12px;
+  z-index: 20; /* 高於 xterm 的 helper / decoration 圖層 */
+  width: min(420px, calc(100% - 24px));
+  max-height: calc(100% - 44px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--sidebar-bg);
+  color: var(--fg);
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.session-brief-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.session-brief-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-brief-state {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.session-brief-section {
+  padding: 5px 0;
+  border-top: 1px solid var(--border);
+}
+
+.session-brief-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.session-brief-time {
+  margin-left: auto;
+}
+
+.session-brief-text {
+  margin-top: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 長指令只露出前三行，完整內容仍在終端裡。 */
+.session-brief-goal {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.session-brief-waiting .session-brief-label {
+  color: #fab387;
+}
+
+.session-brief-muted {
+  margin-top: 2px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.session-brief-list {
+  margin: 2px 0 0;
+  padding-left: 16px;
+}
+
+.session-brief-foot {
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10.5px;
+  text-align: right;
+}

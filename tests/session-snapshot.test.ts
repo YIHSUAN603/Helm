@@ -652,4 +652,48 @@ function roundTrip(snap: SessionSnapshot): SessionSnapshot | null {
   );
 }
 
+// ------------------------------------------------- 提醒卡目標（goal）
+{
+  const goal = { text: "加上依目錄分組", at: 1234 };
+  const snap = projectSnapshot({
+    sessions: [sess("s1", { goal })],
+    trees: {},
+    activeId: "s1",
+    savedAt: 0,
+  });
+  const back = roundTrip(snap);
+  check("goal 寫進快照並讀得回來", deep(back?.sessions[0].goal, goal));
+  const none = projectSnapshot({ sessions: [sess("s1")], trees: {}, activeId: "s1", savedAt: 0 });
+  check("沒有 goal 就不寫欄位", !("goal" in (none.sessions[0] as Record<string, unknown>)));
+
+  const dirty = normalizeSnapshot({
+    version: SNAPSHOT_VERSION,
+    savedAt: 0,
+    activeId: "s1",
+    sessions: [
+      {
+        id: "s1",
+        title: "S",
+        status: "idle",
+        createdAt: 1,
+        workspaceId: "default",
+        agentId: null,
+        goal: { text: 5, at: "x" },
+      },
+    ],
+    groups: [],
+  });
+  check("壞掉的 goal 只丟欄位，session 保住", dirty?.sessions.length === 1);
+  check("壞掉的 goal 不會混進來", dirty?.sessions[0].goal === undefined);
+
+  check(
+    "goal 改變 → 欄位不等（會排寫檔）",
+    !snapshotFieldsEqual(sess("s1", { goal }), sess("s1", { goal: { ...goal, text: "別的" } })),
+  );
+  check(
+    "goal 內容相同 → 等值（不排寫檔）",
+    snapshotFieldsEqual(sess("s1", { goal }), sess("s1", { goal: { ...goal } })),
+  );
+}
+
 console.log(`\nsession-snapshot: ${passed} checks passed`);

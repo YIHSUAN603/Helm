@@ -2,6 +2,7 @@
 // 執行：node --experimental-strip-types tests/agent-hook-events.test.ts
 import assert from "node:assert";
 import {
+  GOAL_MAX,
   extractAgentIdentity,
   filesFromPatch,
   normalizeHookPayload,
@@ -407,5 +408,45 @@ check(
   "空字串 id 不算",
   extractAgentIdentity("claude-code", { session_id: "" }) === undefined,
 );
+
+// ---- UserPromptSubmit → 提醒卡的目標 ----
+{
+  const ev = normalizeHookPayload("claude-code", {
+    hook_event_name: "UserPromptSubmit",
+    prompt: "  幫我加上依目錄分組\n",
+  });
+  check(
+    "UserPromptSubmit → prompt（頭尾空白去掉）",
+    ev?.kind === "prompt" && ev.text === "幫我加上依目錄分組",
+  );
+  const codex = normalizeHookPayload("codex", { hook_event_name: "UserPromptSubmit", prompt: "fix it" });
+  check("Codex 同欄位", codex?.kind === "prompt" && codex.text === "fix it");
+  check(
+    "空白 prompt → 丟棄",
+    normalizeHookPayload("claude-code", { hook_event_name: "UserPromptSubmit", prompt: "   " }) ===
+      undefined,
+  );
+  check(
+    "缺 prompt → 丟棄",
+    normalizeHookPayload("claude-code", { hook_event_name: "UserPromptSubmit" }) === undefined,
+  );
+  const long = normalizeHookPayload("claude-code", {
+    hook_event_name: "UserPromptSubmit",
+    prompt: "x".repeat(GOAL_MAX + 100),
+  });
+  check("超長 prompt 截斷到上限", long?.kind === "prompt" && long.text.length === GOAL_MAX);
+}
+
+// ---- toolDone 帶工具名（提醒卡統計用）----
+{
+  const ev = normalizeHookPayload("claude-code", {
+    hook_event_name: "PostToolUse",
+    tool_name: "Bash",
+    tool_input: { command: "npm test" },
+  });
+  check("toolDone 帶工具名", ev?.kind === "toolDone" && ev.tool === "Bash");
+  const nameless = normalizeHookPayload("claude-code", { hook_event_name: "PostToolUse" });
+  check("缺工具名 → tool 為 undefined", nameless?.kind === "toolDone" && nameless.tool === undefined);
+}
 
 console.log(`\nagent-hook-events: ${passed} checks passed`);

@@ -34,13 +34,26 @@ const TOKEN_MARKER: &str = "HELM_EVENT_TOKEN";
 /// 要安裝的 hook 事件（PermissionRequest = 審批、Stop = 回合結束、
 /// PostToolUse = 工具完成/檔案變更、SessionStart = 一開場就拿到 agent 自己的
 /// session_id，供重啟後接續對話 —— 前三者也帶 session_id，但 SessionStart 讓
-/// 「還沒動過任何工具就重啟」的 session 也能接續）。
-const CLAUDE_HOOK_EVENTS: [&str; 4] = ["PermissionRequest", "Stop", "PostToolUse", "SessionStart"];
+/// 「還沒動過任何工具就重啟」的 session 也能接續）、UserPromptSubmit = 使用者
+/// 送出的指令，作為 session 提醒卡的「目標」。
+const CLAUDE_HOOK_EVENTS: [&str; 5] = [
+    "PermissionRequest",
+    "Stop",
+    "PostToolUse",
+    "SessionStart",
+    "UserPromptSubmit",
+];
 
 /// Codex 要接的 hook 事件，用途與 CLAUDE_HOOK_EVENTS 相同（兩邊 payload 欄位一致，
 /// 見前端 agents/hookEvents.ts）。SessionStart 帶的 session_id 是
-/// `codex resume <id>` 的原料。
-const CODEX_HOOK_EVENTS: [&str; 4] = ["PermissionRequest", "Stop", "PostToolUse", "SessionStart"];
+/// `codex resume <id>` 的原料。UserPromptSubmit 於 0.163.0 實測支援。
+const CODEX_HOOK_EVENTS: [&str; 5] = [
+    "PermissionRequest",
+    "Stop",
+    "PostToolUse",
+    "SessionStart",
+    "UserPromptSubmit",
+];
 
 /// Codex hook 的逾時（秒）。Codex 預設 600 秒；轉發端 curl 是 -m 2，給足餘裕
 /// 但不讓一支卡住的 hook 拖住 agent 十分鐘。

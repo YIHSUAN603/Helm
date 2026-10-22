@@ -326,6 +326,7 @@ function SettingsDialogInner() {
   const notifyInterrupted = useSettingsStore((s) => s.notifyInterrupted);
   const notifyStalled = useSettingsStore((s) => s.notifyStalled);
   const notifyHiddenPanes = useSettingsStore((s) => s.notifyHiddenPanes);
+  const sessionBrief = useSettingsStore((s) => s.sessionBrief);
   const restoreSessions = useSettingsStore((s) => s.restoreSessions);
   const restoreScrollback = useSettingsStore((s) => s.restoreScrollback);
   const resumeAgentsOnLaunch = useSettingsStore((s) => s.resumeAgentsOnLaunch);
@@ -345,6 +346,7 @@ function SettingsDialogInner() {
   const setNotifyInterrupted = useSettingsStore((s) => s.setNotifyInterrupted);
   const setNotifyStalled = useSettingsStore((s) => s.setNotifyStalled);
   const setNotifyHiddenPanes = useSettingsStore((s) => s.setNotifyHiddenPanes);
+  const setSessionBrief = useSettingsStore((s) => s.setSessionBrief);
   const setRestoreSessions = useSettingsStore((s) => s.setRestoreSessions);
   const setRestoreScrollback = useSettingsStore((s) => s.setRestoreScrollback);
   const setResumeAgentsOnLaunch = useSettingsStore((s) => s.setResumeAgentsOnLaunch);
@@ -572,6 +574,14 @@ function SettingsDialogInner() {
                   checked={notifyHiddenPanes}
                   disabled={!notificationsEnabled}
                   onChange={(e) => setNotifyHiddenPanes(e.target.checked)}
+                />
+              </label>
+              <label className="settings-row">
+                <span>{t("settings.sessionBrief")}</span>
+                <input
+                  type="checkbox"
+                  checked={sessionBrief}
+                  onChange={(e) => setSessionBrief(e.target.checked)}
                 />
               </label>
 

@@ -55,6 +55,7 @@ const COMMAND_TITLE_KEYS: Record<string, string> = {
   "workspace:new": "command.newWorkspace",
   "view:toggle-files": "command.toggleFiles",
   "view:toggle-notifications": "command.toggleNotifications",
+  "view:toggle-brief": "command.toggleBrief",
   "view:toggle-approval": "command.toggleApproval",
   "view:toggle-sidebar": "command.toggleSidebar",
   "theme:toggle": "command.toggleTheme",

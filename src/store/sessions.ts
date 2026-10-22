@@ -20,6 +20,7 @@ import { mergeChangedFile } from "./changedFiles";
 import { clearScanState } from "./scanState";
 import { clearStaleBusy } from "./staleBusy";
 import { clearResumeState } from "./resumeState";
+import { clearBrief } from "./briefs";
 import { nextSessionTitle, resolveRename, shouldAcceptAutoTitle } from "./sessionTitle";
 import { notify } from "../ipc/notify";
 import { getProfile } from "../agents/registry";
@@ -46,6 +47,9 @@ export interface Session {
   agentId: string | null; // profile id（launcher 指定或被動偵測到）
   agentLabel?: string;
   agentState?: AgentState;
+  // agentState 最後一次改變的時間（提醒卡的「完成 · 4 分鐘前」）。本次執行的
+  // 觀測值，不持久化。
+  stateSince?: number;
   pendingApproval?: string; // waiting（kind = approval）時的提示行，進 ApprovalPanel
   // waiting 且 kind 為 question/plan 時的提示：question 進 ApprovalPanel 供導覽，
   // plan 只發桌面通知（兩者都不顯示 Approve，避免隨便選中第一個選項）。
@@ -55,6 +59,9 @@ export interface Session {
   // 尾端最新，只增不減（見 agentIdentity.ts 的理由）。用來組出 resume 指令。
   agentSessionIds?: string[];
   transcriptPath?: string; // hook payload 的 transcript_path；純診斷用，不 gate 任何行為
+  // 使用者最後一次送給 agent 的指令（UserPromptSubmit hook）→ 提醒卡的「目標」。
+  // 屬於 durable 狀態（會寫進快照）：重啟後仍想知道這個 pane 上次在做什麼。
+  goal?: { text: string; at: number };
   // 這個 pane 是重啟後從快照重建的：畫面是上次的記錄，PTY 是新開的。
   // 執行期衍生旗標，刻意不寫進快照（否則資料格式等於宣告「還原＝行程已死」，
   // 未來由 daemon 接回活著的 PTY 時就得改格式）。
@@ -112,6 +119,8 @@ interface SessionState {
   setDetectedAgent: (id: string, profileId: string, label: string) => void;
   setAgentState: (id: string, state: AgentState, prompt?: string, kind?: PromptKind) => void;
   clearApproval: (id: string) => void;
+  /** UserPromptSubmit hook → 這個 session 目前的目標。 */
+  setGoal: (id: string, text: string, at: number) => void;
   /** hook payload 帶回來的 agent 身分（session_id / transcript_path）。 */
   setAgentIdentity: (
     id: string,
@@ -249,6 +258,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     clearScanState(id);
     clearStaleBusy(id);
     clearResumeState(id);
+    clearBrief(id);
     useNotificationsStore.getState().resolveSession(id);
   },
 
@@ -350,7 +360,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id ? { ...x, agentState: state, pendingApproval, pendingPrompt } : x,
+        x.id === id
+          ? {
+              ...x,
+              agentState: state,
+              // 只有狀態真的換了才重設：同狀態換提示（另一個審批）不算重新開始。
+              stateSince: prev.agentState === state ? x.stateSince : Date.now(),
+              pendingApproval,
+              pendingPrompt,
+            }
+          : x,
       ),
     }));
     // 離開 waiting = 提示已被回答/清除 → 通知中心對應項標為 resolved。
@@ -370,11 +389,25 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set((s) => ({
       sessions: s.sessions.map((x) =>
         x.id === id
-          ? { ...x, pendingApproval: undefined, pendingPrompt: undefined, agentState: undefined }
+          ? {
+              ...x,
+              pendingApproval: undefined,
+              pendingPrompt: undefined,
+              agentState: undefined,
+              stateSince: undefined,
+            }
           : x,
       ),
     }));
     useNotificationsStore.getState().resolveSession(id);
+  },
+
+  setGoal: (id, text, at) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    if (!cur || cur.goal?.text === text) return;
+    set((s) => ({
+      sessions: s.sessions.map((x) => (x.id === id ? { ...x, goal: { text, at } } : x)),
+    }));
   },
 
   // 跑在 hook 事件頻率上：id 已是最新一筆且 transcript 沒變就不動 store。

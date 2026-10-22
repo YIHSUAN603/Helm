@@ -51,6 +51,7 @@ export const PREFIX_TABLE: PrefixBinding[] = [
   { key: "f", commandId: "view:toggle-files" },
   { key: "e", commandId: "view:toggle-sidebar" },
   { key: "b", commandId: "view:toggle-notifications" },
+  { key: "m", commandId: "view:toggle-brief" },
   { key: "h", commandId: "view:toggle-approval" },
   { key: "t", commandId: "theme:toggle" },
   { key: "s", commandId: "settings:open" },
