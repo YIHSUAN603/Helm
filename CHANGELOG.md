@@ -4,6 +4,23 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.21.0](https://github.com/YIHSUAN603/Helm/releases/tag/v0.21.0) - 2026-10-22
+
+### Added
+
+- Session brief card: when you return to a session after more than 60 seconds away and something happened meanwhile, a card in the pane's top-right corner shows its state and how long it has been in it, any pending prompt, the session goal (your last submitted prompt, via the new `UserPromptSubmit` hook), and what happened while you were away (tool calls, files, notifications). Typing dismisses it and goes to the terminal as usual; `Esc` closes it without reaching the agent; `Ctrl+A m` toggles it. A master switch lives in Settings.
+- The brief card also shows task progress (Claude Code `TaskCreate` / `TaskUpdate`, legacy `TodoWrite`, Codex `update_plan`), the agent's last reply, an editable note, and can be pinned as a one-line summary in the pane corner. Goal, tasks, note and pin state are saved in `sessions.json`.
+- Hovering a session in the sidebar for 450ms (or moving to it with `j`/`k` / arrow keys) shows a summary card with its full title, agent and state, pending prompt, goal, progress and note.
+
+### Changed
+
+- The sidebar session row's native tooltip was removed; its content now lives in the summary card.
+- Existing hook installs must be reinstalled from Settings → Agent integrations to send `UserPromptSubmit`; for Codex, re-paste the `hooks.json` snippet and trust it via `/hooks`.
+
+### Fixed
+
+- `npm run docs:shortcuts` and the shortcut-docs test now keep README's existing line endings, so they no longer fail or mix line endings on a Windows CRLF checkout.
+
 ## [0.20.7](https://github.com/YIHSUAN603/Helm/releases/tag/v0.20.7) - 2026-10-19
 
 ### Added
