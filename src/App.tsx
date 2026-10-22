@@ -17,6 +17,7 @@ import { ChangedFilesPanel } from "./components/ChangedFilesPanel/ChangedFilesPa
 import { NotificationCenter } from "./components/NotificationCenter/NotificationCenter";
 import { IntegrationHint } from "./components/IntegrationHint/IntegrationHint";
 import { PaneLabel } from "./components/PaneLabel/PaneLabel";
+import { SessionBrief } from "./components/SessionBrief/SessionBrief";
 import { SplitResizers } from "./components/SplitLayout/SplitResizers";
 import { notifyPendingPrompt, useSessionStore, type Session } from "./store/sessions";
 import {
@@ -41,6 +42,8 @@ import {
 } from "./store/scanState";
 import { clearStaleBusy, markPtyOutput } from "./store/staleBusy";
 import { startStaleBusyWatchdog } from "./store/staleBusyWatch";
+import { startBriefWatch } from "./store/briefWatch";
+import { useBriefStore } from "./store/briefs";
 import { clearResumeState, consumeResumeFailure } from "./store/resumeState";
 import {
   flushSnapshot,
@@ -303,10 +306,21 @@ function handleHookEvent(id: string, source: string, payload: unknown) {
       clearHookWaiting(id);
       store.setAgentState(id, "done");
       break;
+    case "prompt":
+      // 使用者送出的指令 = 提醒卡的目標。狀態燈照舊交給 scan / title 推導。
+      store.setGoal(id, ev.text, Date.now());
+      break;
     case "toolDone":
       // 工具已執行 = 這次審批已被回答（核准）；狀態燈交回 scan 驅動。
       clearHookWaiting(id);
       for (const f of ev.files) store.addChangedFile(id, f);
+      if (ev.tool) {
+        useBriefStore.getState().recordActivity(id, {
+          at: Date.now(),
+          tool: ev.tool,
+          files: ev.files.map((f) => f.path),
+        });
+      }
       break;
     case "usage":
       store.setUsage(id, ev.usage);
@@ -463,6 +477,7 @@ const Pane = memo(function Pane({ session: s, rect, active, solo }: PaneProps) {
       onMouseDown={() => useSessionStore.getState().setActive(s.id)}
     >
       <PaneLabel session={s} />
+      <SessionBrief session={s} />
       <Terminal
         id={s.id}
         focused={active}
@@ -689,6 +704,7 @@ function App() {
       startSessionPersistence();
       startScrollbackPersistence();
       startStaleBusyWatchdog();
+      startBriefWatch();
       installCloseFlush();
       void checkForUpdateOnStartup();
     })();

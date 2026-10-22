@@ -9,7 +9,8 @@
 //
 // 快照裡「有什麼」比「沒什麼」好懂，所以把界線寫在這裡：
 //   存 —— 身分（id / title / createdAt）、歸屬（workspaceId / cwd）、
-//         agent 身分（agentId / agentLabel / agentSessionIds / transcriptPath）。
+//         agent 身分（agentId / agentLabel / agentSessionIds / transcriptPath）、
+//         提醒卡的目標（goal：使用者最後一次送給 agent 的指令）。
 //   丟 —— cost / tokensIn / tokensOut / contextLeftPercent / changedFiles /
 //         agentState / pendingApproval / pendingPrompt。
 // 丟掉的那排是「本次執行」的觀測值（sessions.ts 裡同一條分界註解）。結果是
@@ -67,6 +68,13 @@ export interface SnapshotSession {
   lastLaunchCommand?: string;
   agentSessionIds?: string[];
   transcriptPath?: string;
+  /** 提醒卡的目標。還原後照樣顯示（卡片標示為上次的目標），不會觸發任何動作。 */
+  goal?: SnapshotGoal;
+}
+
+export interface SnapshotGoal {
+  text: string;
+  at: number;
 }
 
 /** sessions.json 的 root。 */
@@ -95,6 +103,7 @@ export interface ProjectableSession {
   launchCommand?: string;
   agentSessionIds?: string[];
   transcriptPath?: string;
+  goal?: SnapshotGoal;
   /** 這個 pane 是還原出來的 —— 決定 lastLaunchCommand 取 carried 還是現值。 */
   restored?: boolean;
 }
@@ -157,6 +166,7 @@ export function projectSnapshot(input: ProjectSnapshotInput): SessionSnapshot {
       out.agentSessionIds = [...s.agentSessionIds];
     }
     if (s.transcriptPath !== undefined) out.transcriptPath = s.transcriptPath;
+    if (s.goal) out.goal = { text: s.goal.text, at: s.goal.at };
     // restored 刻意不寫進快照：那會讓資料格式等於宣告「還原＝行程已死」，
     // 未來由 daemon 接回活著的 PTY 時就得改格式。
     return out;
@@ -187,6 +197,15 @@ function normalizeSnapshotEnv(raw: unknown): Record<string, string> | undefined 
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+/** 快照裡的 goal：形狀不對就只丟這個欄位（同 env，不值得為它丟掉整個 pane）。 */
+function normalizeSnapshotGoal(raw: unknown): SnapshotGoal | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const { text, at } = raw as Record<string, unknown>;
+  if (typeof text !== "string" || text === "") return undefined;
+  if (typeof at !== "number" || !Number.isFinite(at)) return undefined;
+  return { text, at };
+}
+
 function normalizeSession(item: unknown): SnapshotSession | null {
   if (!item || typeof item !== "object") return null;
   const {
@@ -203,6 +222,7 @@ function normalizeSession(item: unknown): SnapshotSession | null {
     lastLaunchCommand,
     agentSessionIds,
     transcriptPath,
+    goal,
   } = item as Record<string, unknown>;
   if (typeof id !== "string" || id === "") return null;
   if (typeof title !== "string") return null;
@@ -233,6 +253,8 @@ function normalizeSession(item: unknown): SnapshotSession | null {
   if (lastLaunchCommand !== undefined) out.lastLaunchCommand = lastLaunchCommand;
   if (agentSessionIds !== undefined) out.agentSessionIds = [...(agentSessionIds as string[])];
   if (transcriptPath !== undefined) out.transcriptPath = transcriptPath;
+  const cleanGoal = normalizeSnapshotGoal(goal);
+  if (cleanGoal) out.goal = cleanGoal;
   return out;
 }
 
@@ -444,6 +466,8 @@ export function snapshotFieldsEqual(a: ProjectableSession, b: ProjectableSession
     a.agentLabel === b.agentLabel &&
     a.launchCommand === b.launchCommand &&
     a.transcriptPath === b.transcriptPath &&
+    a.goal?.text === b.goal?.text &&
+    a.goal?.at === b.goal?.at &&
     sameStringArray(a.agentSessionIds, b.agentSessionIds)
   );
 }
