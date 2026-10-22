@@ -68,13 +68,122 @@
   overflow-wrap: anywhere;
 }
 
-/* 長指令只露出前三行，完整內容仍在終端裡。 */
-.session-brief-goal {
+/* 長指令 / 長回覆只露出前幾行，完整內容仍在終端裡。 */
+.session-brief-clamp3,
+.session-brief-clamp4 {
   display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.session-brief-clamp3 {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.session-brief-clamp4 {
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+.session-brief-pin {
+  flex: 0 0 auto;
+  padding: 0 2px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+.session-brief-pin:hover,
+.session-brief-pin.pinned {
+  opacity: 1;
+  filter: none;
+}
+
+.session-brief-tasks {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.session-brief-tasks li {
+  display: flex;
+  gap: 6px;
+}
+.session-brief-task-icon {
+  flex: 0 0 1em;
+  text-align: center;
+  color: var(--muted);
+}
+.session-brief-tasks .task-in_progress {
+  color: var(--accent);
+  font-weight: 600;
+}
+.session-brief-tasks .task-in_progress .session-brief-task-icon {
+  color: var(--accent);
+}
+.session-brief-tasks .task-completed {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.session-brief-note {
+  cursor: text;
+}
+.session-brief-note-text {
+  margin-top: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.session-brief-note-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 3px;
+  padding: 4px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--term-bg);
+  color: var(--fg);
+  font: inherit;
+  resize: vertical;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* 釘選後的收合狀態：一行摘要。 */
+.session-brief-pinned {
+  position: absolute;
+  top: 32px;
+  right: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(360px, calc(100% - 24px));
+  padding: 3px 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--sidebar-bg);
+  color: var(--fg);
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0.92;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.session-brief-pinned:hover {
+  border-color: var(--accent);
+  opacity: 1;
+}
+.session-brief-pinned-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-brief-pinned-progress {
+  flex: 0 0 auto;
+  color: var(--muted);
 }
 
 .session-brief-waiting .session-brief-label {

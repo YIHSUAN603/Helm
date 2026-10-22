@@ -4,9 +4,12 @@
 //
 // 卡片刻意不拿焦點：焦點留在終端，使用者一開始打字卡片就收起來，那個按鍵
 // 照常送進 PTY —— 卡片絕不能擋住輸入。唯一被吞掉的是 Esc（它對 agent 是
-// 「中斷」，拿來關卡片時不該順便打斷 agent）。
+// 「中斷」，拿來關卡片時不該順便打斷 agent）。例外是使用者主動點開備註
+// 編輯：那時焦點在卡片裡的文字框，按鍵屬於文字框。
+//
+// 釘選的 session 在卡片收起時留一行摘要（PinnedStrip），點一下展開完整卡片。
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import type { Session } from "../../store/sessions";
+import { useSessionStore, type Session } from "../../store/sessions";
 import { useBriefStore } from "../../store/briefs";
 import { useNotificationsStore } from "../../store/notifications";
 import { usePrefixStore } from "../../store/prefix";
@@ -14,8 +17,11 @@ import {
   elapsedParts,
   hasSinceContent,
   summarizeSince,
+  taskProgress,
+  visibleTasks,
   type BriefActivity,
 } from "../../store/sessionBrief";
+import type { TaskStatus } from "../../agents/hookEvents";
 import { focusActiveTerminal } from "../../focus/focusUtils";
 import { useT } from "../../i18n";
 import "./SessionBrief.css";
@@ -25,19 +31,62 @@ const EMPTY_ACTIVITY: BriefActivity[] = [];
 const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
 // 卡片上最多列幾種工具，其餘以「…」帶過。
 const TOOLS_SHOWN = 4;
+// 卡片上最多列幾個任務（見 visibleTasks 的取捨）。
+const TASKS_SHOWN = 8;
 // 本次 app 啟動的時間：還原出來的 session 若目標早於此刻，標示為「上次的目標」。
 const APP_STARTED_AT = Date.now();
+
+const TASK_ICONS: Record<TaskStatus, string> = {
+  completed: "✔",
+  in_progress: "▶",
+  pending: "○",
+};
 
 function fmtClock(ms: number): string {
   return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function stateKeyOf(s: Session): string {
+  return s.agentState ?? s.status;
+}
+
+function dotClassOf(s: Session): string {
+  return s.agentState ? `agent-${s.agentState}` : s.status;
+}
+
 // Gate: 只有卡片開在這個 session 時才訂閱活動與通知。
 export const SessionBrief = memo(function SessionBrief({ session }: { session: Session }) {
   const open = useBriefStore((s) => (s.open?.sessionId === session.id ? s.open : null));
-  if (!open) return null;
-  return <BriefCard session={session} since={open.since} />;
+  if (open) return <BriefCard session={session} since={open.since} />;
+  if (session.briefPinned) return <PinnedStrip session={session} />;
+  return null;
 });
+
+/** 釘選後的收合狀態：一行摘要，點一下展開。 */
+function PinnedStrip({ session }: { session: Session }) {
+  const t = useT();
+  const progress = taskProgress(session.tasks);
+  const summary = session.goal?.text ?? session.note ?? t("command.toggleBrief");
+  return (
+    <div
+      className="session-brief-pinned"
+      title={t("brief.pinnedOpen")}
+      onClick={() => {
+        useBriefStore.getState().show({ sessionId: session.id });
+        focusActiveTerminal();
+      }}
+    >
+      <span>📌</span>
+      <span className={`status-dot ${dotClassOf(session)}`} />
+      <span className="session-brief-pinned-text">{summary}</span>
+      {progress.total > 0 && (
+        <span className="session-brief-pinned-progress">
+          ☑ {progress.done}/{progress.total}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function BriefCard({ session, since }: { session: Session; since?: number }) {
   const t = useT();
@@ -68,8 +117,11 @@ function BriefCard({ session, since }: { session: Session; since?: number }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || MODIFIER_KEYS.has(e.key)) return;
       if (usePrefixStore.getState().armed) return;
-      const pane = ref.current?.closest(".pane");
+      const card = ref.current;
+      const pane = card?.closest(".pane");
       const target = e.target instanceof Node ? e.target : null;
+      // 卡片自己的備註框：按鍵屬於文字框。
+      if (card && target && card.contains(target)) return;
       // 焦點在別處（對話框、側欄改名框）的按鍵與這張卡無關。
       if (target !== document.body && !(pane && target && pane.contains(target))) return;
       if (e.key === "Escape") {
@@ -86,12 +138,16 @@ function BriefCard({ session, since }: { session: Session; since?: number }) {
     const p = elapsedParts(now - ms);
     return t(`brief.ago.${p.unit}`, { n: p.n });
   };
-  const stateKey = session.agentState ?? session.status;
+  const stateKey = stateKeyOf(session);
   const waitingText = session.pendingApproval ?? session.pendingPrompt?.text;
   const goal = session.goal;
   const goalIsOld = session.restored && goal !== undefined && goal.at < APP_STARTED_AT;
   const alertEntries = Object.entries(summary.alerts);
   const away = since !== undefined ? elapsedParts(now - since) : undefined;
+  const tasks = session.tasks ?? [];
+  const progress = taskProgress(tasks);
+  const shownTasks = visibleTasks(tasks, TASKS_SHOWN);
+  const pinned = Boolean(session.briefPinned);
 
   return (
     <div
@@ -107,10 +163,22 @@ function BriefCard({ session, since }: { session: Session; since?: number }) {
       <div className="session-brief-head">
         <span className="session-brief-name">{session.agentLabel ?? session.title}</span>
         <span className="session-brief-state">
-          <span className={`status-dot ${session.agentState ? `agent-${stateKey}` : stateKey}`} />
+          <span className={`status-dot ${dotClassOf(session)}`} />
           {t(`sidebar.state.${stateKey}`)}
           {session.stateSince !== undefined && ` · ${ago(session.stateSince)}`}
         </span>
+        <button
+          className={`session-brief-pin ${pinned ? "pinned" : ""}`}
+          aria-pressed={pinned}
+          title={t(pinned ? "brief.unpin" : "brief.pin")}
+          onClick={(e) => {
+            e.stopPropagation();
+            useSessionStore.getState().setBriefPinned(session.id, !pinned);
+            focusActiveTerminal();
+          }}
+        >
+          📌
+        </button>
       </div>
 
       {waitingText && (
@@ -126,11 +194,32 @@ function BriefCard({ session, since }: { session: Session; since?: number }) {
           {goal && <span className="session-brief-time">{fmtClock(goal.at)}</span>}
         </div>
         {goal ? (
-          <div className="session-brief-text session-brief-goal">{goal.text}</div>
+          <div className="session-brief-text session-brief-clamp3">{goal.text}</div>
         ) : (
           <div className="session-brief-muted">{t("brief.noGoal")}</div>
         )}
       </div>
+
+      {progress.total > 0 && (
+        <div className="session-brief-section">
+          <div className="session-brief-label">
+            ☑ {t("brief.tasks", { done: progress.done, total: progress.total })}
+          </div>
+          <ul className="session-brief-tasks">
+            {shownTasks.items.map((task) => (
+              <li key={task.id} className={`task-${task.status}`}>
+                <span className="session-brief-task-icon">{TASK_ICONS[task.status]}</span>
+                <span>{task.text}</span>
+              </li>
+            ))}
+          </ul>
+          {shownTasks.hidden > 0 && (
+            <div className="session-brief-muted">
+              {t("brief.tasksHidden", { n: shownTasks.hidden })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="session-brief-section">
         <div className="session-brief-label">
@@ -164,7 +253,85 @@ function BriefCard({ session, since }: { session: Session; since?: number }) {
         )}
       </div>
 
+      {session.lastReply && (
+        <div className="session-brief-section">
+          <div className="session-brief-label">
+            💬 {t("brief.lastReply")}
+            <span className="session-brief-time">{fmtClock(session.lastReply.at)}</span>
+          </div>
+          <div className="session-brief-text session-brief-clamp4">{session.lastReply.text}</div>
+        </div>
+      )}
+
+      <NoteSection session={session} />
+
       <div className="session-brief-foot">{t("brief.dismissHint")}</div>
+    </div>
+  );
+}
+
+/** 備註：點一下編輯，Enter 儲存、Shift+Enter 換行、Esc 放棄（同改名框的慣例）。 */
+function NoteSection({ session }: { session: Session }) {
+  const t = useT();
+  const [draft, setDraft] = useState<string | null>(null);
+  const editing = draft !== null;
+  // 結束編輯後會把焦點還給終端，那一下會先觸發文字框的 blur；沒有這個旗標，
+  // Esc 放棄的草稿會被 blur 的「儲存」寫回去。
+  const finishedRef = useRef(false);
+
+  const startEdit = () => {
+    finishedRef.current = false;
+    setDraft(session.note ?? "");
+  };
+
+  const finish = (save: boolean) => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    if (save && draft !== null) useSessionStore.getState().setNote(session.id, draft);
+    setDraft(null);
+    focusActiveTerminal();
+  };
+
+  return (
+    <div
+      className="session-brief-section session-brief-note"
+      // 點備註區不是「關閉卡片」：停在這裡，改為進入編輯。
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!editing) startEdit();
+      }}
+    >
+      <div className="session-brief-label">📝 {t("brief.note")}</div>
+      {editing ? (
+        <>
+          <textarea
+            className="session-brief-note-input"
+            autoFocus
+            rows={3}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => finish(true)}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing) return; // IME 組字中的 Enter 不是送出
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                finish(true);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                finish(false);
+              }
+            }}
+          />
+          <div className="session-brief-muted">{t("brief.noteEditHint")}</div>
+        </>
+      ) : session.note ? (
+        <div className="session-brief-text session-brief-note-text">{session.note}</div>
+      ) : (
+        <div className="session-brief-muted session-brief-note-text">
+          {t("brief.notePlaceholder")}
+        </div>
+      )}
     </div>
   );
 }

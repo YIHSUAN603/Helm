@@ -21,13 +21,14 @@ import { clearScanState } from "./scanState";
 import { clearStaleBusy } from "./staleBusy";
 import { clearResumeState } from "./resumeState";
 import { clearBrief } from "./briefs";
+import { applyTaskUpdate } from "./sessionBrief";
 import { nextSessionTitle, resolveRename, shouldAcceptAutoTitle } from "./sessionTitle";
 import { notify } from "../ipc/notify";
 import { getProfile } from "../agents/registry";
 import { t } from "../i18n";
 import type { ChangedFile } from "../agents/extract";
 import type { AgentLauncher, AgentState, PromptKind } from "../agents/types";
-import type { PlanUsage } from "../agents/hookEvents";
+import type { BriefTask, PlanUsage, TaskListUpdate } from "../agents/hookEvents";
 
 export type SessionStatus = "idle" | "busy" | "exited";
 
@@ -62,6 +63,15 @@ export interface Session {
   // 使用者最後一次送給 agent 的指令（UserPromptSubmit hook）→ 提醒卡的「目標」。
   // 屬於 durable 狀態（會寫進快照）：重啟後仍想知道這個 pane 上次在做什麼。
   goal?: { text: string; at: number };
+  // agent 的任務清單（TaskCreate / TaskUpdate / TodoWrite / update_plan）→ 提醒卡
+  // 的「進度」。和 goal 同一側：重啟後仍想知道上次做到哪。
+  tasks?: readonly BriefTask[];
+  // 使用者自己寫給這個 session 的備註（提醒卡上編輯）。durable，會寫進快照。
+  note?: string;
+  // 提醒卡釘選：卡片收起時仍在 pane 右上角留一行摘要。durable。
+  briefPinned?: boolean;
+  // agent 這一回合最後的回覆（Stop hook）。本次執行的觀測值，不持久化。
+  lastReply?: { text: string; at: number };
   // 這個 pane 是重啟後從快照重建的：畫面是上次的記錄，PTY 是新開的。
   // 執行期衍生旗標，刻意不寫進快照（否則資料格式等於宣告「還原＝行程已死」，
   // 未來由 daemon 接回活著的 PTY 時就得改格式）。
@@ -121,6 +131,13 @@ interface SessionState {
   clearApproval: (id: string) => void;
   /** UserPromptSubmit hook → 這個 session 目前的目標。 */
   setGoal: (id: string, text: string, at: number) => void;
+  /** 任務清單工具的 PostToolUse → 套用進度變化。 */
+  applyTasks: (id: string, update: TaskListUpdate) => void;
+  /** Stop hook 的 last_assistant_message。 */
+  setLastReply: (id: string, text: string, at: number) => void;
+  /** 使用者備註；空字串 = 清除。 */
+  setNote: (id: string, note: string) => void;
+  setBriefPinned: (id: string, pinned: boolean) => void;
   /** hook payload 帶回來的 agent 身分（session_id / transcript_path）。 */
   setAgentIdentity: (
     id: string,
@@ -407,6 +424,43 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (!cur || cur.goal?.text === text) return;
     set((s) => ({
       sessions: s.sessions.map((x) => (x.id === id ? { ...x, goal: { text, at } } : x)),
+    }));
+  },
+
+  applyTasks: (id, update) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    if (!cur) return;
+    const tasks = applyTaskUpdate(cur.tasks, update);
+    if (tasks === cur.tasks) return;
+    set((s) => ({
+      sessions: s.sessions.map((x) => (x.id === id ? { ...x, tasks } : x)),
+    }));
+  },
+
+  setLastReply: (id, text, at) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    if (!cur || cur.lastReply?.text === text) return;
+    set((s) => ({
+      sessions: s.sessions.map((x) => (x.id === id ? { ...x, lastReply: { text, at } } : x)),
+    }));
+  },
+
+  setNote: (id, note) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    const next = note.trim() ? note : undefined;
+    if (!cur || cur.note === next) return;
+    set((s) => ({
+      sessions: s.sessions.map((x) => (x.id === id ? { ...x, note: next } : x)),
+    }));
+  },
+
+  setBriefPinned: (id, pinned) => {
+    const cur = get().sessions.find((x) => x.id === id);
+    if (!cur || Boolean(cur.briefPinned) === pinned) return;
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id ? { ...x, briefPinned: pinned || undefined } : x,
+      ),
     }));
   },
 

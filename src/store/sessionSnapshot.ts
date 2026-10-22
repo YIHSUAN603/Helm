@@ -103,6 +103,9 @@ function toSession(s: SnapshotSession): Session {
     agentSessionIds: s.agentSessionIds,
     transcriptPath: s.transcriptPath,
     goal: s.goal,
+    tasks: s.tasks,
+    note: s.note,
+    briefPinned: s.briefPinned,
     // launchCommand 預設留空：把上次的啟動指令寫回去，Terminal.tsx 的主 effect
     // 就會把它送進新開的 PTY，無聲重跑一次 agent。原值留在 carriedLaunchCommands。
     //

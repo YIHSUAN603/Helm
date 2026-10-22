@@ -4,14 +4,19 @@ import assert from "node:assert";
 import {
   ACTIVITY_CAP,
   BRIEF_AWAY_MS,
+  TASKS_CAP,
+  applyTaskUpdate,
   elapsedParts,
   hasSinceContent,
   latestOf,
   pushActivity,
   shouldShowBrief,
   summarizeSince,
+  taskProgress,
+  visibleTasks,
   type BriefActivity,
 } from "../src/store/sessionBrief.ts";
+import type { BriefTask } from "../src/agents/hookEvents.ts";
 
 let passed = 0;
 function check(name: string, cond: boolean) {
@@ -119,5 +124,85 @@ check("90 秒 → 1 分", JSON.stringify(elapsedParts(90_000)) === '{"unit":"m",
 check("2 小時", JSON.stringify(elapsedParts(2 * 3_600_000 + 5)) === '{"unit":"h","n":2}');
 check("3 天", JSON.stringify(elapsedParts(3 * 86_400_000)) === '{"unit":"d","n":3}');
 check("負值（時鐘回撥）視為 0", JSON.stringify(elapsedParts(-5)) === '{"unit":"s","n":0}');
+
+// ---- applyTaskUpdate / taskProgress / visibleTasks ----
+{
+  const t = (id: string, status: BriefTask["status"] = "pending", text = `task ${id}`): BriefTask => ({
+    id,
+    text,
+    status,
+  });
+  const base = [t("1", "completed"), t("2", "in_progress"), t("3")];
+
+  const replaced = applyTaskUpdate(base, { type: "replace", items: [t("a")] });
+  check("replace 整份換掉", replaced?.length === 1 && replaced[0].id === "a");
+  check(
+    "replace 內容相同 → 原參照",
+    applyTaskUpdate(base, { type: "replace", items: base.map((x) => ({ ...x })) }) === base,
+  );
+
+  const added = applyTaskUpdate(base, { type: "add", item: t("4") });
+  check("add 追加在尾端", added?.length === 4 && added[3].id === "4");
+  check("add 同 id 同標題 → 原參照", applyTaskUpdate(base, { type: "add", item: t("3") }) === base);
+  const renamed = applyTaskUpdate(base, { type: "add", item: t("3", "pending", "新標題") });
+  check("add 同 id 新標題 → 改標題不重複", renamed?.length === 3 && renamed[2].text === "新標題");
+  check("從空清單 add", applyTaskUpdate(undefined, { type: "add", item: t("1") })?.length === 1);
+
+  const patched = applyTaskUpdate(base, { type: "patch", id: "2", status: "completed" });
+  check("patch 改狀態", patched?.[1].status === "completed" && patched[1].text === "task 2");
+  check(
+    "patch 沒變 → 原參照",
+    applyTaskUpdate(base, { type: "patch", id: "2", status: "in_progress" }) === base,
+  );
+  check(
+    "patch 不認得的 id 且無標題 → 原參照",
+    applyTaskUpdate(base, { type: "patch", id: "x", status: "completed" }) === base,
+  );
+  const adopted = applyTaskUpdate(base, {
+    type: "patch",
+    id: "x",
+    status: "completed",
+    text: "早就有的任務",
+  });
+  check(
+    "patch 不認得的 id 但有標題 → 補進來",
+    adopted?.length === 4 && adopted[3].status === "completed",
+  );
+
+  const removed = applyTaskUpdate(base, { type: "remove", id: "1" });
+  check("remove", removed?.length === 2 && removed[0].id === "2");
+  check("remove 不存在 → 原參照", applyTaskUpdate(base, { type: "remove", id: "z" }) === base);
+
+  let many: readonly BriefTask[] | undefined;
+  for (let i = 0; i < TASKS_CAP + 3; i++) {
+    many = applyTaskUpdate(many, { type: "add", item: t(String(i)) });
+  }
+  check("超過上限丟最舊", many?.length === TASKS_CAP && many[0].id === "3");
+  check(
+    "replace 也受上限約束",
+    applyTaskUpdate(undefined, {
+      type: "replace",
+      items: Array.from({ length: TASKS_CAP + 5 }, (_, i) => t(String(i))),
+    })?.length === TASKS_CAP,
+  );
+
+  const p = taskProgress(base);
+  check("進度 = 完成數 / 總數", p.done === 1 && p.total === 3);
+  check("空清單進度 0/0", taskProgress(undefined).total === 0);
+
+  const list = [t("1", "completed"), t("2", "completed"), t("3", "in_progress"), t("4"), t("5")];
+  const fit = visibleTasks(list, 10);
+  check("放得下就全列", fit.items.length === 5 && fit.hidden === 0);
+  const trimmed = visibleTasks(list, 3);
+  check(
+    "太長先從前面丟已完成的，順序不變",
+    trimmed.items.map((x) => x.id).join() === "3,4,5" && trimmed.hidden === 2,
+  );
+  const tight = visibleTasks([t("1"), t("2"), t("3"), t("4")], 2);
+  check(
+    "沒有已完成可丟 → 截尾",
+    tight.items.map((x) => x.id).join() === "1,2" && tight.hidden === 2,
+  );
+}
 
 console.log(`\nsession-brief: ${passed} checks passed`);

@@ -5,6 +5,7 @@
 // 判斷刻意保守：離開太短或期間什麼都沒發生就不跳 —— 一張每次切換都出現的
 // 卡片很快就會被當成雜訊，連真正有用的那次也一起被忽略。
 import type { NotifyKind } from "./notificationCenter.ts";
+import type { BriefTask, TaskListUpdate } from "../agents/hookEvents.ts";
 
 /** 一次工具完成（PostToolUse hook）。files 是這次動到的路徑。 */
 export interface BriefActivity {
@@ -18,6 +19,91 @@ export const ACTIVITY_CAP = 50;
 
 /** 離開多久之後回來才自動跳出提醒卡。 */
 export const BRIEF_AWAY_MS = 60_000;
+
+/** 每個 session 保留的任務數上限（防失控的 agent 把清單灌爆 sessions.json）。 */
+export const TASKS_CAP = 50;
+
+/**
+ * 套用一次任務清單變化。沒有任何改變時回傳原參照，呼叫端據此不動 store
+ * （任務工具跑在 hook 頻率，也會牽動快照寫檔排程）。
+ */
+export function applyTaskUpdate(
+  list: readonly BriefTask[] | undefined,
+  update: TaskListUpdate,
+): readonly BriefTask[] | undefined {
+  const cur = list ?? [];
+  switch (update.type) {
+    case "replace": {
+      const next = update.items.slice(0, TASKS_CAP);
+      const same =
+        next.length === cur.length &&
+        next.every(
+          (t, i) => t.id === cur[i].id && t.text === cur[i].text && t.status === cur[i].status,
+        );
+      return same ? list : next;
+    }
+    case "add": {
+      const at = cur.findIndex((t) => t.id === update.item.id);
+      if (at >= 0) {
+        // 同 id 再建一次（以標題當 id 的退路會遇到）：當作更新標題。
+        if (cur[at].text === update.item.text) return list;
+        return cur.map((t, i) => (i === at ? { ...t, text: update.item.text } : t));
+      }
+      const next = [...cur, update.item];
+      return next.length > TASKS_CAP ? next.slice(next.length - TASKS_CAP) : next;
+    }
+    case "patch": {
+      const at = cur.findIndex((t) => t.id === update.id);
+      if (at < 0) {
+        // 不認得的 id（Helm 開啟前建立的任務）：有標題就補進來，否則無從顯示。
+        if (!update.text) return list;
+        return applyTaskUpdate(list, {
+          type: "add",
+          item: { id: update.id, text: update.text, status: update.status ?? "pending" },
+        });
+      }
+      const t = cur[at];
+      const status = update.status ?? t.status;
+      const text = update.text ?? t.text;
+      if (status === t.status && text === t.text) return list;
+      return cur.map((x, i) => (i === at ? { ...x, status, text } : x));
+    }
+    case "remove": {
+      if (!cur.some((t) => t.id === update.id)) return list;
+      return cur.filter((t) => t.id !== update.id);
+    }
+  }
+}
+
+/** 進度：完成數 / 總數。 */
+export function taskProgress(list: readonly BriefTask[] | undefined): {
+  done: number;
+  total: number;
+} {
+  const all = list ?? [];
+  return { done: all.filter((t) => t.status === "completed").length, total: all.length };
+}
+
+/**
+ * 卡片上要列哪些任務。清單太長時先從最前面丟已完成的 —— 回來的人要看的是
+ * 「還剩什麼、正在做什麼」，不是做完的那串。仍然太長才截掉尾端。順序不變。
+ */
+export function visibleTasks(
+  list: readonly BriefTask[],
+  max: number,
+): { items: BriefTask[]; hidden: number } {
+  if (list.length <= max) return { items: [...list], hidden: 0 };
+  let drop = list.length - max;
+  const items = list.filter((t) => {
+    if (drop > 0 && t.status === "completed") {
+      drop--;
+      return false;
+    }
+    return true;
+  });
+  const shown = items.slice(0, max);
+  return { items: shown, hidden: list.length - shown.length };
+}
 
 /** 追加一筆活動，超過上限丟最舊。回傳新陣列。 */
 export function pushActivity(

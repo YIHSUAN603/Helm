@@ -305,6 +305,7 @@ function handleHookEvent(id: string, source: string, payload: unknown) {
     case "stop":
       clearHookWaiting(id);
       store.setAgentState(id, "done");
+      if (ev.lastMessage) store.setLastReply(id, ev.lastMessage, Date.now());
       break;
     case "prompt":
       // 使用者送出的指令 = 提醒卡的目標。狀態燈照舊交給 scan / title 推導。
@@ -314,7 +315,9 @@ function handleHookEvent(id: string, source: string, payload: unknown) {
       // 工具已執行 = 這次審批已被回答（核准）；狀態燈交回 scan 驅動。
       clearHookWaiting(id);
       for (const f of ev.files) store.addChangedFile(id, f);
-      if (ev.tool) {
+      // 任務清單工具是記帳不是工作：更新進度，但不算進「離開期間做了什麼」。
+      if (ev.tasks) store.applyTasks(id, ev.tasks);
+      else if (ev.tool) {
         useBriefStore.getState().recordActivity(id, {
           at: Date.now(),
           tool: ev.tool,

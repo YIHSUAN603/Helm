@@ -9,12 +9,15 @@ import type { ChangedFile } from "./extract.ts";
 /** 正規化後的事件。permission 進 waiting，stop 進 done，其餘更新統計。 */
 export type AgentEvent =
   | { kind: "permission"; prompt: string }
-  | { kind: "stop" }
+  // lastMessage：agent 這一回合的最後一段回覆（Stop 的 last_assistant_message，
+  // Claude Code 2.1.308 / Codex 0.163.0 皆有）→ 提醒卡的「Agent 最後說」。
+  | { kind: "stop"; lastMessage?: string }
   // 使用者剛送出的指令（UserPromptSubmit）→ 提醒卡的「目標」。
   | { kind: "prompt"; text: string }
   // 陣列而非單一檔案：Codex 的一次 apply_patch 可以同時新增/修改/刪除多個檔案。
-  // tool 是工具名，供提醒卡統計「離開期間做了什麼」。
-  | { kind: "toolDone"; tool?: string; files: ChangedFile[] }
+  // tool 是工具名，供提醒卡統計「離開期間做了什麼」；tasks 是任務清單工具
+  // 帶來的進度變化（見 taskUpdateFrom）。
+  | { kind: "toolDone"; tool?: string; files: ChangedFile[]; tasks?: TaskListUpdate }
   | {
       kind: "usage";
       usage: {
@@ -75,6 +78,29 @@ const PROMPT_MAX = 200;
 // 使用者指令（提醒卡的目標）上限：卡片以 CSS 截斷顯示，這裡只防超長貼上
 // 把整份檔案塞進 store 與 sessions.json。
 export const GOAL_MAX = 500;
+// agent 最後回覆的上限：回合總結常是整段 markdown，卡片只需要開頭幾行。
+export const LAST_REPLY_MAX = 1000;
+// 單一任務標題的上限。
+export const TASK_TEXT_MAX = 200;
+
+/** 提醒卡「進度」的一個項目。三種狀態是 Claude Code 與 Codex 共同的字彙。 */
+export type TaskStatus = "pending" | "in_progress" | "completed";
+
+export interface BriefTask {
+  id: string;
+  text: string;
+  status: TaskStatus;
+}
+
+/**
+ * 任務清單的一次變化。兩種 CLI 的模型不同：TodoWrite / update_plan 每次送出
+ * 整份清單（replace），Claude Code 2.1 的 TaskCreate / TaskUpdate 則逐項增改。
+ */
+export type TaskListUpdate =
+  | { type: "replace"; items: BriefTask[] }
+  | { type: "add"; item: BriefTask }
+  | { type: "patch"; id: string; status?: TaskStatus; text?: string }
+  | { type: "remove"; id: string };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
@@ -102,6 +128,87 @@ function parsePlanUsage(v: unknown): PlanUsage | undefined {
   if (five) out.fiveHourResetsAt = num(five.resets_at);
   if (seven) out.sevenDayResetsAt = num(seven.resets_at);
   return Object.values(out).some((x) => x !== undefined) ? out : undefined;
+}
+
+function taskStatus(v: unknown): TaskStatus | undefined {
+  return v === "pending" || v === "in_progress" || v === "completed" ? v : undefined;
+}
+
+// 任務 id：Claude Code 給字串，保險起見也收數字。
+function taskId(v: unknown): string | undefined {
+  return str(v) ?? (typeof v === "number" && Number.isFinite(v) ? String(v) : undefined);
+}
+
+function taskText(v: unknown): string | undefined {
+  const s = str(v)?.trim();
+  return s ? s.slice(0, TASK_TEXT_MAX) : undefined;
+}
+
+/** 整份清單（TodoWrite 的 todos / update_plan 的 plan）→ BriefTask[]；形狀不對的項目略過。 */
+function taskItems(raw: unknown, textKey: string): BriefTask[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: BriefTask[] = [];
+  raw.forEach((item, i) => {
+    if (!isRecord(item)) return;
+    const text = taskText(item[textKey]);
+    if (text) out.push({ id: String(i), text, status: taskStatus(item.status) ?? "pending" });
+  });
+  return out;
+}
+
+/**
+ * 任務清單工具的 PostToolUse → 進度變化；不是任務工具回 undefined。
+ *
+ * - TodoWrite（Claude Code 舊版 / CLAUDE_CODE_ENABLE_TODO_TOOLS）：tool_input.todos
+ *   `[{content, status, activeForm}]`，整份替換。
+ * - update_plan（Codex）：tool_input.plan `[{step, status}]`，整份替換。
+ * - TaskCreate（Claude Code 2.1 預設）：tool_input.subject；id 只在 tool_response
+ *   `{task: {id, subject}}` 裡，缺了就以標題當 id —— 之後的 TaskUpdate 對不上時
+ *   頂多多一筆，不會弄錯別筆。
+ * - TaskUpdate：tool_input.taskId + status / subject；status "deleted" = 移除。
+ */
+export function taskUpdateFrom(
+  toolName: string | undefined,
+  input: unknown,
+  response: unknown,
+): TaskListUpdate | undefined {
+  if (!isRecord(input)) return undefined;
+  switch (toolName) {
+    case "TodoWrite": {
+      const items = taskItems(input.todos, "content");
+      return items ? { type: "replace", items } : undefined;
+    }
+    case "update_plan": {
+      const items = taskItems(input.plan, "step");
+      return items ? { type: "replace", items } : undefined;
+    }
+    case "TaskCreate": {
+      const text = taskText(input.subject);
+      if (!text) return undefined;
+      // tool_response 可能是物件，也可能是序列化過的 JSON 字串。
+      let res = response;
+      if (typeof res === "string") {
+        try {
+          res = JSON.parse(res);
+        } catch {
+          res = undefined;
+        }
+      }
+      const task = isRecord(res) && isRecord(res.task) ? res.task : undefined;
+      const id = (task && taskId(task.id)) ?? text;
+      return { type: "add", item: { id, text, status: "pending" } };
+    }
+    case "TaskUpdate": {
+      const id = taskId(input.taskId);
+      if (!id) return undefined;
+      if (input.status === "deleted") return { type: "remove", id };
+      const status = taskStatus(input.status);
+      const text = taskText(input.subject);
+      return status || text ? { type: "patch", id, status, text } : undefined;
+    }
+    default:
+      return undefined;
+  }
 }
 
 // tool_input 中常見的檔案路徑欄位（Claude Code：file_path / notebook_path；
@@ -195,8 +302,10 @@ export function normalizeHookPayload(source: string, payload: unknown): AgentEve
   switch (event) {
     case "PermissionRequest":
       return { kind: "permission", prompt: summarizePermission(toolName ?? "?", payload.tool_input) };
-    case "Stop":
-      return { kind: "stop" };
+    case "Stop": {
+      const last = str(payload.last_assistant_message)?.trim();
+      return last ? { kind: "stop", lastMessage: last.slice(0, LAST_REPLY_MAX) } : { kind: "stop" };
+    }
     case "UserPromptSubmit": {
       // Claude Code 與 Codex（0.163.0 實測支援此事件）都把指令放在 prompt 欄位。
       const text = str(payload.prompt)?.trim();
@@ -217,10 +326,12 @@ export function normalizeHookPayload(source: string, payload: unknown): AgentEve
       // a better git anchor than the session's creation-time cwd snapshot,
       // and what makes Codex's workspace-relative paths resolvable.
       const cwd = str(payload.cwd);
+      const tasks = taskUpdateFrom(toolName, payload.tool_input, payload.tool_response);
       return {
         kind: "toolDone",
         tool: toolName,
         files: touched.map((f) => ({ ...f, source: "hook" as const, cwd })),
+        ...(tasks ? { tasks } : {}),
       };
     }
     default:
