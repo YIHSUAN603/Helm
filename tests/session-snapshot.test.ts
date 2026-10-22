@@ -696,4 +696,79 @@ function roundTrip(snap: SessionSnapshot): SessionSnapshot | null {
   );
 }
 
+// ------------------------------------------------- 提醒卡進度 / 備註 / 釘選
+{
+  const tasks = [
+    { id: "1", text: "讀元件", status: "completed" as const },
+    { id: "2", text: "補測試", status: "in_progress" as const },
+  ];
+  const snap = projectSnapshot({
+    sessions: [sess("s1", { tasks, note: "等 PR review", briefPinned: true })],
+    trees: {},
+    activeId: "s1",
+    savedAt: 0,
+  });
+  const back = roundTrip(snap)?.sessions[0];
+  check("tasks 寫進快照並讀得回來", deep(back?.tasks, tasks));
+  check("note 寫進快照並讀得回來", back?.note === "等 PR review");
+  check("briefPinned 寫進快照並讀得回來", back?.briefPinned === true);
+
+  const bare = projectSnapshot({
+    sessions: [sess("s1", { tasks: [], briefPinned: false })],
+    trees: {},
+    activeId: "s1",
+    savedAt: 0,
+  }).sessions[0] as Record<string, unknown>;
+  check(
+    "空 tasks / 無 note / 未釘選都不寫欄位",
+    !("tasks" in bare) && !("note" in bare) && !("briefPinned" in bare),
+  );
+
+  const dirty = normalizeSnapshot({
+    version: SNAPSHOT_VERSION,
+    savedAt: 0,
+    activeId: "s1",
+    sessions: [
+      {
+        id: "s1",
+        title: "S",
+        status: "idle",
+        createdAt: 1,
+        workspaceId: "default",
+        agentId: null,
+        tasks: [
+          { id: "1", text: "好的", status: "pending" },
+          { id: 2, text: "壞 id", status: "pending" },
+          { id: "3", text: "壞狀態", status: "nope" },
+        ],
+        note: 42,
+        briefPinned: "yes",
+      },
+    ],
+    groups: [],
+  })?.sessions[0];
+  check(
+    "壞掉的任務項被丟掉，好的留下",
+    dirty?.tasks?.length === 1 && dirty.tasks[0].text === "好的",
+  );
+  check(
+    "壞掉的 note / briefPinned 只丟欄位",
+    dirty !== undefined && dirty.note === undefined && dirty.briefPinned === undefined,
+  );
+
+  check(
+    "任務狀態改變 → 欄位不等（會排寫檔）",
+    !snapshotFieldsEqual(
+      sess("s1", { tasks }),
+      sess("s1", { tasks: [tasks[0], { ...tasks[1], status: "completed" }] }),
+    ),
+  );
+  check(
+    "任務內容相同 → 等值",
+    snapshotFieldsEqual(sess("s1", { tasks }), sess("s1", { tasks: tasks.map((x) => ({ ...x })) })),
+  );
+  check("note 改變 → 不等", !snapshotFieldsEqual(sess("s1", { note: "a" }), sess("s1", { note: "b" })));
+  check("釘選改變 → 不等", !snapshotFieldsEqual(sess("s1"), sess("s1", { briefPinned: true })));
+}
+
 console.log(`\nsession-snapshot: ${passed} checks passed`);

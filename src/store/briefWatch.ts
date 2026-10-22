@@ -21,7 +21,7 @@ function visibleSessionIds(
   return tree ? collectSessionIds(tree) : [activeId];
 }
 
-/** 這個 session 最近一次「有事發生」的時間（目標、狀態轉移、工具活動、通知）。 */
+/** 這個 session 最近一次「有事發生」的時間（目標、狀態轉移、工具活動、回覆、通知）。 */
 function latestEventAt(id: string): number | undefined {
   const s = useSessionStore.getState().sessions.find((x) => x.id === id);
   if (!s) return undefined;
@@ -30,7 +30,13 @@ function latestEventAt(id: string): number | undefined {
   for (const n of useNotificationsStore.getState().items) {
     if (n.sessionId === id) lastAlert = latestOf(lastAlert, n.createdAt);
   }
-  return latestOf(s.goal?.at, s.stateSince, activity?.[activity.length - 1]?.at, lastAlert);
+  return latestOf(
+    s.goal?.at,
+    s.stateSince,
+    s.lastReply?.at,
+    activity?.[activity.length - 1]?.at,
+    lastAlert,
+  );
 }
 
 /** session 回到畫面：消費它的離開時間；是 active 的那個才考慮跳卡。 */

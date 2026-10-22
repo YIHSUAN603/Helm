@@ -3,10 +3,12 @@
 import assert from "node:assert";
 import {
   GOAL_MAX,
+  LAST_REPLY_MAX,
   extractAgentIdentity,
   filesFromPatch,
   normalizeHookPayload,
   profileIdForSource,
+  taskUpdateFrom,
 } from "../src/agents/hookEvents.ts";
 import { deriveNotifySignal } from "../src/agents/engine.ts";
 import { BUILTIN_PROFILES } from "../src/agents/builtins.ts";
@@ -447,6 +449,108 @@ check(
   check("toolDone 帶工具名", ev?.kind === "toolDone" && ev.tool === "Bash");
   const nameless = normalizeHookPayload("claude-code", { hook_event_name: "PostToolUse" });
   check("缺工具名 → tool 為 undefined", nameless?.kind === "toolDone" && nameless.tool === undefined);
+}
+
+// ---- Stop 帶最後回覆 ----
+{
+  const ev = normalizeHookPayload("claude-code", {
+    hook_event_name: "Stop",
+    last_assistant_message: "  完成了，測試 12/12 通過  ",
+  });
+  check(
+    "Stop → lastMessage（去頭尾空白）",
+    ev?.kind === "stop" && ev.lastMessage === "完成了，測試 12/12 通過",
+  );
+  const bare = normalizeHookPayload("claude-code", { hook_event_name: "Stop" });
+  check(
+    "Stop 缺 last_assistant_message → 沒有 lastMessage",
+    bare?.kind === "stop" && bare.lastMessage === undefined,
+  );
+  const long = normalizeHookPayload("codex", {
+    hook_event_name: "Stop",
+    last_assistant_message: "y".repeat(LAST_REPLY_MAX + 5),
+  });
+  check("超長回覆截斷", long?.kind === "stop" && long.lastMessage?.length === LAST_REPLY_MAX);
+}
+
+// ---- 任務清單工具 → 進度 ----
+{
+  const todo = taskUpdateFrom(
+    "TodoWrite",
+    {
+      todos: [
+        { content: "讀現有元件", status: "completed", activeForm: "讀取中" },
+        { content: "補測試", status: "in_progress" },
+        { content: "", status: "pending" },
+        "垃圾",
+      ],
+    },
+    undefined,
+  );
+  check(
+    "TodoWrite → replace，壞項略過",
+    todo?.type === "replace" &&
+      todo.items.length === 2 &&
+      todo.items[0].status === "completed" &&
+      todo.items[1].text === "補測試",
+  );
+  const plan = taskUpdateFrom(
+    "update_plan",
+    {
+      explanation: "x",
+      plan: [
+        { step: "改 parser", status: "pending" },
+        { step: "跑測試", status: "weird" },
+      ],
+    },
+    undefined,
+  );
+  check(
+    "Codex update_plan → replace，未知狀態當 pending",
+    plan?.type === "replace" && plan.items[1].status === "pending" && plan.items[0].text === "改 parser",
+  );
+  const created = taskUpdateFrom(
+    "TaskCreate",
+    { subject: "加分組", description: "d" },
+    { task: { id: "3", subject: "加分組" } },
+  );
+  check("TaskCreate → add，id 取自 tool_response", created?.type === "add" && created.item.id === "3");
+  const createdStr = taskUpdateFrom(
+    "TaskCreate",
+    { subject: "加分組" },
+    JSON.stringify({ task: { id: 7 } }),
+  );
+  check(
+    "tool_response 是 JSON 字串、數字 id 也收",
+    createdStr?.type === "add" && createdStr.item.id === "7",
+  );
+  const noId = taskUpdateFrom("TaskCreate", { subject: "加分組" }, undefined);
+  check("缺 id → 以標題當 id", noId?.type === "add" && noId.item.id === "加分組");
+  const upd = taskUpdateFrom("TaskUpdate", { taskId: "3", status: "in_progress" }, undefined);
+  check(
+    "TaskUpdate → patch 狀態",
+    upd?.type === "patch" && upd.id === "3" && upd.status === "in_progress",
+  );
+  const del = taskUpdateFrom("TaskUpdate", { taskId: "3", status: "deleted" }, undefined);
+  check("TaskUpdate deleted → remove", del?.type === "remove" && del.id === "3");
+  check(
+    "TaskUpdate 只改 owner → 無進度變化",
+    taskUpdateFrom("TaskUpdate", { taskId: "3", owner: "x" }, undefined) === undefined,
+  );
+  check("非任務工具 → undefined", taskUpdateFrom("Bash", { command: "ls" }, undefined) === undefined);
+
+  const ev = normalizeHookPayload("claude-code", {
+    hook_event_name: "PostToolUse",
+    tool_name: "TaskUpdate",
+    tool_input: { taskId: "1", status: "completed" },
+  });
+  check("PostToolUse 任務工具 → toolDone 帶 tasks", ev?.kind === "toolDone" && ev.tasks?.type === "patch");
+  const bash = normalizeHookPayload("claude-code", {
+    hook_event_name: "PostToolUse",
+    tool_name: "Bash",
+    tool_input: { command: "ls" },
+  });
+  check("一般工具 → 沒有 tasks 欄位", bash?.kind === "toolDone" && !("tasks" in bash));
 }
 
 console.log(`\nagent-hook-events: ${passed} checks passed`);

@@ -10,7 +10,7 @@
 // 快照裡「有什麼」比「沒什麼」好懂，所以把界線寫在這裡：
 //   存 —— 身分（id / title / createdAt）、歸屬（workspaceId / cwd）、
 //         agent 身分（agentId / agentLabel / agentSessionIds / transcriptPath）、
-//         提醒卡的目標（goal：使用者最後一次送給 agent 的指令）。
+//         提醒卡的目標 / 進度 / 備註 / 釘選（goal / tasks / note / briefPinned）。
 //   丟 —— cost / tokensIn / tokensOut / contextLeftPercent / changedFiles /
 //         agentState / pendingApproval / pendingPrompt。
 // 丟掉的那排是「本次執行」的觀測值（sessions.ts 裡同一條分界註解）。結果是
@@ -26,6 +26,8 @@ import {
   // .ts 副檔名：讓 node 測試（strip-types 模式）能直接載入這條相依鏈。
 } from "./layoutTree.ts";
 import { DEFAULT_WORKSPACE_ID } from "./workspaceGroups.ts";
+import { TASKS_CAP } from "./sessionBrief.ts";
+import type { BriefTask } from "../agents/hookEvents.ts";
 
 /**
  * 快照格式版本。認不得（或缺）就整份丟棄冷啟動，永不 migrate —— 猜錯舊格式
@@ -70,6 +72,11 @@ export interface SnapshotSession {
   transcriptPath?: string;
   /** 提醒卡的目標。還原後照樣顯示（卡片標示為上次的目標），不會觸發任何動作。 */
   goal?: SnapshotGoal;
+  /** 提醒卡的進度（agent 的任務清單）。 */
+  tasks?: BriefTask[];
+  /** 使用者備註。 */
+  note?: string;
+  briefPinned?: boolean;
 }
 
 export interface SnapshotGoal {
@@ -104,6 +111,9 @@ export interface ProjectableSession {
   agentSessionIds?: string[];
   transcriptPath?: string;
   goal?: SnapshotGoal;
+  tasks?: readonly BriefTask[];
+  note?: string;
+  briefPinned?: boolean;
   /** 這個 pane 是還原出來的 —— 決定 lastLaunchCommand 取 carried 還是現值。 */
   restored?: boolean;
 }
@@ -167,6 +177,9 @@ export function projectSnapshot(input: ProjectSnapshotInput): SessionSnapshot {
     }
     if (s.transcriptPath !== undefined) out.transcriptPath = s.transcriptPath;
     if (s.goal) out.goal = { text: s.goal.text, at: s.goal.at };
+    if (s.tasks && s.tasks.length > 0) out.tasks = s.tasks.map((t) => ({ ...t }));
+    if (s.note) out.note = s.note;
+    if (s.briefPinned) out.briefPinned = true;
     // restored 刻意不寫進快照：那會讓資料格式等於宣告「還原＝行程已死」，
     // 未來由 daemon 接回活著的 PTY 時就得改格式。
     return out;
@@ -206,6 +219,20 @@ function normalizeSnapshotGoal(raw: unknown): SnapshotGoal | undefined {
   return { text, at };
 }
 
+/** 快照裡的任務清單：逐項挑選，壞項丟掉；全空回 undefined。 */
+function normalizeSnapshotTasks(raw: unknown): BriefTask[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: BriefTask[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const { id, text, status } = item as Record<string, unknown>;
+    if (typeof id !== "string" || typeof text !== "string" || text === "") continue;
+    if (status !== "pending" && status !== "in_progress" && status !== "completed") continue;
+    out.push({ id, text, status });
+  }
+  return out.length > 0 ? out.slice(0, TASKS_CAP) : undefined;
+}
+
 function normalizeSession(item: unknown): SnapshotSession | null {
   if (!item || typeof item !== "object") return null;
   const {
@@ -223,6 +250,9 @@ function normalizeSession(item: unknown): SnapshotSession | null {
     agentSessionIds,
     transcriptPath,
     goal,
+    tasks,
+    note,
+    briefPinned,
   } = item as Record<string, unknown>;
   if (typeof id !== "string" || id === "") return null;
   if (typeof title !== "string") return null;
@@ -255,6 +285,11 @@ function normalizeSession(item: unknown): SnapshotSession | null {
   if (transcriptPath !== undefined) out.transcriptPath = transcriptPath;
   const cleanGoal = normalizeSnapshotGoal(goal);
   if (cleanGoal) out.goal = cleanGoal;
+  // 以下都是提醒卡的輔助資訊：形狀不對只丟該欄位，不值得為它丟掉整個 pane。
+  const cleanTasks = normalizeSnapshotTasks(tasks);
+  if (cleanTasks) out.tasks = cleanTasks;
+  if (typeof note === "string" && note.trim() !== "") out.note = note;
+  if (briefPinned === true) out.briefPinned = true;
   return out;
 }
 
@@ -447,6 +482,16 @@ function sameEnv(a?: Record<string, string>, b?: Record<string, string>): boolea
   return aKeys.every((k) => b?.[k] === a?.[k]);
 }
 
+function sameTasks(a?: readonly BriefTask[], b?: readonly BriefTask[]): boolean {
+  if (a === b) return true;
+  const x = a ?? [];
+  const y = b ?? [];
+  return (
+    x.length === y.length &&
+    x.every((t, i) => t.id === y[i].id && t.text === y[i].text && t.status === y[i].status)
+  );
+}
+
 /**
  * 兩個 session 的「會寫進快照」欄位是否等值。刻意不比 cost / tokens /
  * changedFiles / agentState / pendingApproval —— 那些跑在 PTY 輸出頻率上，
@@ -468,6 +513,9 @@ export function snapshotFieldsEqual(a: ProjectableSession, b: ProjectableSession
     a.transcriptPath === b.transcriptPath &&
     a.goal?.text === b.goal?.text &&
     a.goal?.at === b.goal?.at &&
+    sameTasks(a.tasks, b.tasks) &&
+    a.note === b.note &&
+    Boolean(a.briefPinned) === Boolean(b.briefPinned) &&
     sameStringArray(a.agentSessionIds, b.agentSessionIds)
   );
 }
