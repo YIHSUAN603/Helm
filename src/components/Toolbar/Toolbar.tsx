@@ -172,7 +172,7 @@ export function Toolbar() {
           {/* Claude Code 的方案額度屬於帳號，不應遮住目前 pane（例如 Codex）的
               session 統計。兩者各自成組，並排顯示。 */}
           {showPlan && (
-            <div className="tb-usage-group">
+            <div className="tb-usage-group" title="Claude Code">
               <span className="tb-agent">Claude Code</span>
               {planUsage!.fiveHourLeftPercent !== undefined && (
                 <UsageMeter
@@ -197,7 +197,7 @@ export function Toolbar() {
             </div>
           )}
           {active?.agentId && (
-            <div className="tb-usage-group">
+            <div className="tb-usage-group" title={active.agentLabel ?? t("toolbar.defaultAgent")}>
               <span className="tb-agent">{active.agentLabel ?? t("toolbar.defaultAgent")}</span>
               {active.contextLeftPercent !== undefined ? (
                 <span className="tb-mono" title={t("toolbar.contextLeft")}>

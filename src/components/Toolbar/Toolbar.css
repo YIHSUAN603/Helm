@@ -11,6 +11,9 @@
   color: var(--fg);
   -webkit-user-select: none;
   user-select: none;
+  /* 寬度取決於側欄寬，不是視窗寬 —— 窄化規則用 container query（檔尾）。 */
+  container-type: inline-size;
+  white-space: nowrap;
 }
 
 /* 艦隊狀態叢集：灰字總數 + 分隔線 + 各狀態 chip。 */
@@ -103,6 +106,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* 每個 agent 的統計維持獨立區塊；同時使用 Claude Code 與 Codex 時，
@@ -159,6 +164,7 @@
 }
 
 .tb-files {
+  flex: none;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--fg);
@@ -227,4 +233,28 @@
 
 .tb-update-later:hover {
   background: var(--active);
+}
+
+/* 窄化：寧可依序收起次要資訊，也不讓按鈕與數字被擠成兩行或互相重疊。
+   先拿掉 agent 名稱（各組仍以分隔線區隔），再收進度條只留百分比、連同
+   session 總數（側欄就列著），最後才收起用量。.tb-usage 的 overflow: hidden
+   只是保險，正常寬度下不該觸發。 */
+@container (max-width: 1100px) {
+  .tb-agent {
+    display: none;
+  }
+}
+
+@container (max-width: 900px) {
+  .tb-meter-track,
+  .tb-fleet-count,
+  .tb-fleet .tb-divider {
+    display: none;
+  }
+}
+
+@container (max-width: 720px) {
+  .tb-usage {
+    display: none;
+  }
 }
