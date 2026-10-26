@@ -4,6 +4,16 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.21.1](https://github.com/YIHSUAN603/Helm/releases/tag/v0.21.1) - 2026-10-26
+
+### Fixed
+
+- macOS: after installing an update, Helm now quits and relaunches itself into the new version instead of leaving the old process running until you quit it by hand. The session snapshot and scrollback are flushed first. v0.21.0 itself lacks this fix, so the update to 0.21.1 still needs one manual restart.
+- Light themes: status colors (pending-approval header, status dots, Approve/Reject buttons, notification icons, diff and changed-file badges) now use saturated colors with enough contrast instead of the dark theme's pastels. Custom light themes get the same treatment.
+- The toolbar no longer wraps or overlaps at narrow widths: it hides the agent name first, then the meter bars and session count, then the usage block.
+- The notification center and changed-files panel can now be closed with `Esc` right after opening them from the toolbar, and by clicking anywhere outside. The changed-files panel stays open while its diff viewer is shown, and focuses the first file when opened.
+- Workspace names in the sidebar are no longer cut down to a few characters (e.g. "WORKS…CE 1"): the header's hover-only buttons no longer take up space until you hover.
+
 ## [0.21.0](https://github.com/YIHSUAN603/Helm/releases/tag/v0.21.0) - 2026-10-22
 
 ### Added
