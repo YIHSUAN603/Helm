@@ -185,7 +185,10 @@ function ws(id: string, folder?: string): Workspace {
   // 下限必須 >= 5：middleEllipsis 在 max < 5 時原字串直接回傳，預算掉到 4 不是
   // 「裁得更兇」而是「完全不裁」，整個名稱會溢出交給 CSS 從尾端切。
   check("名稱預算下限不低於 middleEllipsis 的作用門檻", workspaceNameBudget(0) >= 5);
-  check("最小側欄寬（含徽章）仍會實際中段省略", middleEllipsis("Workspace 2", workspaceNameBudget(180, 1)).includes("…"));
+  check("最小側欄寬（含徽章）仍會實際中段省略", middleEllipsis("Payments API integration", workspaceNameBudget(180, 1)).includes("…"));
+  // 迴歸：hover 才出現的操作鍵不再佔位，220px 帶一個徽章時預設名稱要完整顯示
+  // （原本被裁成 "Works…ce 1"）。
+  check("220px + 徽章時預設名稱不被省略", middleEllipsis("Workspace 1", workspaceNameBudget(220, 1)) === "Workspace 1");
   check("NaN 回下限", workspaceNameBudget(NaN) === 12);
 
   // 平時就顯示的控制項（資料夾/啟動設定鍵著色後不隨 hover 消失、approval 徽章
@@ -194,12 +197,12 @@ function ws(id: string, folder?: string): Workspace {
   check("徽章數越多預算越緊", workspaceNameBudget(300, 2) < workspaceNameBudget(300, 1));
   check("徽章數為負視為 0", workspaceNameBudget(220, -3) === workspaceNameBudget(220, 0));
 
-  // 實測不變式：名稱盒寬 = max(42px 下限, 側欄寬 - 124 - 20×徽章)，字體平均
+  // 實測不變式：名稱盒寬 = max(42px 下限, 側欄寬 - 64 - 20×徽章)，字體平均
   // 6.83px/字。42px 是 CSS 的 min-width，對應預算下限 5 個字元 —— 兩邊必須一致，
   // 否則最小寬度下預算比盒子寬，CSS 又會從尾端裁掉。
   for (const width of [180, 220, 260, 300, 400, 480]) {
     for (const badges of [0, 1, 2]) {
-      const boxPx = Math.max(42, width - 124 - badges * 20);
+      const boxPx = Math.max(42, width - 64 - badges * 20);
       const holds = boxPx / 6.83;
       check(
         `預算不超過實際盒寬 (w=${width}, badges=${badges})`,
@@ -213,8 +216,7 @@ function ws(id: string, folder?: string): Workspace {
   const shownName = middleEllipsis(wsName, workspaceNameBudget(220));
   check("220px 下長 workspace 名稱會中段省略", shownName.includes("…"));
   // 兩端都要留下東西 —— 這才是 middleEllipsis 存在的理由（尾裁會整段丟掉後半）。
-  // 220px 只有 12 字元的預算，塞不下完整的 "staging"；後綴要完整得等側欄夠寬，
-  // 所以完整後綴的斷言放在 260px 驗，220px 只驗「頭尾都還在」。
+  // 220px 有 21 字元的預算，已能保住完整的 " staging"；260px 再驗一次寬側欄。
   check("中段省略後頭部仍可辨識", shownName.startsWith("Pay"));
   check("中段省略後仍保住結尾片段", shownName.endsWith("aging"));
   const wideName = middleEllipsis(wsName, workspaceNameBudget(260));

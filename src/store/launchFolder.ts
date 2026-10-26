@@ -142,10 +142,11 @@ export function sidebarCharBudget(widthPx: number, perChar = 5.2, chrome = 44): 
 }
 
 /**
- * Same idea for the workspace **name**, which lives on a much busier line: the
- * chevron (9px), the session count (14px), sometimes the approval badge, and the
- * four action buttons (20px each) all share it, so the reserve is far larger
- * than the folder line's. A budget tuned for that line is too generous here —
+ * Same idea for the workspace **name**, which lives on a busier line: the
+ * chevron (9px), the session count (14px) and sometimes the approval badge share
+ * it, so the reserve is larger than the folder line's. The four action buttons
+ * are `display: none` at rest and only take room while the header is hovered or
+ * focused — this budget is for the resting line, where the name is read. A budget tuned for that line is too generous here —
  * the name then gets CSS-clipped from the tail before `middleEllipsis` ever
  * trims it, which loses the trailing half that middle-eliding exists to keep.
  *
@@ -154,7 +155,7 @@ export function sidebarCharBudget(widthPx: number, perChar = 5.2, chrome = 44): 
  * narrow lowercase forms to average the advance down.
  *
  * Both numbers were **measured**, not estimated: the name box is exactly
- * `sidebarWidth - 124 - 20 * badges` px and its font averages 6.83px per
+ * `sidebarWidth - 64 - 20 * badges` px and its font averages 6.83px per
  * uppercase character including tracking. `chrome` is rounded up and `perChar`
  * up to 7.1 so the budget lands just *under* what the box holds — the
  * conservative bias `middleEllipsis` documents. Overshooting is the failure that
@@ -169,8 +170,8 @@ export function sidebarCharBudget(widthPx: number, perChar = 5.2, chrome = 44): 
  * row for badges it does not have would over-elide the common case.
  *
  * Deliberately **not** routed through `sidebarCharBudget`: its 12-character
- * floor is wider than this box at the minimum sidebar width (180px with one
- * badge leaves 36px ≈ 5 characters), so the floor itself would overshoot and
+ * floor is wider than this box at the minimum sidebar width (180px with three
+ * badges leaves 56px ≈ 7 characters), so the floor itself would overshoot and
  * hand the tail back to CSS.
  *
  * The floor is **5**, not lower, because that is `middleEllipsis`'s own cutoff:
@@ -182,5 +183,5 @@ export function sidebarCharBudget(widthPx: number, perChar = 5.2, chrome = 44): 
 export function workspaceNameBudget(widthPx: number, alwaysOnBadges = 0): number {
   if (!Number.isFinite(widthPx)) return 12;
   const badges = Math.max(0, alwaysOnBadges);
-  return Math.max(5, Math.floor((widthPx - 128 - badges * 20) / 7.1));
+  return Math.max(5, Math.floor((widthPx - 68 - badges * 20) / 7.1));
 }

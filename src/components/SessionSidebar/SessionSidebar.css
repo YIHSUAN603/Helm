@@ -226,22 +226,26 @@
   font-size: 12.5px;
 }
 
+/* 平常不佔位（display: none，而不是 opacity: 0）：透明的按鈕照樣吃掉約 80px，
+   名稱整天被省略成「WORKS…CE 1」，只為了 hover 時才用得到的鍵。hover 時名稱
+   讓出空間、暫時改由 CSS 從尾端裁切 —— 正在點按鈕的那一刻，名稱完整與否
+   遠不如按鈕可點重要。workspaceNameBudget 只算靜止狀態。 */
 .workspace-header .icon-btn.hover-action {
-  opacity: 0;
+  display: none;
 }
 
 /* 觸發掛在 .workspace-head 而不是 .workspace-header：首行的 + / × 與第二行的
    設定鍵同時現身，游標移到第二行時首行這兩顆不該跟著消失。 */
 .workspace-head:hover .icon-btn.hover-action,
 .workspace-head:focus-within .icon-btn.hover-action {
-  opacity: 1;
+  display: inline-block;
 }
 
 /* Folder / recipe buttons light up when this workspace has one set — and stay
    visible at rest, overriding `hover-action`: "this workspace has a folder" is
    information, not an action, so it must survive the pointer leaving. */
 .workspace-header .icon-btn.on {
-  opacity: 1;
+  display: inline-block;
   color: var(--accent);
 }
 

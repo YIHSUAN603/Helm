@@ -48,6 +48,8 @@ def add_sessions(page, count):
     for _ in range(count):
         # Title is "新增 <launcher>" and tracks the default launcher name
         # ("Shell"), so match on the stable prefix rather than the whole string.
+        # Header actions are display:none until the header is hovered.
+        page.locator(".workspace-head").first.hover()
         page.locator("button[title^='在此 Workspace 新增']").first.click()
         page.wait_for_timeout(120)
         menu = page.locator(".launcher-menu button[role='menuitem']")

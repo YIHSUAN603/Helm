@@ -81,6 +81,8 @@ def visible(gs):
 
 
 def add_session(page):
+    # Header actions are display:none until the header is hovered.
+    page.locator(".workspace-head").first.hover()
     page.locator(ADD_SESSION_BTN).first.click()
     page.wait_for_timeout(150)
     menu = page.locator(".launcher-menu button[role='menuitem']")
