@@ -59,24 +59,24 @@
 
 /* 狀態色沿用 sidebar status-dot 色彙（busy 取 thinking 藍）。 */
 .tb-chip[data-state="busy"] .tb-chip-dot {
-  background: #89b4fa;
-  box-shadow: 0 0 6px #89b4fa;
+  background: var(--c-blue);
+  box-shadow: 0 0 6px var(--c-blue);
   animation: tb-pulse 1.2s ease-in-out infinite;
 }
 
 .tb-chip[data-state="waiting"] .tb-chip-dot {
-  background: #fab387;
-  box-shadow: 0 0 8px #fab387;
+  background: var(--c-peach);
+  box-shadow: 0 0 8px var(--c-peach);
   animation: tb-pulse 0.8s ease-in-out infinite;
 }
 
 .tb-chip[data-state="error"] .tb-chip-dot {
-  background: #f38ba8;
-  box-shadow: 0 0 6px #f38ba8;
+  background: var(--c-red);
+  box-shadow: 0 0 6px var(--c-red);
 }
 
 .tb-chip[data-state="done"] .tb-chip-dot {
-  background: #a6e3a1;
+  background: var(--c-green);
 }
 
 @keyframes tb-pulse {
@@ -137,15 +137,15 @@
   display: block;
   height: 100%;
   border-radius: 3px;
-  background: #a6e3a1;
+  background: var(--c-green);
 }
 
 .tb-meter[data-level="warn"] .tb-meter-fill {
-  background: #f9e2af;
+  background: var(--c-yellow);
 }
 
 .tb-meter[data-level="low"] .tb-meter-fill {
-  background: #f38ba8;
+  background: var(--c-red);
 }
 
 .tb-agent {
@@ -184,8 +184,8 @@
   min-width: 14px;
   padding: 0 3px;
   border-radius: 7px;
-  background: #f38ba8;
-  color: #11111b;
+  background: var(--c-red);
+  color: var(--on-status);
   font-size: 10px;
   font-weight: 700;
   line-height: 14px;
@@ -206,8 +206,8 @@
 
 .tb-update-install {
   border: none;
-  background: #89b4fa;
-  color: #11111b;
+  background: var(--c-blue);
+  color: var(--on-status);
   font-weight: 600;
   font-size: 11.5px;
   padding: 3px 9px;

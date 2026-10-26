@@ -34,8 +34,8 @@
 }
 
 .pane-badge-warn {
-  background: #fab38722;
-  color: #fab387;
+  background: color-mix(in srgb, var(--c-peach) 13%, transparent);
+  color: var(--c-peach);
 }
 
 .pane-actions {
@@ -69,7 +69,7 @@
 }
 
 .pane-actions .pane-close:hover {
-  color: #f38ba8;
+  color: var(--c-red);
 }
 
 /* launcher 選單掛在標題列右側下方（樣式本體重用 SessionSidebar.css 的 .launcher-menu）。 */

@@ -151,7 +151,7 @@
 .sidebar-inline-confirm {
   flex: 1 1 auto;
   min-width: 0;
-  color: #fab387;
+  color: var(--c-peach);
   font-size: 11px;
   line-height: 1.3;
 }
@@ -166,11 +166,11 @@
 }
 
 .icon-btn.confirm-yes {
-  color: #a6e3a1;
+  color: var(--c-green);
 }
 
 .icon-btn.confirm-no {
-  color: #f38ba8;
+  color: var(--c-red);
 }
 
 /* Session count: a tabular figure in a fixed-width slot, so the number's own
@@ -196,8 +196,8 @@
   text-align: center;
   border: none;
   cursor: pointer;
-  background: #fab387;
-  color: #11111b;
+  background: var(--c-peach);
+  color: var(--on-status);
   border-radius: 8px;
   font-size: 10px;
   font-weight: 700;
@@ -283,7 +283,7 @@
 /* Persisted folder that is not reachable right now (unmounted volume, moved
    project): keep showing the path, but say it will not be used. */
 .workspace-folder[data-missing="true"] .workspace-folder-path {
-  color: #fab387;
+  color: var(--c-peach);
   text-decoration: line-through;
 }
 
@@ -363,7 +363,7 @@
 .session-item[data-cluster-pos="first"],
 .session-item[data-cluster-pos="middle"],
 .session-item[data-cluster-pos="last"] {
-  background: var(--split-cluster-tint, rgba(137, 180, 250, 0.07));
+  background: var(--split-cluster-tint, color-mix(in srgb, var(--c-blue) 7%, transparent));
 }
 
 .session-item[data-cluster-pos="first"]::before,
@@ -451,44 +451,44 @@
 }
 
 .status-dot.busy {
-  background: #89b4fa;
-  box-shadow: 0 0 6px #89b4fa;
+  background: var(--c-blue);
+  box-shadow: 0 0 6px var(--c-blue);
   animation: pulse 1.2s ease-in-out infinite;
 }
 
 .status-dot.idle {
-  background: #6c7086;
+  background: var(--c-idle);
 }
 
 .status-dot.exited {
-  background: #f38ba8;
+  background: var(--c-red);
 }
 
 /* agent 狀態燈 */
 .status-dot.agent-thinking {
-  background: #89b4fa;
-  box-shadow: 0 0 6px #89b4fa;
+  background: var(--c-blue);
+  box-shadow: 0 0 6px var(--c-blue);
   animation: pulse 1.2s ease-in-out infinite;
 }
 
 .status-dot.agent-tool {
-  background: #f9e2af;
-  box-shadow: 0 0 6px #f9e2af;
+  background: var(--c-yellow);
+  box-shadow: 0 0 6px var(--c-yellow);
 }
 
 .status-dot.agent-waiting {
-  background: #fab387;
-  box-shadow: 0 0 8px #fab387;
+  background: var(--c-peach);
+  box-shadow: 0 0 8px var(--c-peach);
   animation: pulse 0.8s ease-in-out infinite;
 }
 
 .status-dot.agent-done {
-  background: #a6e3a1;
+  background: var(--c-green);
 }
 
 .status-dot.agent-error {
-  background: #f38ba8;
-  box-shadow: 0 0 6px #f38ba8;
+  background: var(--c-red);
+  box-shadow: 0 0 6px var(--c-red);
 }
 
 @keyframes pulse {
@@ -695,7 +695,7 @@
 }
 
 .session-peek-waiting {
-  color: #fab387;
+  color: var(--c-peach);
 }
 
 .session-peek-doing {

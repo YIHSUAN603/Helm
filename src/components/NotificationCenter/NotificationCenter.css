@@ -105,36 +105,36 @@
 }
 
 .notif-icon.kind-approval {
-  background: #f9e2af33;
-  color: #f9e2af;
+  background: color-mix(in srgb, var(--c-yellow) 20%, transparent);
+  color: var(--c-yellow);
 }
 
 .notif-icon.kind-question,
 .notif-icon.kind-plan {
-  background: #89b4fa33;
-  color: #89b4fa;
+  background: color-mix(in srgb, var(--c-blue) 20%, transparent);
+  color: var(--c-blue);
 }
 
 .notif-icon.kind-done {
-  background: #a6e3a133;
-  color: #a6e3a1;
+  background: color-mix(in srgb, var(--c-green) 20%, transparent);
+  color: var(--c-green);
 }
 
 .notif-icon.kind-error {
-  background: #f38ba833;
-  color: #f38ba8;
+  background: color-mix(in srgb, var(--c-red) 20%, transparent);
+  color: var(--c-red);
 }
 
 /* Interrupted: the agent died mid-run — same alarm colour as error. */
 .notif-icon.kind-interrupted {
-  background: #f38ba833;
-  color: #f38ba8;
+  background: color-mix(in srgb, var(--c-red) 20%, transparent);
+  color: var(--c-red);
 }
 
 /* Stalled: not an error yet, just suspicious silence. */
 .notif-icon.kind-stalled {
-  background: #fab38733;
-  color: #fab387;
+  background: color-mix(in srgb, var(--c-peach) 20%, transparent);
+  color: var(--c-peach);
 }
 
 .notif-main {
@@ -166,6 +166,6 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #89b4fa;
+  background: var(--c-blue);
   margin-top: 4px;
 }

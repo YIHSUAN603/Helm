@@ -100,10 +100,10 @@
   border-color: var(--active);
 }
 
-/* #f38ba8 is the same error tone the status dots and exited state use
-   (SessionSidebar.css); the palette is literal there, so it is literal here. */
+/* --c-red is the same error tone the status dots and exited state use
+   (status tokens in App.css). */
 .recipe-dialog input[aria-invalid="true"] {
-  border-color: #f38ba8;
+  border-color: var(--c-red);
 }
 
 .recipe-env-key {
@@ -113,7 +113,7 @@
 .recipe-error {
   grid-column: 1 / -1;
   font-size: 11px;
-  color: #f38ba8;
+  color: var(--c-red);
 }
 
 .recipe-command {

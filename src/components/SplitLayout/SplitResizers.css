@@ -47,7 +47,7 @@
 .split-resizer:hover::after,
 .split-resizer.dragging::after,
 .split-resizer:focus-visible::after {
-  background: var(--accent, #89b4fa);
+  background: var(--accent, var(--c-blue));
 }
 
 /* 鍵盤聚焦時以中央線顯示，不需要外框 */

@@ -81,6 +81,31 @@ body {
   z-index: 2;
 }
 
+/* 語意狀態色（等待 / 執行 / 完成 / 錯誤…）：元件 CSS 一律用這組變數，不寫死色碼。
+   預設是 Catppuccin Mocha 的粉彩色，所有深色主題共用；淺色主題在下方換成
+   Latte 的飽和色 —— 粉彩色放在淺底上對比不足，文字與狀態點都會糊掉。
+   --on-status 是鋪滿狀態色的按鈕／徽章上的文字色。 */
+.app {
+  --c-yellow: #f9e2af;
+  --c-peach: #fab387;
+  --c-green: #a6e3a1;
+  --c-red: #f38ba8;
+  --c-blue: #89b4fa;
+  --c-idle: #6c7086;
+  --on-status: #11111b;
+}
+
+.app[data-theme="light"],
+.app[data-theme="githubLight"] {
+  --c-yellow: #df8e1d;
+  --c-peach: #fe640b;
+  --c-green: #40a02b;
+  --c-red: #d20f39;
+  --c-blue: #1e66f5;
+  --c-idle: #9ca0b0;
+  --on-status: #ffffff;
+}
+
 /* 深色主題（預設） */
 .app[data-theme="dark"] {
   --app-bg: #181825;

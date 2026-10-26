@@ -177,6 +177,16 @@ export function resolveXtermTheme(
   return transparentBg ? { ...base, background: "rgba(0,0,0,0)" } : base;
 }
 
+const LIGHT_STATUS_VARS: Record<string, string> = {
+  "--c-yellow": "#df8e1d",
+  "--c-peach": "#fe640b",
+  "--c-green": "#40a02b",
+  "--c-red": "#d20f39",
+  "--c-blue": "#1e66f5",
+  "--c-idle": "#9ca0b0",
+  "--on-status": "#ffffff",
+};
+
 /** 自訂主題的 UI 變數 → inline style（App.css 不需要 [data-theme="custom"] 區塊）。 */
 export function customCssVars(theme: CustomTheme): CSSProperties {
   const style: Record<string, string> = {
@@ -184,6 +194,8 @@ export function customCssVars(theme: CustomTheme): CSSProperties {
     // 背景圖遮罩的色相：淺色主題用白遮罩沖淡，深色用黑（同 App.css 內建主題）。
     "--app-bg-tint": theme.colorScheme === "light" ? "255, 255, 255" : "0, 0, 0",
   };
+  // 淺色自訂主題也要換掉粉彩狀態色（數值與 App.css 淺色區塊一致）。
+  if (theme.colorScheme === "light") Object.assign(style, LIGHT_STATUS_VARS);
   for (const [key, cssVar] of Object.entries(UI_COLOR_VARS)) {
     style[cssVar] = theme.ui[key as UiColorKey];
   }

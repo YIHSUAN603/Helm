@@ -145,7 +145,7 @@
 
 .settings-notify-warning > span {
   font-size: 12px;
-  color: #f9e2af;
+  color: var(--c-yellow);
 }
 
 .settings-notify-warning > button {
@@ -161,8 +161,8 @@
 
 .settings-update-install {
   border: none;
-  background: #89b4fa;
-  color: #11111b;
+  background: var(--c-blue);
+  color: var(--on-status);
   font-weight: 600;
   font-size: 12px;
   padding: 4px 10px;
@@ -239,7 +239,7 @@
   flex: 0 0 auto;
   border: none;
   background: none;
-  color: #f38ba8;
+  color: var(--c-red);
   font-size: 12px;
   cursor: pointer;
   padding: 4px 6px;
@@ -276,7 +276,7 @@
 .settings-error {
   margin: 0;
   font-size: 12px;
-  color: #f38ba8;
+  color: var(--c-red);
 }
 
 .settings-diagnostic-entry {

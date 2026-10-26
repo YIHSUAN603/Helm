@@ -62,11 +62,11 @@
 }
 
 .diff-stat-add {
-  color: #a6e3a1;
+  color: var(--c-green);
 }
 
 .diff-stat-del {
-  color: #f38ba8;
+  color: var(--c-red);
 }
 
 .diff-baseline {
@@ -92,11 +92,11 @@
 }
 
 .diff-row.kind-add {
-  background: #a6e3a133;
+  background: color-mix(in srgb, var(--c-green) 20%, transparent);
 }
 
 .diff-row.kind-del {
-  background: #f38ba833;
+  background: color-mix(in srgb, var(--c-red) 20%, transparent);
 }
 
 .diff-gutter {
@@ -116,11 +116,11 @@
 }
 
 .diff-row.kind-add .diff-text {
-  color: #a6e3a1;
+  color: var(--c-green);
 }
 
 .diff-row.kind-del .diff-text {
-  color: #f38ba8;
+  color: var(--c-red);
 }
 
 .diff-hunk {

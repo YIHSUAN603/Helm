@@ -187,7 +187,7 @@
 }
 
 .session-brief-waiting .session-brief-label {
-  color: #fab387;
+  color: var(--c-peach);
 }
 
 .session-brief-muted {

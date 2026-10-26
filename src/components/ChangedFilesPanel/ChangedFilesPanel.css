@@ -113,16 +113,16 @@
 .file-op.op-update,
 .file-op.op-updated,
 .file-op.op-modified {
-  background: #f9e2af33;
-  color: #f9e2af;
+  background: color-mix(in srgb, var(--c-yellow) 20%, transparent);
+  color: var(--c-yellow);
 }
 
 .file-op.op-write,
 .file-op.op-wrote,
 .file-op.op-create,
 .file-op.op-created {
-  background: #a6e3a133;
-  color: #a6e3a1;
+  background: color-mix(in srgb, var(--c-green) 20%, transparent);
+  color: var(--c-green);
 }
 
 .file-row {

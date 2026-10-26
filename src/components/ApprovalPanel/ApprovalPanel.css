@@ -9,7 +9,7 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--sidebar-bg);
-  border: 1px solid #f9e2af;
+  border: 1px solid var(--c-yellow);
   border-radius: 10px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   z-index: 20;
@@ -30,7 +30,7 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  color: #f9e2af;
+  color: var(--c-yellow);
   margin-bottom: 8px;
 }
 
@@ -43,7 +43,7 @@
   margin-left: auto;
   border: none;
   background: transparent;
-  color: #f9e2af;
+  color: var(--c-yellow);
   font-size: 15px;
   line-height: 1;
   font-weight: 700;
@@ -72,8 +72,8 @@
   display: inline-block;
   min-width: 16px;
   text-align: center;
-  background: #f9e2af;
-  color: #11111b;
+  background: var(--c-yellow);
+  color: var(--on-status);
   border-radius: 8px;
   font-size: 11px;
   padding: 0 5px;
@@ -98,12 +98,12 @@
 }
 
 .approval-batch .batch.approve {
-  color: #a6e3a1;
-  border-color: #a6e3a1;
+  color: var(--c-green);
+  border-color: var(--c-green);
 }
 .approval-batch .batch.reject {
-  color: #f38ba8;
-  border-color: #f38ba8;
+  color: var(--c-red);
+  border-color: var(--c-red);
 }
 .approval-batch .batch:hover {
   filter: brightness(1.2);
@@ -162,13 +162,13 @@
 }
 
 .approval-actions .approve {
-  background: #a6e3a1;
-  color: #11111b;
+  background: var(--c-green);
+  color: var(--on-status);
 }
 
 .approval-actions .reject {
-  background: #f38ba8;
-  color: #11111b;
+  background: var(--c-red);
+  color: var(--on-status);
 }
 
 .approval-actions button:hover {

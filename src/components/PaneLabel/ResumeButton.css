@@ -16,5 +16,5 @@
 /* relaunch = 重跑啟動指令、開一段全新對話，不是接續。用警示色（同
    .pane-badge-warn）提醒「按下去不會把上下文帶回來」。 */
 .pane-actions .pane-resume[data-resume-kind="relaunch"] {
-  color: #fab387;
+  color: var(--c-peach);
 }
