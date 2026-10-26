@@ -1,7 +1,9 @@
 // 應用程式更新狀態：發現新版本時先詢問使用者，供 Toolbar/SettingsDialog 顯示與操作。
 import { create } from "zustand";
 import type { Update } from "@tauri-apps/plugin-updater";
-import { downloadAndInstallUpdate } from "../ipc/update";
+import { downloadAndInstallUpdate, relaunchApp } from "../ipc/update";
+import { flushSnapshot } from "./sessionSnapshot";
+import { flushScrollback } from "../components/Terminal/scrollback";
 
 export type UpdatePhase =
   | "idle"
@@ -40,6 +42,20 @@ export const useUpdateStore = create<UpdateState>((set) => ({
   dismiss: () => set({ dismissed: true }),
 }));
 
+/** 重啟前 flush 的上限，同關窗流程：寫檔卡住不該擋住更新。 */
+const RELAUNCH_FLUSH_TIMEOUT_MS = 2_000;
+
+/**
+ * 重啟前把 session 快照與 scrollback 寫出去。relaunch 直接結束行程，不經過
+ * App.tsx 的 onCloseRequested，那邊的 flush 在這條路上不會跑。
+ */
+async function flushBeforeRelaunch(): Promise<void> {
+  await Promise.race([
+    Promise.all([flushSnapshot(), flushScrollback()]).catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, RELAUNCH_FLUSH_TIMEOUT_MS)),
+  ]);
+}
+
 /** 使用者同意後下載並安裝待裝更新，完成後重啟應用程式。 */
 export async function installPendingUpdate(): Promise<void> {
   const { pendingUpdate, setPhase } = useUpdateStore.getState();
@@ -50,6 +66,8 @@ export async function installPendingUpdate(): Promise<void> {
     setPhase("downloading", pendingUpdate.version);
     await downloadAndInstallUpdate(pendingUpdate);
     setPhase("relaunching", pendingUpdate.version);
+    await flushBeforeRelaunch();
+    await relaunchApp();
   } catch {
     setPhase("error", pendingUpdate.version);
   }

@@ -19,8 +19,16 @@ export async function checkForUpdate(): Promise<Update | null> {
   }
 }
 
-/** 下載並安裝更新，完成後重啟應用程式。 */
+/** 下載並安裝更新（不重啟，見 relaunchApp）。 */
 export async function downloadAndInstallUpdate(update: Update): Promise<void> {
   await update.downloadAndInstall();
+}
+
+/**
+ * 重啟應用程式以套用更新。需要 Rust 端註冊 tauri-plugin-process 與 capability
+ * `process:allow-restart`：macOS 的 updater 只換掉 .app，不會自己結束舊行程
+ * （Windows 的 NSIS 安裝程式則會），少了這步使用者得手動 ⌘Q 才裝得上。
+ */
+export async function relaunchApp(): Promise<void> {
   await relaunch();
 }
