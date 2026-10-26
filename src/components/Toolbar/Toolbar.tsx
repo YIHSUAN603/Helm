@@ -214,6 +214,7 @@ export function Toolbar() {
       )}
       <button
         className={`tb-files ${filesOpen ? "on" : ""}`}
+        data-popover-toggle="files"
         aria-pressed={filesOpen}
         onClick={toggleFiles}
         title={t("toolbar.changedFiles")}
@@ -222,6 +223,7 @@ export function Toolbar() {
       </button>
       <button
         className={`tb-files tb-bell ${notifOpen ? "on" : ""}`}
+        data-popover-toggle="notifications"
         aria-pressed={notifOpen}
         onClick={toggleNotifications}
         title={t("toolbar.notifications")}

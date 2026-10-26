@@ -1,13 +1,16 @@
 // 通知中心面板：所有提醒事件（三種 waiting / done / error / interrupted /
 // stalled）的 App 內入口
 // 與歷史（上限見 NOTIFICATION_CAP，不跨啟動保存）。由 Toolbar 的鈴鐺開關；
-// 點項目跳到該 session 並標已讀；Esc 關閉並把焦點還給終端機。
+// 點項目跳到該 session 並標已讀；開啟即聚焦面板，Esc 或點面板外關閉
+// （見 focus/popover.ts），Esc 會把焦點還給終端機。
+import { useRef } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useNotificationsStore } from "../../store/notifications";
 import { useUiStore } from "../../store/ui";
 import { activateSession } from "../../commands/actions";
 import { focusActiveTerminal, handleDismissKey } from "../../focus/focusUtils";
 import { handleListKey, hasNonShiftModifier } from "../../focus/listNav";
+import { usePopoverDismiss } from "../../focus/popover";
 import { useT } from "../../i18n";
 import type { AppNotification, NotifyKind } from "../../store/notificationCenter";
 import "./NotificationCenter.css";
@@ -42,6 +45,8 @@ function NotificationCenterContent() {
   const hasUnread = items.some((x) => !x.read);
 
   const onClose = () => setOpen(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss(panelRef, "notifications", onClose);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     handleDismissKey(e, () => {
@@ -72,7 +77,12 @@ function NotificationCenterContent() {
   };
 
   return (
-    <div className="notif-panel" data-focus-region="notifications" onKeyDown={onKeyDown}>
+    <div
+      ref={panelRef}
+      className="notif-panel"
+      data-focus-region="notifications"
+      onKeyDown={onKeyDown}
+    >
       <div className="notif-header">
         <span>{t("notifCenter.title")}</span>
         <span className="notif-header-actions">

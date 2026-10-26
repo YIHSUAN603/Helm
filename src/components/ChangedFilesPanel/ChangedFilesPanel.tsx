@@ -1,6 +1,6 @@
 // 檔案變更面板：列出聚焦 workspace 內所有 session 動到的檔案，依 session 分組。
-// 點分組標頭可跳到該 session；Esc（面板內有焦點時）關閉並把焦點還給終端機。
-import { memo } from "react";
+// 點分組標頭可跳到該 session；開啟即聚焦面板，Esc 或點面板外關閉（見 focus/popover.ts）。
+import { memo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { activateSession } from "../../commands/actions";
 import { useSessionStore, type Session } from "../../store/sessions";
@@ -12,13 +12,20 @@ import {
 } from "../../store/workspaceGroups";
 import { focusActiveTerminal, handleDismissKey } from "../../focus/focusUtils";
 import { handleListKey, hasNonShiftModifier } from "../../focus/listNav";
+import { usePopoverDismiss } from "../../focus/popover";
 import type { ChangedFile } from "../../agents/extract";
 import { useT } from "../../i18n";
 import "./ChangedFilesPanel.css";
 
 // Memoized: session refs are stable for untouched sessions, so streaming file
 // changes in one session re-render only that group.
-const SessionFileGroup = memo(function SessionFileGroup({ session }: { session: Session }) {
+const SessionFileGroup = memo(function SessionFileGroup({
+  session,
+  isFirst,
+}: {
+  session: Session;
+  isFirst: boolean;
+}) {
   const t = useT();
   const files = session.changedFiles ?? [];
 
@@ -46,12 +53,14 @@ const SessionFileGroup = memo(function SessionFileGroup({ session }: { session: 
         <span className="files-group-title">{session.title}</span>
         <span className="files-group-count">{files.length}</span>
       </div>
-      {files.map((f) => (
+      {files.map((f, i) => (
         <div
           className="file-row"
           key={`${session.id}:${f.path}`}
           role="button"
           tabIndex={0}
+          // Opening the panel focuses the first file, not the header's close button.
+          data-region-entry={isFirst && i === 0 ? "" : undefined}
           title={t("files.openDiff", { path: f.path })}
           // getState(): no subscription and no new prop, so this component's
           // memo keeps comparing only `session`.
@@ -91,6 +100,8 @@ function ChangedFilesPanelContent() {
   );
 
   const onClose = () => setFilesOpen(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss(panelRef, "files", onClose);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     handleDismissKey(e, () => {
@@ -100,7 +111,12 @@ function ChangedFilesPanelContent() {
   };
 
   return (
-    <div className="files-panel" data-focus-region="files" onKeyDown={onKeyDown}>
+    <div
+      ref={panelRef}
+      className="files-panel"
+      data-focus-region="files"
+      onKeyDown={onKeyDown}
+    >
       <div className="files-header">
         <span>{total > 0 ? t("files.titleWithCount", { count: total }) : t("files.title")}</span>
         <button className="files-close" onClick={onClose} title={t("files.close")}>
@@ -109,8 +125,8 @@ function ChangedFilesPanelContent() {
       </div>
       <div className="files-list">
         {groups.length === 0 && <div className="files-empty">{t("files.empty")}</div>}
-        {groups.map((s) => (
-          <SessionFileGroup key={s.id} session={s} />
+        {groups.map((s, i) => (
+          <SessionFileGroup key={s.id} session={s} isFirst={i === 0} />
         ))}
       </div>
     </div>
