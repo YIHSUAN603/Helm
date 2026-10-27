@@ -4,6 +4,12 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.21.2](https://github.com/YIHSUAN603/Helm/releases/tag/v0.21.2) - 2026-10-27
+
+### Fixed
+
+- Windows: hook content containing non-ASCII text (e.g. Chinese in the brief card's last reply or task list) no longer arrives garbled. The PowerShell forwarder scripts now read stdin as UTF-8 instead of the system's OEM code page (cp950 on Traditional Chinese Windows). Installed scripts are updated automatically on the next launch, so no reinstall is needed.
+
 ## [0.21.1](https://github.com/YIHSUAN603/Helm/releases/tag/v0.21.1) - 2026-10-26
 
 ### Fixed
