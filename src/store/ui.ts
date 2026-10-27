@@ -19,6 +19,8 @@ interface UiState {
   notificationsOpen: boolean;
   paletteOpen: boolean;
   settingsOpen: boolean;
+  /** 開設定時要直接切到的分頁（例如 Companion 的航海日誌）；開啟後即清空。 */
+  settingsInitialTab: string | null;
   shortcutsOpen: boolean;
   // 隱藏左側 session 側欄（釋放終端寬度）；預設顯示（false）。
   sidebarHidden: boolean;
@@ -47,6 +49,7 @@ interface UiState {
   setNotificationsOpen: (v: boolean) => void;
   setPaletteOpen: (v: boolean) => void;
   setSettingsOpen: (v: boolean) => void;
+  openSettingsTab: (tab: string) => void;
   setShortcutsOpen: (v: boolean) => void;
   setRenamingWorkspaceId: (id: string | null) => void;
   setRenamingSessionId: (id: string | null) => void;
@@ -63,6 +66,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   notificationsOpen: false,
   paletteOpen: false,
   settingsOpen: false,
+  settingsInitialTab: null,
   shortcutsOpen: false,
   sidebarHidden: false,
   approvalCollapsed: false,
@@ -80,6 +84,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   setNotificationsOpen: (v) => set({ notificationsOpen: v }),
   setPaletteOpen: (v) => set({ paletteOpen: v }),
   setSettingsOpen: (v) => set({ settingsOpen: v }),
+  openSettingsTab: (tab) => set({ settingsOpen: true, settingsInitialTab: tab }),
   setShortcutsOpen: (v) => set({ shortcutsOpen: v }),
   // 兩個改名旗標互斥：開一個就關掉另一個。
   setRenamingWorkspaceId: (id) => set({ renamingWorkspaceId: id, renamingSessionId: null }),

@@ -42,6 +42,8 @@ import {
 } from "./store/scanState";
 import { clearStaleBusy, markPtyOutput } from "./store/staleBusy";
 import { startStaleBusyWatchdog } from "./store/staleBusyWatch";
+import { flushCompanion, startCompanionPersistence } from "./store/companion";
+import { startCompanionWatch } from "./store/companionWatch";
 import { startBriefWatch } from "./store/briefWatch";
 import { useBriefStore } from "./store/briefs";
 import { clearResumeState, consumeResumeFailure } from "./store/resumeState";
@@ -133,6 +135,7 @@ function installCloseFlush(): void {
             (async () => {
               await flushSnapshot();
               await flushScrollback();
+              await flushCompanion();
             })().catch(() => {}),
             new Promise((resolve) => setTimeout(resolve, CLOSE_FLUSH_TIMEOUT_MS)),
           ]);
@@ -707,6 +710,8 @@ function App() {
       startSessionPersistence();
       startScrollbackPersistence();
       startStaleBusyWatchdog();
+      startCompanionPersistence();
+      startCompanionWatch();
       startBriefWatch();
       installCloseFlush();
       void checkForUpdateOnStartup();

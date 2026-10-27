@@ -1,0 +1,6 @@
+{
+  "id": "seagull",
+  "displayName": "Seagull",
+  "description": "Helm 的預設船員：戴水手帽的海鷗。",
+  "spritesheetPath": "spritesheet.webp"
+}

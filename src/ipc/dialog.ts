@@ -16,3 +16,13 @@ export async function pickImage(): Promise<string | null> {
   });
   return typeof res === "string" ? res : null;
 }
+
+/** Native picker for a pet sprite sheet (.webp / .png); null if cancelled. */
+export async function pickSpriteSheet(): Promise<string | null> {
+  const res = await open({
+    directory: false,
+    multiple: false,
+    filters: [{ name: "Sprite sheet", extensions: ["webp", "png"] }],
+  });
+  return typeof res === "string" ? res : null;
+}

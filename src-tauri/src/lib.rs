@@ -8,6 +8,7 @@ mod integrations;
 pub mod launch;
 mod notify;
 mod paths;
+mod pets;
 mod pty;
 
 use hookserver::HookServer;
@@ -241,6 +242,10 @@ pub fn run() {
             appstore::delete_app_file,
             appstore::list_app_files,
             background::read_image_data_url,
+            pets::list_pets,
+            pets::read_pet_sprite,
+            pets::import_pet,
+            pets::delete_pet,
             integrations::integration_status,
             integrations::install_claude_hooks,
             integrations::install_claude_statusline,

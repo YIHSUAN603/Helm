@@ -1,0 +1,221 @@
+/* Companion 甲板。尺寸與 sprite 位置全由元件以 CSS 變數傳入（見 CompanionDeck.tsx），
+   這裡只描述「怎麼播」：background-position-x 用 steps() 逐格走、-y 選列。 */
+
+.companion-deck {
+  position: relative;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.companion-pet-wrap {
+  position: absolute;
+  bottom: 2px;
+  left: calc((100% - var(--cw)) * var(--x));
+  width: var(--cw);
+  height: var(--ch);
+}
+
+.companion-pet {
+  width: var(--cw);
+  height: var(--ch);
+  background-image: var(--sheet);
+  background-repeat: no-repeat;
+  background-size: var(--sw) var(--sh);
+  background-position: 0 var(--oy);
+  animation: companion-frames var(--dur) steps(var(--frames)) infinite;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* 滑鼠停在牠身上：停在當下那一格，像在看你。 */
+.companion-pet:hover {
+  animation-play-state: paused;
+}
+
+/* 轉頭看游標：停在對應方向那一格（擴充版 sheet 的第 9、10 列）。 */
+.companion-pet-wrap[data-look] .companion-pet {
+  animation: none;
+  background-position: var(--look-x) var(--look-y);
+}
+
+.companion-pet-wrap[data-dragging] .companion-pet {
+  cursor: grabbing;
+}
+
+@keyframes companion-frames {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: var(--tx);
+  }
+}
+
+/* 倒地：播一次後停在最後一格。 */
+.companion-pet-wrap[data-motion="hold-last"] .companion-pet {
+  animation: companion-frames-last var(--dur) steps(var(--frames-last)) 1 forwards;
+}
+
+@keyframes companion-frames-last {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: var(--tx-last);
+  }
+}
+
+/* 來回跑 / 散步：外層在甲板上左右移動，內層跟著換成向右或向左那一列。 */
+.companion-pet-wrap[data-motion="pace"],
+.companion-pet-wrap[data-motion="stroll"] {
+  animation: companion-pace var(--pace) linear infinite;
+}
+
+.companion-pet-wrap[data-motion="pace"] .companion-pet,
+.companion-pet-wrap[data-motion="stroll"] .companion-pet {
+  animation:
+    companion-frames var(--dur) steps(var(--frames)) infinite,
+    companion-pace-row var(--pace) step-end infinite;
+}
+
+@keyframes companion-pace {
+  0%,
+  100% {
+    left: 0;
+  }
+  50% {
+    left: calc(100% - var(--cw));
+  }
+}
+
+@keyframes companion-pace-row {
+  0% {
+    background-position-y: var(--oy-right);
+  }
+  50% {
+    background-position-y: var(--oy-left);
+  }
+}
+
+/* 進場：從甲板右緣跑到停留位置；退場：往左跑出去。 */
+.companion-pet-wrap[data-motion="enter"] {
+  animation: companion-enter var(--dur-travel, 1200ms) ease-out both;
+}
+
+.companion-pet-wrap[data-motion="exit"] {
+  animation: companion-exit var(--dur-travel, 1200ms) ease-in both;
+}
+
+@keyframes companion-enter {
+  from {
+    left: calc(100% - var(--cw));
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+}
+
+@keyframes companion-exit {
+  to {
+    left: calc(-1 * var(--cw));
+    opacity: 0;
+  }
+}
+
+/* 泡泡與卡片掛在 body（portal），不擋任何點擊。 */
+.companion-bubble,
+.companion-card {
+  position: fixed;
+  z-index: 1000;
+  transform: translateX(-50%);
+  pointer-events: none;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--sidebar-bg);
+  color: var(--fg);
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+  animation: companion-pop 160ms ease-out;
+}
+
+.companion-bubble::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: calc(50% - 5px);
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+.companion-card {
+  font-weight: 600;
+}
+
+@keyframes companion-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+}
+
+.companion-menu {
+  position: fixed;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--sidebar-bg);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.22);
+  font-size: 12px;
+}
+
+.companion-menu button {
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.companion-menu button:hover {
+  background: var(--hover);
+}
+
+.companion-menu-label {
+  padding: 4px 8px 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.companion-menu-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
+}
+
+/* 減少動態效果：只顯示每個狀態的第一格，不位移。 */
+@media (prefers-reduced-motion: reduce) {
+  .companion-pet,
+  .companion-pet-wrap,
+  .companion-pet-wrap[data-motion] .companion-pet,
+  .companion-pet-wrap[data-motion] {
+    animation: none !important;
+  }
+  .companion-bubble,
+  .companion-card {
+    animation: none;
+  }
+}

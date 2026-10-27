@@ -16,6 +16,7 @@ import {
 } from "../../store/workspaceGroups";
 import type { PlanUsage } from "../../agents/hookEvents";
 import { useT } from "../../i18n";
+import { CompanionDeck } from "../Companion/CompanionDeck";
 import "./Toolbar.css";
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
@@ -147,7 +148,8 @@ export function Toolbar() {
         ))}
       </div>
 
-      <div className="tb-spacer" />
+      {/* 解鎖前就是一般的 spacer；解鎖後寵物在這片空白裡活動。 */}
+      <CompanionDeck />
 
       {updatePhase === "available" && !updateDismissed && (
         <div className="tb-update-banner">

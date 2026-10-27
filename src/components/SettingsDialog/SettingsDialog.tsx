@@ -5,6 +5,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import type { ITheme } from "@xterm/xterm";
 import { useUiStore } from "../../store/ui";
+import { useCompanionStore } from "../../store/companion";
+import { isUnlocked } from "../../companion/progress";
+import { CompanionSection } from "./CompanionSection";
 import {
   useThemeStore,
   THEME_NAMES,
@@ -47,12 +50,14 @@ import { useT } from "../../i18n";
 import "./SettingsDialog.css";
 import { TerminalDiagnostics } from "./TerminalDiagnostics";
 
-type SettingsTab = "general" | "appearance" | "integrations" | "about";
+type SettingsTab = "general" | "appearance" | "integrations" | "companion" | "about";
 
 const SETTINGS_TABS: { id: SettingsTab; labelKey: string }[] = [
   { id: "general", labelKey: "settings.tabGeneral" },
   { id: "appearance", labelKey: "settings.tabAppearance" },
   { id: "integrations", labelKey: "settings.tabIntegrations" },
+  // 彩蛋：解鎖前不渲染這個分頁（見 visibleTabs）。
+  { id: "companion", labelKey: "settings.tabCompanion" },
   { id: "about", labelKey: "settings.tabAbout" },
 ];
 
@@ -272,7 +277,16 @@ function SettingsDialogInner() {
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
   const prevFocusRef = useRef<Element | null>(document.activeElement);
 
-  const [tab, setTab] = useState<SettingsTab>("general");
+  const companionUnlocked = useCompanionStore((s) => !!s.data && isUnlocked(s.data));
+  const visibleTabs = SETTINGS_TABS.filter((x) => x.id !== "companion" || companionUnlocked);
+  // 從別處（寵物的雙擊 / 右鍵選單）指定要開的分頁；讀完就清掉，下次照常從「一般」開。
+  const [tab, setTab] = useState<SettingsTab>(() => {
+    const wanted = useUiStore.getState().settingsInitialTab;
+    return visibleTabs.find((x) => x.id === wanted)?.id ?? "general";
+  });
+  useEffect(() => {
+    useUiStore.setState({ settingsInitialTab: null });
+  }, []);
 
   const themeName = useThemeStore((s) => s.name);
   const setThemeName = useThemeStore((s) => s.setName);
@@ -461,7 +475,7 @@ function SettingsDialogInner() {
         </div>
 
         <div className="settings-tabs" role="tablist">
-          {SETTINGS_TABS.map(({ id, labelKey }) => (
+          {visibleTabs.map(({ id, labelKey }) => (
             <button
               key={id}
               className="settings-tab"
@@ -881,6 +895,8 @@ function SettingsDialogInner() {
           )}
 
           {tab === "integrations" && <IntegrationSection />}
+
+          {tab === "companion" && <CompanionSection />}
 
           {tab === "about" && (
             <>

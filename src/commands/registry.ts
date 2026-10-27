@@ -9,6 +9,8 @@ import { groupTreeOf, useLayoutStore } from "../store/layout";
 import { useUiStore } from "../store/ui";
 import { useBriefStore } from "../store/briefs";
 import { useThemeStore } from "../store/theme";
+import { useCompanionStore } from "../store/companion";
+import { isUnlocked } from "../companion/progress";
 import { collectSessionIds } from "../store/layoutTree";
 import {
   pendingApprovalsInWorkspace,
@@ -263,6 +265,21 @@ function staticCommands(): Command[] {
       run: () => {
         const ui = useUiStore.getState();
         ui.setSettingsOpen(!ui.settingsOpen);
+      },
+    },
+    {
+      // 彩蛋：解鎖前 enabled 為 false，命令面板裡完全看不到。
+      id: "companion:toggle",
+      title: t("command.companionToggle"),
+      category: t("category.view"),
+      keywords: "companion pet seagull easter egg",
+      enabled: () => {
+        const data = useCompanionStore.getState().data;
+        return !!data && isUnlocked(data);
+      },
+      run: () => {
+        const { data, setEnabled } = useCompanionStore.getState();
+        if (data) setEnabled(!data.enabled);
       },
     },
     {
