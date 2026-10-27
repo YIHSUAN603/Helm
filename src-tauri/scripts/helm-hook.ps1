@@ -21,6 +21,10 @@ $ErrorActionPreference = 'SilentlyContinue'
 # PowerShell 5.1 的 $OutputEncoding 預設是 ASCII，pipe 給原生 exe 時會把非 ASCII
 # 轉成 '?'——CJK 檔案路徑或中文 prompt 會被打爛且無聲失敗。必須設成無 BOM UTF-8。
 $OutputEncoding = New-Object System.Text.UTF8Encoding $false
+# 讀取端同理：[Console]::In 用 InputEncoding 解碼，預設是 OEM 字碼頁（繁中 Windows
+# 為 cp950），CLI 寫進來的 UTF-8 會被當 Big5 解成亂碼。亂碼重新編成 UTF-8 仍是合法
+# 字串，Helm 端不會報錯，所以必須在 ReadToEnd 之前設好。
+[Console]::InputEncoding = New-Object System.Text.UTF8Encoding $false
 
 try {
   $port = $env:HELM_EVENT_PORT

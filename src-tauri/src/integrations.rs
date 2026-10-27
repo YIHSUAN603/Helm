@@ -824,6 +824,14 @@ mod tests {
             );
             // PS 5.1 的 $OutputEncoding 預設 ASCII，會打爛 CJK 路徑。
             assert!(body.contains("UTF8Encoding"), "{name} 必須設 UTF-8 編碼");
+            // [Console]::In 預設用 OEM 字碼頁（cp950）解碼，CLI 的 UTF-8 中文會變亂碼。
+            let input_enc = body
+                .find("[Console]::InputEncoding")
+                .unwrap_or_else(|| panic!("{name} 必須設 [Console]::InputEncoding"));
+            assert!(
+                input_enc < body.find("[Console]::In.ReadToEnd()").unwrap(),
+                "{name} 必須在讀 stdin 前設好 InputEncoding"
+            );
             assert!(!body.starts_with('\u{feff}'), "{name} 不該有 BOM");
         }
         // 對應 Unix 版的 printf '%s'：不加結尾換行。

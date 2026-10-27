@@ -6,6 +6,7 @@
 # 容易誤印。curl.exe 與 UTF-8 編碼的理由見 helm-hook.ps1。
 $ErrorActionPreference = 'SilentlyContinue'
 $OutputEncoding = New-Object System.Text.UTF8Encoding $false
+[Console]::InputEncoding = New-Object System.Text.UTF8Encoding $false
 
 # 先讀 stdin 再 POST：curl 失敗不能弄丟印狀態列要用的資料。
 $json = [Console]::In.ReadToEnd()
