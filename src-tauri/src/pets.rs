@@ -45,9 +45,13 @@ pub struct PetInfo {
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ImportOutcome {
-    Imported { id: String },
+    Imported {
+        id: String,
+    },
     /// 同 id 已存在且沒有要求覆蓋：前端詢問後帶 overwrite = true 再呼叫一次。
-    Exists { id: String },
+    Exists {
+        id: String,
+    },
 }
 
 /// 寵物資料夾名稱 = id。只允許小寫英數、`-`、`_`，`..` 與路徑分隔在結構上不可能。
@@ -81,7 +85,11 @@ fn slug(name: &str) -> String {
 
 /// 匯入時的最終 id：不合法就 slug，撞到內建寵物就加後綴。
 fn import_id(raw: &str) -> String {
-    let id = if valid_id(raw) { raw.to_string() } else { slug(raw) };
+    let id = if valid_id(raw) {
+        raw.to_string()
+    } else {
+        slug(raw)
+    };
     if RESERVED_IDS.contains(&id.as_str()) {
         format!("{id}-custom")
     } else {
@@ -218,7 +226,10 @@ fn manifest_json(id: &str, display_name: &str, description: &str, format: SheetF
 pub fn list_pets(app: AppHandle) -> Result<Vec<PetInfo>, String> {
     let dir = pets_dir(&app)?;
     let mut out = Vec::new();
-    for entry in std::fs::read_dir(&dir).map_err(|_| "io".to_string())?.flatten() {
+    for entry in std::fs::read_dir(&dir)
+        .map_err(|_| "io".to_string())?
+        .flatten()
+    {
         let id = entry.file_name().to_string_lossy().to_string();
         if !valid_id(&id) || !entry.path().is_dir() {
             continue;
@@ -251,7 +262,11 @@ pub async fn read_pet_sprite(app: AppHandle, id: String) -> Result<String, Strin
         let path = dir.join(format.file_name());
         if path.is_file() {
             let bytes = read_capped(&path, MAX_SHEET_BYTES)?;
-            return Ok(format!("data:{};base64,{}", format.mime(), STANDARD.encode(bytes)));
+            return Ok(format!(
+                "data:{};base64,{}",
+                format.mime(),
+                STANDARD.encode(bytes)
+            ));
         }
     }
     Err("not-found".into())
@@ -364,7 +379,10 @@ mod tests {
 
     #[test]
     fn rejects_non_webp() {
-        assert_eq!(webp_size(b"\x89PNG\r\n\x1a\n not a webp at all, padding padding"), None);
+        assert_eq!(
+            webp_size(b"\x89PNG\r\n\x1a\n not a webp at all, padding padding"),
+            None
+        );
         assert_eq!(webp_size(b"RIFF"), None);
         assert_eq!(webp_size(&riff(b"VP8 ", &[0, 0, 0, 1, 2, 3])), None);
         assert_eq!(check_sheet(b"nope"), Err("not-image".into()));
