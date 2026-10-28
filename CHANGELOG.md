@@ -4,6 +4,12 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.22.1](https://github.com/YIHSUAN603/Helm/releases/tag/v0.22.1) - 2026-10-28
+
+### Fixed
+
+- Companion: the pet no longer teleports when it switches actions (e.g. between thinking and tool use). It now walks back to its spot or starts pacing from where it stands, and speed changes no longer make it skip frames. One-off reactions (waving, jumping) play in place.
+
 ## [0.22.0](https://github.com/YIHSUAN603/Helm/releases/tag/v0.22.0) - 2026-10-28
 
 ### Added
