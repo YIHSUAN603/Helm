@@ -71,6 +71,8 @@ function ctx(over: Partial<BehaviorContext> = {}): BehaviorContext {
   check("期限內播反應", b.anim === "jumping" && b.motion === "enter" && b.line === "streak");
   const expired = { ...reaction, until: NOW };
   check("到期讓位給狀態", pickBehavior(ctx({ reaction: expired, activeState: "thinking" })).anim === "running");
+  const inPlace = pickBehavior(ctx({ reaction: { anim: "waving", until: NOW + 1 } }));
+  check("沒指定動作的反應原地播", inPlace.motion === "here");
   check("反應勝過倒地", pickBehavior(ctx({ reaction, knockedOut: true })).anim === "jumping");
 }
 

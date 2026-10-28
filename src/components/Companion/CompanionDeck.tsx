@@ -25,12 +25,19 @@ import {
 } from "../../companion/behavior";
 import {
   LOOK_AT_YOU,
+  PET_ANIMS,
   PET_SHEET,
-  animCycleMs,
   lookAngle,
   lookCell,
   spriteGeometry,
 } from "../../companion/petAnimation";
+import {
+  frameColumn,
+  initialPetMotion,
+  stepPetMotion,
+  type PetMotionInput,
+  type PetMotionState,
+} from "../../companion/petMotion";
 import { isNightHour, levelOf, MAX_LEVEL } from "../../companion/progress";
 import { useT } from "../../i18n";
 import "./CompanionDeck.css";
@@ -42,6 +49,8 @@ const DRAG_THRESHOLD_PX = 4;
 const IDLE_TICK_MS = 5_000;
 /** 游標離寵物多近時牠會轉頭看（px）。 */
 const LOOK_RADIUS = 320;
+/** 一幀最多推進多久：分頁切走再回來時不會一步跨過整個甲板。 */
+const MAX_STEP_MS = 100;
 
 export function CompanionDeck() {
   const data = useCompanionStore((s) => s.data);
@@ -129,6 +138,7 @@ function Deck() {
   }, [behavior.line]);
 
   const deckRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const petRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ startX: number; active: boolean } | null>(null);
   // pointerup 先於 click：拖曳結束的那一下 click 不該再算成點牠。
@@ -137,16 +147,16 @@ function Deck() {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
 
-  const anim = dragX !== null ? "failed" : behavior.anim;
-  const geo = spriteGeometry(anim, PET_HEIGHT, spriteRows);
+  // 尺寸與列無關，用哪段動畫量都一樣。
+  const geo = useMemo(() => spriteGeometry("idle", PET_HEIGHT, spriteRows), [spriteRows]);
 
   // 轉頭看游標：只在閒著（idle / review 原地）時，而且 sheet 有轉頭那兩列。
   // 忙碌、等批准、反應中都不轉頭 —— 那些動畫本身就是在告訴你事情。
   const canLook =
     spriteRows >= PET_SHEET.lookRows &&
     dragX === null &&
-    behavior.motion === "stay" &&
-    (anim === "idle" || anim === "review");
+    (behavior.motion === "stay" || behavior.motion === "here") &&
+    (behavior.anim === "idle" || behavior.anim === "review");
   const [look, setLook] = useState<number | null>(null);
   useEffect(() => {
     if (!canLook) return;
@@ -178,7 +188,55 @@ function Deck() {
   }, [canLook]);
   const lookIdx = canLook ? look : null;
   const sheet = spriteUrl ?? BUILTIN_PETS[0].src;
-  const x = dragX ?? data.deckX;
+
+  // 逐幀運動：位置與影格都由 rAF 迴圈從當下狀態往前推，直接寫進 DOM（不經
+  // React 重繪）。元素從不因換動作而重新掛載 —— 那正是以前會閃現的原因。
+  const hovered = useRef(false);
+  const motionInput = useRef<Omit<PetMotionInput, "paused" | "reduced"> & { lookIdx: number | null }>(null);
+  const motion = useRef<PetMotionState | null>(null);
+  const paint = useCallback(() => {
+    const wrap = wrapRef.current;
+    const pet = petRef.current;
+    const s = motion.current;
+    const li = motionInput.current?.lookIdx ?? null;
+    if (!wrap || !pet || !s) return;
+    const { cellWidth, cellHeight } = geo;
+    // 轉頭只在已經站定（不是走回停留點的途中）時生效。
+    const looking = li !== null && (s.anim === "idle" || s.anim === "review");
+    const col = looking ? li % PET_SHEET.cols : frameColumn(s);
+    const row = looking ? Math.floor(li / PET_SHEET.cols) : PET_ANIMS[s.anim].row;
+    wrap.style.left = `calc((100% - ${cellWidth}px) * ${s.x})`;
+    wrap.style.opacity = String(s.opacity);
+    wrap.style.visibility = s.motion === "hidden" ? "hidden" : "";
+    pet.style.backgroundPosition = `${-col * cellWidth}px ${-row * cellHeight}px`;
+  }, [geo]);
+  // 每次 render 把最新的行為交給迴圈；第一次順便定出起點並先畫一格，免得
+  // 第一個 rAF 之前看到牠站在甲板左緣。
+  useLayoutEffect(() => {
+    motionInput.current = { behavior, home: data.deckX, dragX, lookIdx };
+    motion.current ??= initialPetMotion(data.deckX, behavior);
+    paint();
+  });
+  useEffect(() => {
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    let raf = 0;
+    let last = performance.now();
+    const tick = (t: number) => {
+      const dt = Math.min(MAX_STEP_MS, Math.max(0, t - last));
+      last = t;
+      if (motion.current && motionInput.current) {
+        motion.current = stepPetMotion(
+          motion.current,
+          { ...motionInput.current, paused: hovered.current, reduced: reduced?.matches ?? false },
+          dt,
+        );
+        paint();
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [paint]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -230,41 +288,23 @@ function Deck() {
   const showBubble = !!bubble && bubble.until > now;
   const showCard = !!card && card.until > now && !showBubble;
 
-  if (behavior.motion === "hidden") return <div className="tb-spacer companion-deck" ref={deckRef} />;
-
-  const dur = animCycleMs(anim, behavior.speed);
   const style = {
-    "--x": x,
     "--cw": `${geo.cellWidth}px`,
     "--ch": `${geo.cellHeight}px`,
     "--sw": `${geo.sheetWidth}px`,
     "--sh": `${geo.sheetHeight}px`,
-    "--oy": `${geo.offsetY}px`,
-    "--tx": `${geo.travelX}px`,
-    "--tx-last": `${geo.travelX + geo.cellWidth}px`,
-    "--frames": geo.frames,
-    "--frames-last": Math.max(1, geo.frames - 1),
-    "--dur": `${dur}ms`,
-    // pace / stroll 的左右兩列（running-right 在第 1 列、running-left 在第 2 列）。
-    "--oy-right": `${-1 * geo.cellHeight}px`,
-    "--oy-left": `${-2 * geo.cellHeight}px`,
-    "--pace": behavior.motion === "stroll" ? "14s" : `${Math.round(6000 / behavior.speed)}ms`,
     "--sheet": `url("${sheet}")`,
-    ...(lookIdx !== null && {
-      "--look-x": `${-(lookIdx % PET_SHEET.cols) * geo.cellWidth}px`,
-      "--look-y": `${-Math.floor(lookIdx / PET_SHEET.cols) * geo.cellHeight}px`,
-    }),
   } as React.CSSProperties;
 
+  // 跑走期間元素仍掛著（只是看不見）：回來時才能從退場的位置接著走進來。
+  const hidden = behavior.motion === "hidden";
   return (
     <div className="tb-spacer companion-deck" ref={deckRef} style={style}>
       <div
-        // 換動畫或動作時重新掛載，CSS 動畫才會從第一格開始播。
-        key={`${anim}:${behavior.motion}:${dragX !== null}`}
+        ref={wrapRef}
         className="companion-pet-wrap"
-        data-motion={dragX !== null ? "stay" : behavior.motion}
         data-dragging={dragX !== null || undefined}
-        data-look={lookIdx !== null || undefined}
+        aria-hidden={hidden || undefined}
       >
         <div
           ref={petRef}
@@ -272,6 +312,8 @@ function Deck() {
           role="img"
           aria-label={t("companion.ariaLabel", { name: petName })}
           title={petName}
+          onPointerEnter={() => (hovered.current = true)}
+          onPointerLeave={() => (hovered.current = false)}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -285,12 +327,12 @@ function Deck() {
         />
       </div>
 
-      {showBubble && (
+      {showBubble && !hidden && (
         <Floating anchor={petRef} className="companion-bubble">
           {t(bubble.key, bubble.vars)}
         </Floating>
       )}
-      {showCard && (
+      {showCard && !hidden && (
         <Floating anchor={petRef} className="companion-card">
           <span aria-hidden>🏅</span> {t(`companion.milestone.${card.id}`)}
         </Floating>

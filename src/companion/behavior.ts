@@ -14,7 +14,8 @@ export const WAIT_NUDGE_MS = 60_000;
 export const WAIT_SETTLE_MS = 5 * 60_000;
 
 /**
- * - stay：停在甲板上的位置
+ * - stay：停在甲板上的位置（不在那裡時先走回去）
+ * - here：原地播（一次性反應：揮手、跳一下不該先走回停留點）
  * - pace：在甲板上左右來回（向右用 running-right、向左用 running-left）
  * - stroll：pace 的慢速版，閒置時散步
  * - enter：從甲板右側跑進來
@@ -22,7 +23,7 @@ export const WAIT_SETTLE_MS = 5 * 60_000;
  * - hold-last：播一次後停在最後一格（倒地）
  * - hidden：不在畫面上（被惹毛跑走了）
  */
-export type Motion = "stay" | "pace" | "stroll" | "enter" | "exit" | "hold-last" | "hidden";
+export type Motion = "stay" | "here" | "pace" | "stroll" | "enter" | "exit" | "hold-last" | "hidden";
 
 export interface Reaction {
   anim: PetAnim;
@@ -72,7 +73,7 @@ export function pickBehavior(ctx: BehaviorContext): Behavior {
   }
   if (ctx.reaction && ctx.now < ctx.reaction.until) {
     const r = ctx.reaction;
-    return { anim: r.anim, motion: r.motion ?? "stay", speed: 1, line: r.line };
+    return { anim: r.anim, motion: r.motion ?? "here", speed: 1, line: r.line };
   }
   if (ctx.awayUntil !== null && ctx.now < ctx.awayUntil) {
     return { anim: "idle", motion: "hidden", speed: 1 };
