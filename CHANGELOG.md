@@ -4,6 +4,13 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.22.0](https://github.com/YIHSUAN603/Helm/releases/tag/v0.22.0) - 2026-10-28
+
+### Added
+
+- Companion: a hidden toolbar pet that reacts to your agents. It unlocks after you have answered 30 prompts or agents have completed 20 turns, and stays completely invisible before then. It plays animations matching the agent state (thinking, tool use, done, error, stalled), and a pending approval takes priority over every other reaction so it doesn't go unnoticed. Interaction is mouse-only (click, double-click, drag, right-click menu, head-tracking the cursor) and never captures a key. Affinity, levels, dialogue and a voyage log are saved in `companion.json` in the app data dir.
+- The built-in pet is a seagull in a sailor hat. A new Companion tab in Settings (shown only once unlocked) lets you import your own WebP / PNG pets in the same format Codex uses (`pet.json` + 8×9 sprite sheet), plus an extended variant with two extra rows of turn directions.
+
 ## [0.21.2](https://github.com/YIHSUAN603/Helm/releases/tag/v0.21.2) - 2026-10-27
 
 ### Fixed
