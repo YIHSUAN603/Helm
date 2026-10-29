@@ -15,6 +15,7 @@ import {
   pickBehavior,
   registerClick,
   registerFiles,
+  trackAnswer,
   type BehaviorContext,
 } from "../src/companion/behavior.ts";
 
@@ -145,6 +146,21 @@ function ctx(over: Partial<BehaviorContext> = {}): BehaviorContext {
   r = nextStreak(s, "done");
   check("第三次歡呼並歸零", r.cheer && r.streak === 0);
   check("error 歸零", nextStreak(2, "error").streak === 0);
+}
+
+// 回答提示：離開 waiting 後，跨過 undefined 等下一個明確狀態
+{
+  check("waiting → thinking 算回答", trackAnswer(false, "waiting", "thinking").answered);
+  check("waiting → done 算回答（拒絕後停下）", trackAnswer(false, "waiting", "done").answered);
+  // 面板 / Ctrl+A y 回答：clearApproval 先清成 undefined，之後才開始工作。
+  const cleared = trackAnswer(false, "waiting", undefined);
+  check("waiting → undefined 先掛著", cleared.pending && !cleared.answered);
+  const resumed = trackAnswer(cleared.pending, undefined, "tool");
+  check("undefined → tool 補算回答", resumed.answered && !resumed.pending);
+  const again = trackAnswer(true, undefined, "waiting");
+  check("又回到 waiting 不算", !again.answered && !again.pending);
+  check("沒等過批准的 undefined → thinking 不算", !trackAnswer(false, undefined, "thinking").answered);
+  check("thinking → tool 不算", !trackAnswer(false, "thinking", "tool").answered);
 }
 
 // 泡泡頻率與閒置
