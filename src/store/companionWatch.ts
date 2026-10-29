@@ -2,23 +2,20 @@
 // 的活動與反應。刻意用 subscribe 而不是在 sessions.ts 裡插呼叫 —— 彩蛋不該
 // 出現在 agent 感知的主幹上，拿掉這個檔案整個功能就消失。
 //
-// 「回答了一個 prompt」看的是 waiting → thinking / tool 的轉移，而不是
+// 「回答了一個 prompt」看的是離開 waiting 後的下一個狀態（trackAnswer），而不是
 // respondApproval：使用者在 terminal 直接按 y 不會經過 Helm 的按鈕。
-import type { AgentState } from "../agents/types";
 import { useSessionStore, type Session } from "./sessions";
 import { useNotificationsStore } from "./notifications";
 import { detectAgentEvent, isBusyState } from "./notificationRouter";
 import { resolveFocusedWorkspace } from "./workspaceGroups";
 import { companionVisible, useCompanionStore } from "./companion";
-import { isUserIdle, nextStreak, registerFiles } from "../companion/behavior";
+import { isUserIdle, nextStreak, registerFiles, trackAnswer } from "../companion/behavior";
 
 let doneStreak = 0;
 let fileSamples: { at: number; n: number }[] = [];
 let lastBusyCount = 0;
-
-function answered(prev: AgentState | undefined, next: AgentState | undefined): boolean {
-  return prev === "waiting" && (next === "thinking" || next === "tool");
-}
+/** 已離開 waiting、還在等下一個明確狀態的 session（見 trackAnswer）。 */
+let leftWaiting = new Set<string>();
 
 function onSessions(sessions: Session[], prevSessions: Session[], activeId: string | null): void {
   const companion = useCompanionStore.getState();
@@ -39,7 +36,10 @@ function onSessions(sessions: Session[], prevSessions: Session[], activeId: stri
     }
     if (s.agentState === p.agentState) continue;
 
-    if (answered(p.agentState, s.agentState)) {
+    const answer = trackAnswer(leftWaiting.has(s.id), p.agentState, s.agentState);
+    if (answer.pending) leftWaiting.add(s.id);
+    else leftWaiting.delete(s.id);
+    if (answer.answered) {
       companion.activity({ kind: "answered" });
       companion.react("waving");
     }
@@ -63,6 +63,7 @@ function onSessions(sessions: Session[], prevSessions: Session[], activeId: stri
   for (const id of companion.knockedOut) {
     if (!sessions.some((s) => s.id === id)) companion.revive(id);
   }
+  leftWaiting = new Set([...leftWaiting].filter((id) => sessions.some((s) => s.id === id)));
 
   if (addedFiles > 0) {
     const r = registerFiles(fileSamples, Date.now(), addedFiles);

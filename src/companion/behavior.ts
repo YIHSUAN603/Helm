@@ -159,6 +159,26 @@ export function nextStreak(streak: number, event: "done" | "error"): { streak: n
   return { streak: next, cheer: false };
 }
 
+// ---- 回答提示 ----
+
+/**
+ * 一次狀態轉移是否代表使用者回答了提示。pending = 已離開 waiting、還沒等到下一個
+ * 明確狀態。不能只看 waiting → thinking / tool：Helm 面板與 Ctrl+A y/N 回答時
+ * clearApproval 先把狀態清成 undefined，scan 清除路徑也可能如此，所以離開
+ * waiting 後跨過 undefined 等下一個狀態；那是非 waiting 的狀態才算回答，又回到
+ * waiting 則不算。
+ */
+export function trackAnswer(
+  pending: boolean,
+  prev: AgentState | undefined,
+  next: AgentState | undefined,
+): { pending: boolean; answered: boolean } {
+  if (next === "waiting") return { pending: false, answered: false };
+  if (!pending && prev !== "waiting") return { pending: false, answered: false };
+  if (next === undefined) return { pending: true, answered: false };
+  return { pending: false, answered: true };
+}
+
 // ---- 泡泡頻率 ----
 
 /** 牠主動冒出的泡泡至少間隔多久；使用者點牠觸發的不受限制。 */
