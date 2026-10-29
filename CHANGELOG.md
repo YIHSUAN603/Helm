@@ -4,6 +4,12 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.22.2](https://github.com/YIHSUAN603/Helm/releases/tag/v0.22.2) - 2026-10-29
+
+### Fixed
+
+- Companion: answering a prompt now counts toward unlocking the pet. Answers given through Helm's approval panel buttons, `Ctrl+A y` / `Ctrl+A N`, or approve/reject-all were never counted, nor were terminal answers after which the agent stopped right away, so the answered-prompt count could stay at 0 indefinitely. Counts from before this version are not backfilled.
+
 ## [0.22.1](https://github.com/YIHSUAN603/Helm/releases/tag/v0.22.1) - 2026-10-28
 
 ### Fixed
