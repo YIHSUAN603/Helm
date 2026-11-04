@@ -4,6 +4,12 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.22.3](https://github.com/YIHSUAN603/Helm/releases/tag/v0.22.3) - 2026-11-04
+
+### Changed
+
+- Companion: the pet now stays in place while an agent is working or waiting for approval. Thinking and tool use share one in-place animation, so the frequent switches between them no longer send it pacing back and forth across the deck; after a minute of waiting for approval it waves at you instead of running laps. It only wanders off its spot when you have been idle (a slow stroll), or when entering and leaving.
+
 ## [0.22.2](https://github.com/YIHSUAN603/Helm/releases/tag/v0.22.2) - 2026-10-29
 
 ### Fixed
