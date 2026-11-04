@@ -4,6 +4,22 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.23.0](https://github.com/YIHSUAN603/Helm/releases/tag/v0.23.0) - 2026-11-04
+
+### Added
+
+- Companion: deck weather, an ambient layer behind the pet that reflects the whole fleet while the pet follows the active session. The sea is flat when nothing is running, swells higher the more agents are thinking or using tools, and turns choppy when any session has errored; the sky shows a setting sun at dusk (17–19h) and twinkling stars at night (19–5h). A long turn finishing draws a soft light arc, and a milestone sets off a few sparkles. While an approval is pending the sea freezes and dims so the pet's reminder is the only thing moving. It reads only the theme's `--accent` / `--fg` (never the status colors, never a background fill), so no theme's colors change; it is fainter on light themes and with a background image, hidden when the deck is narrower than 120px, static under reduced motion, and can be turned off in Settings → Companion ("Deck weather", on by default).
+- Companion: stroke the pet by moving the cursor back and forth over it three times; it hops and shows a ♥ (3s cooldown, shares the daily affinity cap with clicks, ignored while an approval is pending).
+- Companion: when a turn finishes after at least 5 minutes of actual agent work (thinking / tool use; time spent waiting for your approval does not count), the pet celebrates with a longer jump.
+
+### Changed
+
+- Companion: the pet now reacts mostly through actions instead of speech. Streaks, returning from idle, being poked, fleeing, getting back up, long approval waits, stalls and the launch greetings no longer show a bubble; clicking it always waves but only says something about one time in four. Speech is kept for the unlock introduction, the late-night "go to bed" nudge and occasional clicks, plus symbol bubbles (`!`, `z`, `♥`).
+
+### Fixed
+
+- Companion: one-off reactions (such as the wave after a click) no longer freeze on a single frame while the cursor rests on the pet. Since clicking always leaves the cursor there, the click wave never actually played before.
+
 ## [0.22.3](https://github.com/YIHSUAN603/Helm/releases/tag/v0.22.3) - 2026-11-04
 
 ### Changed
