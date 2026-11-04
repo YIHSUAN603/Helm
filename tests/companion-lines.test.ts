@@ -45,14 +45,14 @@ function check(name: string, cond: boolean) {
 // pickLine：排除上一句、rng 決定結果、沒有候選回 null
 {
   const env = { level: 1, hour: 9 };
-  const first = pickLine("annoyed", env, null, () => 0);
-  check("rng 0 取第一句", first === "companion.line.annoyed.1");
-  check("排除上一句", pickLine("annoyed", env, first, () => 0) === "companion.line.annoyed.2");
-  check("rng 接近 1 不越界", pickLine("annoyed", env, null, () => 0.9999) === "companion.line.annoyed.3");
+  const first = pickLine("bedtime", env, null, () => 0);
+  check("rng 0 取第一句", first === "companion.line.bedtime.1");
+  check("排除上一句", pickLine("bedtime", env, first, () => 0) === "companion.line.bedtime.2");
+  check("rng 接近 1 不越界", pickLine("bedtime", env, null, () => 0.9999) === "companion.line.bedtime.3");
   check("只有一句時不排除", pickLine("unlock", env, "companion.line.unlock.1", () => 0) === "companion.line.unlock.1");
   for (let i = 0; i < 20; i++) {
     const r = Math.random;
-    check("隨機挑也不重複上一句", pickLine("getUp", env, "companion.line.getUp.2", r) !== "companion.line.getUp.2");
+    check("隨機挑也不重複上一句", pickLine("sleepy", env, "companion.line.sleepy.2", r) !== "companion.line.sleepy.2");
   }
 }
 

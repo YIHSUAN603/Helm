@@ -1,21 +1,11 @@
 // Companion 的台詞庫：每句台詞帶著「什麼情境、幾級以上、哪個時段」的條件，
 // 文字本身在 i18n（companion.line.*）。純函式，node 測試可直接載入。
+//
+// 刻意只留很少的情境：牠的反應以動作為主，台詞只留給動作表達不了的事
+// （解鎖時自我介紹、凌晨勸你去睡、偶爾點牠時回一句）。startled / sleepy 只是
+// 「!」「z」這類符號，不算台詞。新增情境前先想想一個動作能不能取代。
 
-export type LineContext =
-  | "click"
-  | "annoyed"
-  | "flee"
-  | "getUp"
-  | "streak"
-  | "startled"
-  | "stillWaiting"
-  | "stalled"
-  | "sleepy"
-  | "bedtime"
-  | "welcomeBack"
-  | "earlyBird"
-  | "unlock"
-  | "greeting";
+export type LineContext = "click" | "startled" | "sleepy" | "bedtime" | "unlock";
 
 export interface LineDef {
   key: string;
@@ -42,19 +32,10 @@ export const LINES: readonly LineDef[] = [
   { key: "companion.line.click.answered", ctx: "click", minLevel: 3 },
   { key: "companion.line.click.done", ctx: "click", minLevel: 3 },
   ...many("click", 2, 5).map((l, i) => ({ ...l, key: `companion.line.click.loyal${i + 1}` })),
-  ...many("annoyed", 3),
-  ...many("flee", 2),
-  ...many("getUp", 3),
-  ...many("streak", 3),
-  ...many("startled", 3),
-  ...many("stillWaiting", 3),
-  ...many("stalled", 3),
+  ...many("startled", 1),
   ...many("sleepy", 3),
   ...many("bedtime", 3),
-  ...many("welcomeBack", 3),
-  ...many("earlyBird", 2),
   ...many("unlock", 1),
-  ...many("greeting", 2),
 ];
 
 export interface LineEnv {

@@ -23,6 +23,7 @@ import {
 import {
   FLEE_MS,
   canSpeak,
+  clickTalks,
   registerClick,
   type Reaction,
 } from "../companion/behavior";
@@ -120,12 +121,12 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
     set({ data: launch.data, persistable: res.ok });
     void get().refreshPets();
     if (!companionVisible(launch.data)) return;
-    // 熟了之後會跑進來迎接你；平常只在比平常早來時說一句。
+    // 熟了之後會跑進來、揮手迎接你；比平常早來時跳一下。都只用動作，不講話。
     if (levelOf(launch.data.affinity) >= 4) {
       get().react("running-left", { motion: "enter", ms: TRAVEL_MS });
-      get().say("greeting", false);
+      setTimeout(() => get().react("waving", { cycles: 2 }), TRAVEL_MS);
     } else if (launch.earlyBird) {
-      get().say("earlyBird", false);
+      get().react("jumping", { cycles: 2 });
     }
   },
 
@@ -189,7 +190,6 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
     clickTimes = r.times;
     get().activity({ kind: "click" });
     if (r.outcome === "flee") {
-      get().say("flee", true);
       set({
         reaction: { anim: "running-left", motion: "exit", until: now + TRAVEL_MS },
         awayUntil: now + TRAVEL_MS + FLEE_MS,
@@ -198,13 +198,11 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
     }
     if (r.outcome === "annoyed") {
       get().react("jumping", { cycles: 2 });
-      get().say("annoyed", true);
       return;
     }
     if (activeId && get().knockedOut.includes(activeId)) {
       get().revive(activeId);
       get().react("jumping");
-      get().say("getUp", true);
       return;
     }
     const hour = new Date(now).getHours();
@@ -216,7 +214,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
       return;
     }
     get().react("waving", { cycles: 2 });
-    get().say("click", true);
+    if (clickTalks(Math.random)) get().say("click", true);
   },
 
   knockOut: (sessionId) => {

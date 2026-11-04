@@ -51,7 +51,6 @@ function onSessions(sessions: Session[], prevSessions: Session[], activeId: stri
       doneStreak = r.streak;
       if (r.cheer) {
         companion.react("jumping", { cycles: 2 });
-        companion.say("streak", false);
       }
     } else if (event === "error") {
       doneStreak = nextStreak(doneStreak, "error").streak;
@@ -112,7 +111,6 @@ export function startCompanionWatch(): void {
     lastInputAt = now;
     if (wasIdle && companionVisible(useCompanionStore.getState().data)) {
       useCompanionStore.getState().react("waving", { cycles: 2 });
-      useCompanionStore.getState().say("welcomeBack", false);
     }
   };
   const opts = { capture: true, passive: true } as const;

@@ -4,12 +4,14 @@ import assert from "node:assert";
 import {
   ANNOYED_CLICKS,
   BUBBLE_GAP_MS,
+  CLICK_TALK_CHANCE,
   FLEE_CLICKS,
   USER_IDLE_MS,
   WAIT_NUDGE_MS,
   WAIT_SETTLE_MS,
   busySpeed,
   canSpeak,
+  clickTalks,
   isUserIdle,
   nextStreak,
   pickBehavior,
@@ -49,13 +51,13 @@ function ctx(over: Partial<BehaviorContext> = {}): BehaviorContext {
   const nudge = pickBehavior(ctx({ waitingSince: NOW - WAIT_NUDGE_MS }));
   check("等滿 60 秒 → 原地揮手", nudge.anim === "waving" && nudge.motion === "stay");
   const settle = pickBehavior(ctx({ waitingSince: NOW - WAIT_SETTLE_MS }));
-  check("等滿 5 分鐘 → 坐著等 + 泡泡", settle.anim === "waiting" && settle.motion === "stay" && settle.line === "stillWaiting");
+  check("等滿 5 分鐘 → 不再揮手，坐著等、不講話", settle.anim === "waiting" && settle.motion === "stay" && !settle.line);
 }
 
 // 等批准勝過一切：反應、跑走、倒地、閒晃、深夜都被打斷
 {
   const waiting = { waitingSince: NOW - 1000 };
-  const reaction = { anim: "jumping" as const, until: NOW + 5000, line: "streak" as const };
+  const reaction = { anim: "jumping" as const, until: NOW + 5000, line: "startled" as const };
   check("勝過一次性反應", pickBehavior(ctx({ ...waiting, reaction })).anim === "waiting");
   check("一次性反應的泡泡也被壓掉", pickBehavior(ctx({ ...waiting, reaction })).line === undefined);
   check("勝過跑走", pickBehavior(ctx({ ...waiting, awayUntil: NOW + 5000 })).motion !== "hidden");
@@ -67,9 +69,9 @@ function ctx(over: Partial<BehaviorContext> = {}): BehaviorContext {
 
 // 一次性反應：期限內播、過期就讓位
 {
-  const reaction = { anim: "jumping" as const, until: NOW + 1, motion: "enter" as const, line: "streak" as const };
+  const reaction = { anim: "jumping" as const, until: NOW + 1, motion: "enter" as const, line: "startled" as const };
   const b = pickBehavior(ctx({ reaction, activeState: "thinking" }));
-  check("期限內播反應", b.anim === "jumping" && b.motion === "enter" && b.line === "streak");
+  check("期限內播反應", b.anim === "jumping" && b.motion === "enter" && b.line === "startled");
   const expired = { ...reaction, until: NOW };
   check("到期讓位給狀態", pickBehavior(ctx({ reaction: expired, activeState: "thinking" })).anim === "running");
   const inPlace = pickBehavior(ctx({ reaction: { anim: "waving", until: NOW + 1 } }));
@@ -84,7 +86,7 @@ function ctx(over: Partial<BehaviorContext> = {}): BehaviorContext {
   const ko = pickBehavior(ctx({ knockedOut: true, activeState: "error" }));
   check("倒地停在最後一格", ko.anim === "failed" && ko.motion === "hold-last");
   const stalled = pickBehavior(ctx({ activeStalled: true, activeState: "thinking" }));
-  check("stalled 勝過 thinking，放慢 + 泡泡", stalled.anim === "idle" && stalled.speed === 0.5 && stalled.line === "stalled");
+  check("stalled 勝過 thinking，放慢、不講話", stalled.anim === "idle" && stalled.speed === 0.5 && !stalled.line);
 }
 
 // agent 狀態對應
@@ -174,6 +176,13 @@ function ctx(over: Partial<BehaviorContext> = {}): BehaviorContext {
   check("使用者點的不受限", canSpeak(NOW - 1000, NOW, true));
   check("剛操作不算閒置", !isUserIdle(NOW - 1000, NOW));
   check("5 分鐘沒操作算閒置", isUserIdle(NOW - USER_IDLE_MS, NOW));
+}
+
+// 點牠多半只揮手，偶爾才說話
+{
+  check("rng 低於機率 → 說話", clickTalks(() => CLICK_TALK_CHANCE - 0.01));
+  check("rng 等於機率 → 只揮手", !clickTalks(() => CLICK_TALK_CHANCE));
+  check("說話機率不超過一半", CLICK_TALK_CHANCE <= 0.5);
 }
 
 console.log(`companion-behavior: ${passed} checks passed`);

@@ -10,7 +10,7 @@ import type { LineContext } from "./lines.ts";
 
 /** 等批准多久開始原地揮手催你。 */
 export const WAIT_NUDGE_MS = 60_000;
-/** 等批准多久後不再揮手，改成坐著乾等（催太久只會變成干擾）。 */
+/** 等批准多久後不再揮手，改回坐著等（催太久只會變成干擾）。 */
 export const WAIT_SETTLE_MS = 5 * 60_000;
 
 /**
@@ -64,10 +64,7 @@ export function busySpeed(busyCount: number): number {
 export function pickBehavior(ctx: BehaviorContext): Behavior {
   if (ctx.waitingSince !== null) {
     const waited = ctx.now - ctx.waitingSince;
-    if (waited >= WAIT_SETTLE_MS) {
-      return { anim: "waiting", motion: "stay", speed: 1, line: "stillWaiting" };
-    }
-    if (waited >= WAIT_NUDGE_MS) {
+    if (waited >= WAIT_NUDGE_MS && waited < WAIT_SETTLE_MS) {
       return { anim: "waving", motion: "stay", speed: 1 };
     }
     return { anim: "waiting", motion: "stay", speed: 1 };
@@ -83,7 +80,7 @@ export function pickBehavior(ctx: BehaviorContext): Behavior {
     return { anim: "failed", motion: "hold-last", speed: 1 };
   }
   if (ctx.activeStalled) {
-    return { anim: "idle", motion: "stay", speed: 0.5, line: "stalled" };
+    return { anim: "idle", motion: "stay", speed: 0.5 };
   }
   // thinking 與 tool 共用同一個原地動畫：Claude Code 一個回合裡兩者切換得很頻繁，
   // 分開播的話牠會一直換動作（以前 tool 還會在甲板上來回跑，看起來就是停不下來）。
@@ -124,6 +121,18 @@ export function registerClick(
   if (recent.length >= FLEE_CLICKS) return { times: [], outcome: "flee" };
   if (recent.length === ANNOYED_CLICKS) return { times: recent, outcome: "annoyed" };
   return { times: recent, outcome: "click" };
+}
+
+// ---- 點牠時要不要說話 ----
+
+/**
+ * 點一下牠多半只揮手，偶爾才回一句話：每次都講話很快就變成噪音，
+ * 動作本身已經是回應。
+ */
+export const CLICK_TALK_CHANCE = 0.25;
+
+export function clickTalks(rng: () => number): boolean {
+  return rng() < CLICK_TALK_CHANCE;
 }
 
 // ---- changed files 突增 ----
