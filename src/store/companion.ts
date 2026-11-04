@@ -28,6 +28,7 @@ import {
   type Reaction,
 } from "../companion/behavior";
 import { pickLine, type LineContext } from "../companion/lines";
+import { FX_MS, type WeatherFx } from "../companion/weather";
 import { animCycleMs, PET_SHEET, sheetRows, type PetAnim } from "../companion/petAnimation";
 
 export const COMPANION_FILE = "companion.json";
@@ -63,6 +64,8 @@ interface CompanionState {
   knockedOut: readonly string[];
   bubble: Bubble | null;
   card: { id: MilestoneId; until: number } | null;
+  /** 甲板天氣的短暫特效（長回合完成的光弧、里程碑的光點）。 */
+  weatherFx: { kind: WeatherFx; until: number } | null;
   pets: PetInfo[];
   /** 目前寵物的 sprite sheet URL；null = 還在讀或讀不到（退回內建）。 */
   spriteUrl: string | null;
@@ -71,6 +74,9 @@ interface CompanionState {
 
   load: () => Promise<void>;
   activity: (act: Activity) => void;
+  /** 在甲板天氣上播一段短暫特效。 */
+  fx: (kind: WeatherFx) => void;
+  setWeather: (on: boolean) => void;
   /** 被摸頭了（左右來回撫摸，見 registerStroke）。 */
   pet: () => void;
   react: (anim: PetAnim, opts?: { cycles?: number; motion?: Reaction["motion"]; ms?: number }) => void;
@@ -105,6 +111,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
   knockedOut: [],
   bubble: null,
   card: null,
+  weatherFx: null,
   pets: [],
   spriteUrl: null,
   spriteRows: PET_SHEET.rows,
@@ -148,6 +155,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
       }, TRAVEL_MS);
     } else {
       get().react("jumping", { cycles: 2 });
+      get().fx("sparkle");
     }
     set({ card: { id: reached[reached.length - 1], until: now + CARD_MS } });
   },
@@ -217,6 +225,17 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
     }
     get().react("waving", { cycles: 2 });
     if (clickTalks(Math.random)) get().say("click", true);
+  },
+
+  fx: (kind) => {
+    if (!companionVisible(get().data)) return;
+    set({ weatherFx: { kind, until: Date.now() + FX_MS[kind] } });
+  },
+
+  setWeather: (on) => {
+    const data = get().data;
+    if (!data || data.weather === on) return;
+    set({ data: { ...data, weather: on }, weatherFx: null });
   },
 
   pet: () => {

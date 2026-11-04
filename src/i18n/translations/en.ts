@@ -406,6 +406,7 @@ export const en: Record<string, string> = {
   "workspaceRecipe.save": "Save",
   "settings.tabCompanion": "Companion",
   "settings.companionEnabled": "Show companion",
+  "settings.companionWeather": "Deck weather",
   "settings.companionLevel": "Affinity",
   "settings.companionLevelValue": "Lv {level} · {affinity} pts",
   "settings.companionStats": "{answered} prompts answered and {done} turns finished together",

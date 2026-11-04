@@ -397,6 +397,7 @@ export const zhTW: Record<string, string> = {
   "workspaceRecipe.save": "儲存",
   "settings.tabCompanion": "Companion",
   "settings.companionEnabled": "顯示 Companion",
+  "settings.companionWeather": "甲板天氣",
   "settings.companionLevel": "親密度",
   "settings.companionLevelValue": "Lv {level} · {affinity} 分",
   "settings.companionStats": "一起回答過 {answered} 個問題、完成 {done} 個回合",

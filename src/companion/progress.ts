@@ -84,6 +84,8 @@ export interface CompanionData {
   lastLaunchDay: string | null;
   /** 5 級後可以幫寵物取名；null = 用寵物本身的 displayName。 */
   petName: string | null;
+  /** 甲板天氣（寵物背後的氛圍層）開關。 */
+  weather: boolean;
 }
 
 export function defaultCompanion(): CompanionData {
@@ -104,6 +106,7 @@ export function defaultCompanion(): CompanionData {
     launchHours: new Array(24).fill(0),
     lastLaunchDay: null,
     petName: null,
+    weather: true,
   };
 }
 
@@ -159,6 +162,8 @@ export function normalizeCompanion(raw: unknown): CompanionData {
     launchHours: hours,
     lastLaunchDay: typeof r.lastLaunchDay === "string" ? r.lastLaunchDay : null,
     petName: typeof r.petName === "string" && r.petName.trim() ? r.petName.trim() : null,
+    // 舊檔沒有這個欄位 → 預設值；逐欄位退回預設，所以不必升版號。
+    weather: typeof r.weather === "boolean" ? r.weather : base.weather,
   };
 }
 

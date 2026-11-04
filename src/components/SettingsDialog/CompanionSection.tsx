@@ -73,6 +73,15 @@ export function CompanionSection() {
         />
       </label>
 
+      <label className="settings-row">
+        <span>{t("settings.companionWeather")}</span>
+        <input
+          type="checkbox"
+          checked={data.weather}
+          onChange={(e) => store.setWeather(e.target.checked)}
+        />
+      </label>
+
       <div className="settings-row">
         <span>{t("settings.companionLevel")}</span>
         <span>{t("settings.companionLevelValue", { level, affinity: data.affinity })}</span>

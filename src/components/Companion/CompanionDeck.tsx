@@ -41,6 +41,8 @@ import {
   type PetMotionState,
 } from "../../companion/petMotion";
 import { isNightHour, levelOf, MAX_LEVEL } from "../../companion/progress";
+import { pickWeather } from "../../companion/weather";
+import { CompanionWeather } from "./CompanionWeather";
 import { useT } from "../../i18n";
 import "./CompanionDeck.css";
 
@@ -68,6 +70,7 @@ function Deck() {
   const knockedOut = useCompanionStore((s) => s.knockedOut);
   const bubble = useCompanionStore((s) => s.bubble);
   const card = useCompanionStore((s) => s.card);
+  const weatherFx = useCompanionStore((s) => s.weatherFx);
   const spriteUrl = useCompanionStore((s) => s.spriteUrl);
   const spriteRows = useCompanionStore((s) => s.spriteRows);
   const pets = useCompanionStore((s) => s.pets);
@@ -86,6 +89,9 @@ function Deck() {
         activeState: active?.agentState,
         activeStalled: Boolean(active?.stalled && isBusyState(active.agentState)),
         busyCount: s.sessions.filter((x) => isBusyState(x.agentState)).length,
+        workingCount: s.sessions.filter((x) => x.agentState === "thinking" || x.agentState === "tool")
+          .length,
+        anyError: s.sessions.some((x) => x.agentState === "error"),
         waitingSince,
       };
     }),
@@ -126,13 +132,14 @@ function Deck() {
       awayUntil ?? undefined,
       bubble?.until,
       card?.until,
+      weatherFx?.until,
       fleet.waitingSince !== null ? fleet.waitingSince + WAIT_NUDGE_MS : undefined,
       fleet.waitingSince !== null ? fleet.waitingSince + WAIT_SETTLE_MS : undefined,
     ].filter((d): d is number => d !== undefined && d > now);
     const next = Math.min(now + IDLE_TICK_MS, ...deadlines);
     const timer = setTimeout(() => setNow(Date.now()), Math.max(16, next - now));
     return () => clearTimeout(timer);
-  }, [now, reaction, awayUntil, bubble, card, fleet.waitingSince]);
+  }, [now, reaction, awayUntil, bubble, card, weatherFx, fleet.waitingSince]);
 
   // 狀態帶出來的台詞（還在等你、好安靜、zzz）：換了才說，頻率由 store 限制。
   useEffect(() => {
@@ -317,6 +324,18 @@ function Deck() {
   const hidden = behavior.motion === "hidden";
   return (
     <div className="tb-spacer companion-deck" ref={deckRef} style={style}>
+      {data.weather && (
+        <CompanionWeather
+          weather={pickWeather({
+            now,
+            hour: new Date(now).getHours(),
+            waiting: fleet.waitingSince !== null,
+            busyCount: fleet.workingCount,
+            anyError: fleet.anyError,
+            fx: weatherFx,
+          })}
+        />
+      )}
       <div
         ref={wrapRef}
         className="companion-pet-wrap"

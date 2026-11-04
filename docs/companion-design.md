@@ -169,6 +169,26 @@ Helm 不讀 `~/.codex/pets`，寵物一律透過 Helm 的介面匯入（§7）�
 - 純函式 `pickLine(context, rng)` 負責篩選和挑選，避免同一句連續出現；`rng` 用參數傳入，測試才能重現
 - 情境刻意只有 click / bedtime / unlock，加上符號泡泡 startled（!）、sleepy（z）與 petted（♥）。新增情境前先想想一個動作能不能取代
 
+## 10.5 甲板天氣
+
+寵物背後的氛圍層，只在寵物看得到（解鎖且開著）時出現，設定裡另有「甲板天氣」開關（`companion.json` 的 `weather`，預設開）。決策在純函式 `pickWeather`（`src/companion/weather.ts`），圖層是 `CompanionWeather.tsx`。
+
+分工：寵物跟著目前的 session，**天氣看整個 fleet**，用餘光就能感覺其他 session 的狀況。
+
+| 部分 | 依據 | 樣子 |
+|---|---|---|
+| 天空 | 當地時間 | 白天什麼都不畫；黃昏（17–19 點）右側一顆半沉的夕陽；夜晚（19–5 點）幾顆會閃的星星。刻意不沿用寵物的「深夜」（0–5 點） |
+| 海面 | fleet | 沒人忙 → 平線；有人在 thinking / tool → 起伏，越忙越高（`swellOf`）；任何 session error → 碎浪 |
+| 特效 | 事件 | 長回合完成 → 光弧（6 秒）；達成里程碑 → 光點（2.5 秒） |
+
+界線（由 `tests/companion-weather.test.ts` 鎖住）：
+- **有人等批准時海面靜止、整層變淡、不出特效**：畫面上唯一該動的是寵物的提醒（§0 第 2 條）
+- **出錯只讓浪變碎**，不做暴風雨、不變色
+- **不動主題配色**：只讀 `--accent` / `--fg`，不用 `--c-*` 狀態色（免得被誤認成警示 chip），不填背景。天氣專用變數（`--deck-wave` 等）只定義在 `CompanionDeck.css`，淺色主題的微調也只在那裡
+- 開了背景圖時再淡一半、不畫星星與特效；甲板窄於 120px 時不畫；`prefers-reduced-motion` 只畫靜態圖；視窗看不到時暫停動畫
+- 三種海面同時掛著、只切 `opacity` 交叉淡入淡出，浪高用外層 `scaleY` 調 —— 直接改動畫參數會讓波浪跳一下
+- `pointer-events: none`，不影響點擊、拖曳、摸頭
+
 ## 11. 檔案拆分
 
 | 檔案 | 內容 |
@@ -177,6 +197,7 @@ Helm 不讀 `~/.codex/pets`，寵物一律透過 Helm 的介面匯入（§7）�
 | `src/companion/behavior.ts` | 純函式：`pickBehavior` 行為仲裁（§4）、連點偵測、changed files 突增判斷 |
 | `src/companion/progress.ts` | 純函式：計數、解鎖、里程碑、親密度與等級、`companion.json` schema 與 normalize |
 | `src/companion/lines.ts` | 純函式：`pickLine` 台詞挑選 |
+| `src/companion/weather.ts` | 純函式：`pickWeather` 甲板天氣（§10.5） |
 | `src/store/companion.ts` | Zustand store、讀寫 `companion.json`（debounce，不在 store setter 裡同步寫檔） |
 | `src/components/Companion/` | 甲板與寵物、泡泡、里程碑小卡、右鍵選單、日誌 |
 | `src/components/SettingsDialog/` | 新增 Companion 區塊（解鎖後才渲染） |

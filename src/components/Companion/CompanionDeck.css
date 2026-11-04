@@ -120,3 +120,208 @@
     animation: none;
   }
 }
+
+/* ---- 甲板天氣 ----
+   顏色只讀主題既有的 --accent / --fg，不用 --c-* 狀態色（免得被誤認成警示
+   chip），也不填背景（任何主題下 Toolbar 底色都不變）。天氣專用的變數只定義在
+   這裡，個別主題需要微調時也只在這裡覆寫，不動 App.css 的主題區塊。 */
+
+.companion-deck {
+  container-type: inline-size;
+  --deck-wave: color-mix(in srgb, var(--accent) 45%, transparent);
+  --deck-star: color-mix(in srgb, var(--fg) 55%, transparent);
+  --deck-sun: color-mix(in srgb, var(--fg) 32%, transparent);
+  --deck-arc: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* 淺色主題上同樣比例顯得太重。 */
+.app[data-theme="light"] .companion-deck,
+.app[data-theme="githubLight"] .companion-deck {
+  --deck-wave: color-mix(in srgb, var(--accent) 30%, transparent);
+  --deck-star: color-mix(in srgb, var(--fg) 35%, transparent);
+  --deck-arc: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.companion-weather {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 600ms ease;
+}
+
+/* 有人在等批准：整層變淡、海面靜止，畫面上只剩寵物在動。 */
+.companion-weather[data-frozen] {
+  opacity: 0.45;
+}
+
+.companion-weather[data-paused] * {
+  animation-play-state: paused !important;
+}
+
+/* 開了背景圖時 Toolbar 半透明，對比無法預測：再淡一半，星星與特效不畫。 */
+.app[data-bg-image="true"] .companion-weather {
+  opacity: 0.5;
+}
+.app[data-bg-image="true"] .weather-stars,
+.app[data-bg-image="true"] .weather-arc,
+.app[data-bg-image="true"] .weather-sparkle {
+  display: none;
+}
+
+/* 甲板太窄時整層不畫。 */
+@container (max-width: 120px) {
+  .companion-weather {
+    display: none;
+  }
+}
+
+/* 天空：只有點綴，沒有底色。 */
+.weather-stars,
+.weather-sun {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.5s ease;
+}
+.companion-weather[data-sky="night"] .weather-stars,
+.companion-weather[data-sky="dusk"] .weather-sun {
+  opacity: 1;
+}
+
+.weather-stars span {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--deck-star);
+  animation: weather-twinkle 3s ease-in-out infinite;
+}
+
+@keyframes weather-twinkle {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* 黃昏：右側海平線上一顆半沉的夕陽。 */
+.weather-sun {
+  left: auto;
+  right: 14%;
+  top: auto;
+  bottom: 2px;
+  width: 16px;
+  height: 8px;
+  border-radius: 16px 16px 0 0;
+  background: var(--deck-sun);
+}
+
+/* 海面：三層同時掛著，只切 opacity。 */
+.weather-sea {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 8px;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.weather-sea[data-on] {
+  opacity: 1;
+}
+
+.weather-sea svg {
+  display: block;
+  overflow: visible;
+}
+
+.weather-sea path {
+  fill: none;
+  stroke: var(--deck-wave);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 浪的高低：fleet 越忙越高。外層縮放、內層平移，兩者互不干擾。 */
+.weather-sea[data-layer="swell"] {
+  transform: scaleY(var(--swell));
+  transition: opacity 1.2s ease, transform 1.5s ease;
+}
+
+.weather-sea[data-layer="swell"] svg {
+  animation: weather-drift 4s linear infinite;
+}
+
+.weather-sea[data-layer="choppy"] svg {
+  animation: weather-drift 1.4s linear infinite;
+}
+
+@keyframes weather-drift {
+  to {
+    transform: translateX(calc(-1 * var(--wl)));
+  }
+}
+
+/* 特效：長回合完成的光弧、里程碑的光點。 */
+.weather-arc {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 120px;
+  height: 34px;
+  transform: translateX(-50%);
+  animation: weather-arc 6s ease-in-out forwards;
+}
+
+.weather-arc path {
+  fill: none;
+  stroke: var(--deck-arc);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.weather-arc path:nth-child(2) {
+  opacity: 0.7;
+}
+.weather-arc path:nth-child(3) {
+  opacity: 0.45;
+}
+
+@keyframes weather-arc {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.weather-sparkle span {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: var(--deck-star);
+  transform: rotate(45deg) scale(0);
+  animation: weather-spark 1.2s ease-out 2 both;
+}
+
+@keyframes weather-spark {
+  40% {
+    transform: rotate(45deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(45deg) scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* reduced-motion：只畫靜態圖，時段與海面狀態照樣看得出來。 */
+@media (prefers-reduced-motion: reduce) {
+  .companion-weather * {
+    animation: none !important;
+  }
+}

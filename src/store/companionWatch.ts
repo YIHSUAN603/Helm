@@ -65,6 +65,7 @@ function onSessions(sessions: Session[], prevSessions: Session[], activeId: stri
       // 長回合完成比連續完成更值得慶祝：跳久一點，蓋過一般的歡呼。
       if (turn.finishedMs !== null && turn.finishedMs >= LONG_TURN_MS) {
         companion.react("jumping", { cycles: 4 });
+        companion.fx("arc");
       } else if (r.cheer) {
         companion.react("jumping", { cycles: 2 });
       }
