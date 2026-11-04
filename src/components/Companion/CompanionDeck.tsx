@@ -361,7 +361,7 @@ function portalRoot(): Element {
 
 /**
  * 掛在 .app 的浮動框，出現時量一次寵物的位置貼在牠下方。只量一次：不追著
- * pace 動畫跑，免得每一幀都重算版面。
+ * 散步的寵物跑，免得每一幀都重算版面。
  */
 function Floating({
   anchor,

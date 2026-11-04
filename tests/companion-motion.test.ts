@@ -3,7 +3,7 @@
 import assert from "node:assert";
 import type { Behavior } from "../src/companion/behavior.ts";
 import {
-  PACE_CROSS_MS,
+  STROLL_CROSS_MS,
   WALK_CROSS_MS,
   frameColumn,
   initialPetMotion,
@@ -21,7 +21,7 @@ function check(name: string, cond: boolean) {
 
 const STAY: Behavior = { anim: "idle", motion: "stay", speed: 1 };
 const THINK: Behavior = { anim: "running", motion: "stay", speed: 1 };
-const PACE: Behavior = { anim: "running-right", motion: "pace", speed: 1 };
+const STROLL: Behavior = { anim: "running-right", motion: "stroll", speed: 0.6 };
 const HOME = 0.5;
 
 function input(behavior: Behavior, over: Partial<PetMotionInput> = {}): PetMotionInput {
@@ -39,8 +39,8 @@ function run(s: PetMotionState, inp: PetMotionInput, ms: number): { s: PetMotion
   return { s, maxJump };
 }
 
-// 每幀最多走的距離：最快的是 1.6× 的 pace 與走回停留點。
-const MAX_PER_FRAME = Math.max(1.6 / PACE_CROSS_MS, 1 / WALK_CROSS_MS) * 16 + 1e-9;
+// 每幀最多走的距離：最快的是走回停留點。
+const MAX_PER_FRAME = Math.max(1 / STROLL_CROSS_MS, 1 / WALK_CROSS_MS) * 16 + 1e-9;
 
 // 停留：站在停留點、播 behavior 的動畫
 {
@@ -49,20 +49,20 @@ const MAX_PER_FRAME = Math.max(1.6 / PACE_CROSS_MS, 1 / WALK_CROSS_MS) * 16 + 1e
   check("影格有在走", r.s.frame > 0 && frameColumn(r.s) === Math.floor((62 * 16) / FRAME_MS) % 6);
 }
 
-// stay → pace：從所在位置出發，不跳到甲板左緣
+// stay → stroll：從所在位置出發，不跳到甲板左緣
 {
   const start = initialPetMotion(HOME, STAY);
-  const first = stepPetMotion(start, input(PACE), 16);
+  const first = stepPetMotion(start, input(STROLL), 16);
   check("起跑點就是原位", Math.abs(first.x - HOME) <= MAX_PER_FRAME);
-  const r = run(start, input(PACE), 10_000);
-  check("來回跑全程不跳位", r.maxJump <= MAX_PER_FRAME);
-  check("跑的時候用左右兩列", r.s.anim === "running-right" || r.s.anim === "running-left");
+  const r = run(start, input(STROLL), 10_000);
+  check("散步全程不跳位", r.maxJump <= MAX_PER_FRAME);
+  check("走的時候用左右兩列", r.s.anim === "running-right" || r.s.anim === "running-left");
   check("不跑出甲板", r.s.x >= 0 && r.s.x <= 1);
 }
 
-// pace → stay：走回停留點，到了才換回原本的動畫
+// stroll → stay：走回停留點，到了才換回原本的動畫
 {
-  let s = run(initialPetMotion(HOME, STAY), input(PACE), 1100).s;
+  let s = run(initialPetMotion(HOME, STAY), input(STROLL), 2500).s;
   check("前提：已離開停留點", Math.abs(s.x - HOME) > 0.2);
   s = stepPetMotion(s, input(THINK), 16);
   check("不瞬移回停留點", s.x !== HOME);
@@ -74,8 +74,8 @@ const MAX_PER_FRAME = Math.max(1.6 / PACE_CROSS_MS, 1 / WALK_CROSS_MS) * 16 + 1e
 
 // 速度改變：只改推進速率，影格與位置都不跳
 {
-  const s = run(initialPetMotion(HOME, STAY), input(PACE), 500).s;
-  const faster = stepPetMotion(s, input({ ...PACE, speed: 1.6 }), 16);
+  const s = run(initialPetMotion(HOME, STAY), input(STROLL), 500).s;
+  const faster = stepPetMotion(s, input({ ...STROLL, speed: 1.2 }), 16);
   check("加速不跳位", Math.abs(faster.x - s.x) <= MAX_PER_FRAME);
   check("加速不跳格", faster.anim === s.anim && faster.frame - s.frame < 1);
 }
@@ -88,9 +88,9 @@ const MAX_PER_FRAME = Math.max(1.6 / PACE_CROSS_MS, 1 / WALK_CROSS_MS) * 16 + 1e
   check("換列從第一格", frameColumn(wave) === 0);
 }
 
-// 一次性反應原地播：pace 半路被點，不先走回停留點
+// 一次性反應原地播：散步半路被點，不先走回停留點
 {
-  const s = run(initialPetMotion(HOME, STAY), input(PACE), 1100).s;
+  const s = run(initialPetMotion(HOME, STAY), input(STROLL), 2500).s;
   const wave = run(s, input({ anim: "waving", motion: "here", speed: 1 }), 500).s;
   check("原地揮手", wave.x === s.x && wave.anim === "waving");
 }
@@ -133,7 +133,7 @@ const MAX_PER_FRAME = Math.max(1.6 / PACE_CROSS_MS, 1 / WALK_CROSS_MS) * 16 + 1e
 
 // 減少動態效果：第一格、停在停留點
 {
-  const r = run(initialPetMotion(HOME, STAY), input(PACE, { reduced: true }), 2000);
+  const r = run(initialPetMotion(HOME, STAY), input(STROLL, { reduced: true }), 2000);
   check("不位移", r.s.x === HOME);
   check("第一格", frameColumn(r.s) === 0);
 }

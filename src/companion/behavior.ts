@@ -8,22 +8,23 @@ import type { AgentState } from "../agents/types";
 import type { PetAnim } from "./petAnimation.ts";
 import type { LineContext } from "./lines.ts";
 
-/** 等批准多久開始在甲板上來回跑催你。 */
+/** 等批准多久開始原地揮手催你。 */
 export const WAIT_NUDGE_MS = 60_000;
-/** 等批准多久後不再跑，改成坐著乾等（跑太久只會變成干擾）。 */
+/** 等批准多久後不再揮手，改成坐著乾等（催太久只會變成干擾）。 */
 export const WAIT_SETTLE_MS = 5 * 60_000;
 
 /**
  * - stay：停在甲板上的位置（不在那裡時先走回去）
  * - here：原地播（一次性反應：揮手、跳一下不該先走回停留點）
- * - pace：在甲板上左右來回（向右用 running-right、向左用 running-left）
- * - stroll：pace 的慢速版，閒置時散步
+ * - stroll：在甲板上慢慢左右來回（向右用 running-right、向左用 running-left），
+ *   只在使用者閒置時散步。這是唯一會自己離開停留點的動作：agent 忙碌、等批准
+ *   時牠都待在原地 —— 這些時候你正盯著畫面，一隻跑來跑去的寵物只會讓人分心。
  * - enter：從甲板右側跑進來
  * - exit：往左跑出甲板（被惹毛時）
  * - hold-last：播一次後停在最後一格（倒地）
  * - hidden：不在畫面上（被惹毛跑走了）
  */
-export type Motion = "stay" | "here" | "pace" | "stroll" | "enter" | "exit" | "hold-last" | "hidden";
+export type Motion = "stay" | "here" | "stroll" | "enter" | "exit" | "hold-last" | "hidden";
 
 export interface Reaction {
   anim: PetAnim;
@@ -55,7 +56,7 @@ export interface Behavior {
   line?: LineContext;
 }
 
-/** thinking 時的播放速度：fleet 越忙跑越快，1 個 1.0×、每多一個 +0.2，最多 1.6×。 */
+/** 忙碌（thinking / tool）時的播放速度：fleet 越忙跑越快，1 個 1.0×、每多一個 +0.2，最多 1.6×。 */
 export function busySpeed(busyCount: number): number {
   return Math.min(1.6, 1 + 0.2 * Math.max(0, busyCount - 1));
 }
@@ -67,7 +68,7 @@ export function pickBehavior(ctx: BehaviorContext): Behavior {
       return { anim: "waiting", motion: "stay", speed: 1, line: "stillWaiting" };
     }
     if (waited >= WAIT_NUDGE_MS) {
-      return { anim: "running-right", motion: "pace", speed: 1.2 };
+      return { anim: "waving", motion: "stay", speed: 1 };
     }
     return { anim: "waiting", motion: "stay", speed: 1 };
   }
@@ -84,11 +85,10 @@ export function pickBehavior(ctx: BehaviorContext): Behavior {
   if (ctx.activeStalled) {
     return { anim: "idle", motion: "stay", speed: 0.5, line: "stalled" };
   }
-  if (ctx.activeState === "thinking") {
+  // thinking 與 tool 共用同一個原地動畫：Claude Code 一個回合裡兩者切換得很頻繁，
+  // 分開播的話牠會一直換動作（以前 tool 還會在甲板上來回跑，看起來就是停不下來）。
+  if (ctx.activeState === "thinking" || ctx.activeState === "tool") {
     return { anim: "running", motion: "stay", speed: busySpeed(ctx.busyCount) };
-  }
-  if (ctx.activeState === "tool") {
-    return { anim: "running-right", motion: "pace", speed: busySpeed(ctx.busyCount) };
   }
   if (ctx.activeState === "done") {
     return { anim: "review", motion: "stay", speed: 1 };

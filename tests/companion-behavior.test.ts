@@ -47,7 +47,7 @@ function ctx(over: Partial<BehaviorContext> = {}): BehaviorContext {
   const b = pickBehavior(ctx({ waitingSince: NOW - 1000 }));
   check("剛開始等 → waiting 原地", b.anim === "waiting" && b.motion === "stay" && !b.line);
   const nudge = pickBehavior(ctx({ waitingSince: NOW - WAIT_NUDGE_MS }));
-  check("等滿 60 秒 → 來回跑", nudge.motion === "pace");
+  check("等滿 60 秒 → 原地揮手", nudge.anim === "waving" && nudge.motion === "stay");
   const settle = pickBehavior(ctx({ waitingSince: NOW - WAIT_SETTLE_MS }));
   check("等滿 5 分鐘 → 坐著等 + 泡泡", settle.anim === "waiting" && settle.motion === "stay" && settle.line === "stillWaiting");
 }
@@ -91,7 +91,10 @@ function ctx(over: Partial<BehaviorContext> = {}): BehaviorContext {
 {
   check("thinking → running", pickBehavior(ctx({ activeState: "thinking", busyCount: 1 })).anim === "running");
   const tool = pickBehavior(ctx({ activeState: "tool" }));
-  check("tool → 來回跑", tool.anim === "running-right" && tool.motion === "pace");
+  check("tool → 與 thinking 同一個原地動畫", tool.anim === "running" && tool.motion === "stay");
+  const think = pickBehavior(ctx({ activeState: "thinking", busyCount: 3 }));
+  const tool3 = pickBehavior(ctx({ activeState: "tool", busyCount: 3 }));
+  check("thinking ↔ tool 切換不換動作", think.anim === tool3.anim && think.motion === tool3.motion && think.speed === tool3.speed);
   check("done → review", pickBehavior(ctx({ activeState: "done" })).anim === "review");
   check("沒事 → idle", pickBehavior(ctx()).anim === "idle");
   check("閒置 → 散步", pickBehavior(ctx({ userIdle: true })).motion === "stroll");

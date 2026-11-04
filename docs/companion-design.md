@@ -70,18 +70,20 @@ Helm 不讀 `~/.codex/pets`，寵物一律透過 Helm 的介面匯入（§7）�
 | 優先 | 條件 | 動畫與動作 |
 |---|---|---|
 | 1 | 任何 session 等批准 ≥ 5 分鐘 | waiting（靜止），泡泡寫「還在等你喔」 |
-| 2 | 任何 session 等批准 ≥ 60 秒 | 甲板上左右來回跑（running-left/right），催你 |
+| 2 | 任何 session 等批准 ≥ 60 秒 | 原地揮手（waving），催你 |
 | 3 | 任何 session 等批准 | waiting |
 | 4 | 正在播的一次性反應（§5、§6） | 播完回到下一個符合的狀態 |
 | 5 | 被惹毛跑走的冷卻時間內 | 不顯示 |
 | 6 | 目前的 session 是 error 或 interrupted | 倒地（failed，停在最後一格），點一下才爬起來 |
 | 7 | 目前的 session stalled | idle 放慢到一半速度，探頭看向 pane，泡泡寫「牠好像睡著了？」 |
-| 8 | 目前的 session 在 thinking | running；速度隨整個 fleet 忙碌的 agent 數增加（1 個 1.0×，最多 1.6×） |
-| 9 | 目前的 session 在 tool | running-right/left，在甲板上來回 |
+| 8 | 目前的 session 在 thinking 或 tool | 原地 running；速度隨整個 fleet 忙碌的 agent 數增加（1 個 1.0×，最多 1.6×）。兩者共用同一個動作，頻繁切換時不會換動作 |
+| 9 | （併入規則 8） | 以前 tool 會在甲板上來回跑，思考時看起來一直在走動，已取消 |
 | 10 | 目前的 session 是 done | review |
 | 11 | 使用者閒置 ≥ 5 分鐘 | 在甲板上散步（running 慢速 + idle 交替） |
 | 12 | 深夜（當地時間 0–5 點） | idle 放慢，加上 `z` 泡泡 |
 | 13 | 其他 | idle |
+
+**只有規則 11（閒置散步）與進場 / 退場會離開停留點**；agent 忙碌、等批准時一律原地。
 
 **規則 1–3 優先於規則 4**：一次性反應在有人等批准時會被打斷，這就是 §0 第 2 條的實作。這點必須有測試。
 

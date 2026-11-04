@@ -1,15 +1,13 @@
 // Companion 寵物的逐幀運動（純函式，時間由呼叫端注入；node 測試可直接載入）。
 //
 // 為什麼不用 CSS keyframes：換動作時元素得重新掛載、keyframes 從頭播，寵物會從
-// 來回跑的半路瞬間跳回停留點、或一下子跳到甲板最左邊；忙碌數一變、--dur / --pace
-// 在動畫進行中被改掉，瀏覽器會用新時長重算進度，位置與影格也跟著跳。這裡改成
-// 每一幀從「現在在哪、現在播到第幾格」往前推，任何切換都從當下狀態接續：要回
-// 停留點就走回去、要來回跑就從所在位置出發、只有換了動畫列才從第一格開始。
+// 散步的半路瞬間跳回停留點、或一下子跳到甲板最左邊；忙碌數一變、播放時長在動畫
+// 進行中被改掉，瀏覽器會用新時長重算進度，位置與影格也跟著跳。這裡改成每一幀
+// 從「現在在哪、現在播到第幾格」往前推，任何切換都從當下狀態接續：要回停留點
+// 就走回去、要散步就從所在位置出發、只有換了動畫列才從第一格開始。
 import type { Behavior, Motion } from "./behavior.ts";
 import { FRAME_MS, PET_ANIMS, type PetAnim } from "./petAnimation.ts";
 
-/** 來回跑（pace）在 1.0× 速度下橫越甲板一次的時間。 */
-export const PACE_CROSS_MS = 3_000;
 /** 散步（stroll）橫越甲板一次的時間，不受速度影響。 */
 export const STROLL_CROSS_MS = 7_000;
 /** 走回停留點 / 進場 / 退場橫越整個甲板的時間（與 store 的 TRAVEL_MS 相同）。 */
@@ -83,8 +81,8 @@ export function stepPetMotion(s: PetMotionState, input: PetMotionInput, dt: numb
     motion = "stay";
   } else if (input.reduced) {
     x = home;
-  } else if (motion === "pace" || motion === "stroll") {
-    const rate = motion === "stroll" ? 1 / STROLL_CROSS_MS : behavior.speed / PACE_CROSS_MS;
+  } else if (motion === "stroll") {
+    const rate = 1 / STROLL_CROSS_MS;
     // 退場後回來、或被拖到界外時先夾回甲板內，再從那裡出發。
     x = Math.min(1, Math.max(0, x)) + dir * rate * dt;
     if (x >= 1) {
