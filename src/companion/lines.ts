@@ -2,10 +2,10 @@
 // 文字本身在 i18n（companion.line.*）。純函式，node 測試可直接載入。
 //
 // 刻意只留很少的情境：牠的反應以動作為主，台詞只留給動作表達不了的事
-// （解鎖時自我介紹、凌晨勸你去睡、偶爾點牠時回一句）。startled / sleepy 只是
-// 「!」「z」這類符號，不算台詞。新增情境前先想想一個動作能不能取代。
+// （解鎖時自我介紹、凌晨勸你去睡、偶爾點牠時回一句）。startled / sleepy / petted
+// 只是「!」「z」「♥」這類符號，不算台詞。新增情境前先想想一個動作能不能取代。
 
-export type LineContext = "click" | "startled" | "sleepy" | "bedtime" | "unlock";
+export type LineContext = "click" | "startled" | "sleepy" | "petted" | "bedtime" | "unlock";
 
 export interface LineDef {
   key: string;
@@ -34,6 +34,7 @@ export const LINES: readonly LineDef[] = [
   ...many("click", 2, 5).map((l, i) => ({ ...l, key: `companion.line.click.loyal${i + 1}` })),
   ...many("startled", 1),
   ...many("sleepy", 3),
+  ...many("petted", 1),
   ...many("bedtime", 3),
   ...many("unlock", 1),
 ];

@@ -9,13 +9,24 @@ import { useNotificationsStore } from "./notifications";
 import { detectAgentEvent, isBusyState } from "./notificationRouter";
 import { resolveFocusedWorkspace } from "./workspaceGroups";
 import { companionVisible, useCompanionStore } from "./companion";
-import { isUserIdle, nextStreak, registerFiles, trackAnswer } from "../companion/behavior";
+import {
+  LONG_TURN_MS,
+  initialTurn,
+  isUserIdle,
+  nextStreak,
+  registerFiles,
+  stepTurn,
+  trackAnswer,
+  type TurnClock,
+} from "../companion/behavior";
 
 let doneStreak = 0;
 let fileSamples: { at: number; n: number }[] = [];
 let lastBusyCount = 0;
 /** 已離開 waiting、還在等下一個明確狀態的 session（見 trackAnswer）。 */
 let leftWaiting = new Set<string>();
+/** 每個 session 這回合 agent 實際工作了多久（見 stepTurn）。 */
+let turns = new Map<string, TurnClock>();
 
 function onSessions(sessions: Session[], prevSessions: Session[], activeId: string | null): void {
   const companion = useCompanionStore.getState();
@@ -44,12 +55,17 @@ function onSessions(sessions: Session[], prevSessions: Session[], activeId: stri
       companion.react("waving");
     }
     if (isBusyState(s.agentState)) companion.revive(s.id);
+    const turn = stepTurn(turns.get(s.id) ?? initialTurn(), s.agentState, Date.now());
+    turns.set(s.id, turn.clock);
     const event = detectAgentEvent(p.agentState, s.agentState, "approval");
     if (event === "done") {
       companion.activity({ kind: "done" });
       const r = nextStreak(doneStreak, "done");
       doneStreak = r.streak;
-      if (r.cheer) {
+      // 長回合完成比連續完成更值得慶祝：跳久一點，蓋過一般的歡呼。
+      if (turn.finishedMs !== null && turn.finishedMs >= LONG_TURN_MS) {
+        companion.react("jumping", { cycles: 4 });
+      } else if (r.cheer) {
         companion.react("jumping", { cycles: 2 });
       }
     } else if (event === "error") {
@@ -63,6 +79,7 @@ function onSessions(sessions: Session[], prevSessions: Session[], activeId: stri
     if (!sessions.some((s) => s.id === id)) companion.revive(id);
   }
   leftWaiting = new Set([...leftWaiting].filter((id) => sessions.some((s) => s.id === id)));
+  turns = new Map([...turns].filter(([id]) => sessions.some((s) => s.id === id)));
 
   if (addedFiles > 0) {
     const r = registerFiles(fileSamples, Date.now(), addedFiles);

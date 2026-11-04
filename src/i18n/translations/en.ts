@@ -467,6 +467,7 @@ export const en: Record<string, string> = {
   "companion.line.sleepy.1": "z",
   "companion.line.sleepy.2": "zz",
   "companion.line.sleepy.3": "zzz",
+  "companion.line.petted.1": "♥",
   "companion.line.bedtime.1": "It's past midnight, go to bed",
   "companion.line.bedtime.2": "Continue tomorrow?",
   "companion.line.bedtime.3": "Captains need rest too",

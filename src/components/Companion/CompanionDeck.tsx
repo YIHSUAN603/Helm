@@ -20,8 +20,10 @@ import { activateNextInFleetState } from "../../commands/actions";
 import {
   WAIT_NUDGE_MS,
   WAIT_SETTLE_MS,
+  initialStroke,
   isUserIdle,
   pickBehavior,
+  registerStroke,
 } from "../../companion/behavior";
 import {
   LOOK_AT_YOU,
@@ -192,7 +194,11 @@ function Deck() {
   // 逐幀運動：位置與影格都由 rAF 迴圈從當下狀態往前推，直接寫進 DOM（不經
   // React 重繪）。元素從不因換動作而重新掛載 —— 那正是以前會閃現的原因。
   const hovered = useRef(false);
-  const motionInput = useRef<Omit<PetMotionInput, "paused" | "reduced"> & { lookIdx: number | null }>(null);
+  const stroke = useRef(initialStroke());
+  // 正在播一次性反應（揮手、跳一下）時，游標停在牠身上也照常播：點牠、摸牠
+  // 的時候游標本來就在牠身上，暫停的話反應會卡在第一格。
+  const reacting = !!reaction && reaction.until > now;
+  const motionInput = useRef<Omit<PetMotionInput, "paused" | "reduced"> & { lookIdx: number | null; reacting: boolean }>(null);
   const motion = useRef<PetMotionState | null>(null);
   const paint = useCallback(() => {
     const wrap = wrapRef.current;
@@ -213,7 +219,7 @@ function Deck() {
   // 每次 render 把最新的行為交給迴圈；第一次順便定出起點並先畫一格，免得
   // 第一個 rAF 之前看到牠站在甲板左緣。
   useLayoutEffect(() => {
-    motionInput.current = { behavior, home: data.deckX, dragX, lookIdx };
+    motionInput.current = { behavior, home: data.deckX, dragX, lookIdx, reacting };
     motion.current ??= initialPetMotion(data.deckX, behavior);
     paint();
   });
@@ -227,7 +233,11 @@ function Deck() {
       if (motion.current && motionInput.current) {
         motion.current = stepPetMotion(
           motion.current,
-          { ...motionInput.current, paused: hovered.current, reduced: reduced?.matches ?? false },
+          {
+            ...motionInput.current,
+            paused: hovered.current && !motionInput.current.reacting,
+            reduced: reduced?.matches ?? false,
+          },
           dt,
         );
         paint();
@@ -245,6 +255,13 @@ function Deck() {
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     const deck = deckRef.current;
+    // 沒按著時在牠身上左右來回 = 摸頭。有人在等批准時不理會（那時牠只負責提醒你）。
+    if (!d && e.buttons === 0) {
+      const r = registerStroke(stroke.current, e.clientX, Date.now());
+      stroke.current = r.state;
+      if (r.petted && fleet.waitingSince === null) useCompanionStore.getState().pet();
+      return;
+    }
     if (!d || !deck) return;
     if (!d.active) {
       if (Math.abs(e.clientX - d.startX) < DRAG_THRESHOLD_PX) return;
@@ -313,7 +330,10 @@ function Deck() {
           aria-label={t("companion.ariaLabel", { name: petName })}
           title={petName}
           onPointerEnter={() => (hovered.current = true)}
-          onPointerLeave={() => (hovered.current = false)}
+          onPointerLeave={() => {
+            hovered.current = false;
+            stroke.current = initialStroke();
+          }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

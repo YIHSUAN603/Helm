@@ -458,6 +458,7 @@ export const zhTW: Record<string, string> = {
   "companion.line.sleepy.1": "z",
   "companion.line.sleepy.2": "zz",
   "companion.line.sleepy.3": "zzz",
+  "companion.line.petted.1": "♥",
   "companion.line.bedtime.1": "都凌晨了，去睡吧",
   "companion.line.bedtime.2": "明天再繼續好嗎？",
   "companion.line.bedtime.3": "船長也需要休息",

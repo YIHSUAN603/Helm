@@ -135,6 +135,101 @@ export function clickTalks(rng: () => number): boolean {
   return rng() < CLICK_TALK_CHANCE;
 }
 
+// ---- 摸頭 ----
+
+/** 游標往同一方向至少移動多少 px 才算一次撫摸（小於這個是手抖）。 */
+export const STROKE_MIN_PX = 6;
+/** 幾次來回（方向反轉）算摸了一次頭。 */
+export const STROKE_REVERSALS = 3;
+/** 來回要在多久內完成。 */
+export const STROKE_WINDOW_MS = 1_500;
+/** 摸完之後多久內不再算第二次，免得一直摸一直跳。 */
+export const STROKE_COOLDOWN_MS = 3_000;
+
+export interface StrokeState {
+  /** 目前這一趟的端點：同方向前進時跟著走，反轉時從這裡起算。 */
+  anchorX: number | null;
+  dir: -1 | 0 | 1;
+  reversals: number[];
+  quietUntil: number;
+}
+
+export function initialStroke(): StrokeState {
+  return { anchorX: null, dir: 0, reversals: [], quietUntil: 0 };
+}
+
+/**
+ * 記錄一次游標在寵物身上的水平位置（沒按住按鍵時）。左右來回 3 次就是摸頭；
+ * 往同一方向移動不會累積，小於 STROKE_MIN_PX 的反向抖動也不算反轉。
+ */
+export function registerStroke(
+  prev: StrokeState,
+  x: number,
+  now: number,
+): { state: StrokeState; petted: boolean } {
+  if (prev.anchorX === null) return { state: { ...prev, anchorX: x, dir: 0 }, petted: false };
+  const delta = x - prev.anchorX;
+  const sign = delta > 0 ? 1 : delta < 0 ? -1 : 0;
+  let { dir } = prev;
+  let anchorX = prev.anchorX;
+  let reversals = prev.reversals.filter((t) => now - t < STROKE_WINDOW_MS);
+  if (dir === 0) {
+    if (Math.abs(delta) >= STROKE_MIN_PX) {
+      dir = sign as -1 | 1;
+      anchorX = x;
+    }
+  } else if (sign === dir) {
+    anchorX = x;
+  } else if (Math.abs(delta) >= STROKE_MIN_PX) {
+    dir = sign as -1 | 1;
+    anchorX = x;
+    reversals = [...reversals, now];
+  }
+  if (reversals.length >= STROKE_REVERSALS && now >= prev.quietUntil) {
+    return {
+      state: { anchorX: x, dir: 0, reversals: [], quietUntil: now + STROKE_COOLDOWN_MS },
+      petted: true,
+    };
+  }
+  return { state: { anchorX, dir, reversals, quietUntil: prev.quietUntil }, petted: false };
+}
+
+// ---- 長回合 ----
+
+/** agent 實際工作（thinking / tool）累積多久才算長回合，完成時給更大的慶祝。 */
+export const LONG_TURN_MS = 5 * 60_000;
+
+export interface TurnClock {
+  workMs: number;
+  /** 這段工作從什麼時候開始；不在工作中時為 null。 */
+  since: number | null;
+}
+
+export function initialTurn(): TurnClock {
+  return { workMs: 0, since: null };
+}
+
+/**
+ * 跟著一個 session 的狀態累積「agent 實際在工作」的時間。只算 thinking / tool：
+ * 等批准的時間是在等你，不是牠在努力，等了 30 分鐘才按 y 不該被當成長回合。
+ * 進入 done / error 時回合結束，回傳這回合的工作時間並歸零；其餘回 null。
+ */
+export function stepTurn(
+  clock: TurnClock,
+  next: AgentState | undefined,
+  now: number,
+): { clock: TurnClock; finishedMs: number | null } {
+  const working = next === "thinking" || next === "tool";
+  let { workMs, since } = clock;
+  if (working && since === null) since = now;
+  if (!working && since !== null) {
+    workMs += now - since;
+    since = null;
+  }
+  if (next === "done" || next === "error") return { clock: initialTurn(), finishedMs: workMs };
+  return { clock: { workMs, since }, finishedMs: null };
+}
+
 // ---- changed files 突增 ----
 
 export const BURST_WINDOW_MS = 10_000;

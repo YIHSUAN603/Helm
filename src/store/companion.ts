@@ -71,6 +71,8 @@ interface CompanionState {
 
   load: () => Promise<void>;
   activity: (act: Activity) => void;
+  /** 被摸頭了（左右來回撫摸，見 registerStroke）。 */
+  pet: () => void;
   react: (anim: PetAnim, opts?: { cycles?: number; motion?: Reaction["motion"]; ms?: number }) => void;
   say: (ctx: LineContext, solicited: boolean) => void;
   click: (activeId: string | null) => void;
@@ -215,6 +217,13 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
     }
     get().react("waving", { cycles: 2 });
     if (clickTalks(Math.random)) get().say("click", true);
+  },
+
+  pet: () => {
+    // 跟點擊共用每日上限：摸頭不該是另一條升級捷徑。
+    get().activity({ kind: "click" });
+    get().react("jumping");
+    get().say("petted", true);
   },
 
   knockOut: (sessionId) => {

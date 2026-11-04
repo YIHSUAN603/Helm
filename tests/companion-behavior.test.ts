@@ -5,6 +5,10 @@ import {
   ANNOYED_CLICKS,
   BUBBLE_GAP_MS,
   CLICK_TALK_CHANCE,
+  LONG_TURN_MS,
+  STROKE_COOLDOWN_MS,
+  STROKE_MIN_PX,
+  STROKE_WINDOW_MS,
   FLEE_CLICKS,
   USER_IDLE_MS,
   WAIT_NUDGE_MS,
@@ -12,11 +16,15 @@ import {
   busySpeed,
   canSpeak,
   clickTalks,
+  initialStroke,
+  initialTurn,
   isUserIdle,
   nextStreak,
   pickBehavior,
   registerClick,
   registerFiles,
+  registerStroke,
+  stepTurn,
   trackAnswer,
   type BehaviorContext,
 } from "../src/companion/behavior.ts";
@@ -183,6 +191,52 @@ function ctx(over: Partial<BehaviorContext> = {}): BehaviorContext {
   check("rng 低於機率 → 說話", clickTalks(() => CLICK_TALK_CHANCE - 0.01));
   check("rng 等於機率 → 只揮手", !clickTalks(() => CLICK_TALK_CHANCE));
   check("說話機率不超過一半", CLICK_TALK_CHANCE <= 0.5);
+}
+
+// 摸頭：左右來回 3 次
+{
+  const stroke = (xs: number[], start = NOW, step = 100) => {
+    let st = initialStroke();
+    const hits: number[] = [];
+    xs.forEach((x, i) => {
+      const r = registerStroke(st, x, start + i * step);
+      st = r.state;
+      if (r.petted) hits.push(i);
+    });
+    return { st, hits };
+  };
+  check("來回 3 次 → 摸頭", stroke([0, 20, 0, 20, 0]).hits.length === 1);
+  check("來回 2 次不算", stroke([0, 20, 0, 20]).hits.length === 0);
+  check("一路往右不算", stroke([0, 10, 20, 30, 40, 50, 60]).hits.length === 0);
+  const jitter = STROKE_MIN_PX - 1;
+  check("小於門檻的抖動不算反轉", stroke([0, 20, 20 - jitter, 20, 20 - jitter, 20]).hits.length === 0);
+  check("太慢不算", stroke([0, 20, 0, 20, 0], NOW, STROKE_WINDOW_MS / 2).hits.length === 0);
+  // 摸完的冷卻期內繼續摸不再觸發，冷卻後可以再摸
+  const fast = stroke([0, 20, 0, 20, 0, 20, 0, 20, 0], NOW, 100);
+  check("冷卻期內不連發", fast.hits.length === 1);
+  const after = registerStroke({ ...fast.st, quietUntil: NOW + STROKE_COOLDOWN_MS }, 20, NOW + STROKE_COOLDOWN_MS + 1);
+  check("冷卻後重新累積", !after.petted);
+}
+
+// 長回合：只算 thinking / tool 的時間
+{
+  const MIN = 60_000;
+  let c = initialTurn();
+  c = stepTurn(c, "thinking", NOW).clock;
+  c = stepTurn(c, "tool", NOW + 2 * MIN).clock;
+  c = stepTurn(c, "waiting", NOW + 4 * MIN).clock;
+  // 等批准 30 分鐘不算工作
+  c = stepTurn(c, undefined, NOW + 34 * MIN).clock;
+  c = stepTurn(c, "thinking", NOW + 34 * MIN).clock;
+  const end = stepTurn(c, "done", NOW + 36 * MIN);
+  check("工作時間 = 4 + 2 分鐘", end.finishedMs === 6 * MIN);
+  check("6 分鐘算長回合", end.finishedMs! >= LONG_TURN_MS);
+  check("結束後歸零", end.clock.workMs === 0 && end.clock.since === null);
+  check("回合中不回報", stepTurn(initialTurn(), "thinking", NOW).finishedMs === null);
+  const short = stepTurn(stepTurn(initialTurn(), "thinking", NOW).clock, "done", NOW + MIN);
+  check("1 分鐘不算長回合", short.finishedMs === MIN && short.finishedMs < LONG_TURN_MS);
+  const err = stepTurn(stepTurn(initialTurn(), "tool", NOW).clock, "error", NOW + 10 * MIN);
+  check("error 也結束回合", err.finishedMs === 10 * MIN);
 }
 
 console.log(`companion-behavior: ${passed} checks passed`);
