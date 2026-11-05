@@ -29,6 +29,7 @@ import {
 } from "../companion/behavior";
 import { pickLine, type LineContext } from "../companion/lines";
 import { FX_MS, type WeatherFx } from "../companion/weather";
+import { PEEK_TOTAL_MS, pickPeekX, shouldPeek } from "../companion/peek";
 import { animCycleMs, PET_SHEET, sheetRows, type PetAnim } from "../companion/petAnimation";
 
 export const COMPANION_FILE = "companion.json";
@@ -71,12 +72,18 @@ interface CompanionState {
   spriteUrl: string | null;
   /** sheet 有幾列：9 = Codex 標準格式，11 = 多兩列轉頭方向的擴充版。 */
   spriteRows: number;
+  /** 關掉時的偷看（見 peek.ts）；key 每次不同，讓元件重新掛載、從頭播。 */
+  peek: { key: number; x: number; until: number } | null;
 
   load: () => Promise<void>;
   activity: (act: Activity) => void;
   /** 在甲板天氣上播一段短暫特效。 */
   fx: (kind: WeatherFx) => void;
   setWeather: (on: boolean) => void;
+  setPeek: (on: boolean) => void;
+  /** agent 回合完成時呼叫：條件都過了才真的探頭（見 shouldPeek）。 */
+  tryPeek: (fleet: { waiting: boolean; anyError: boolean }) => void;
+  endPeek: () => void;
   /** 被摸頭了（左右來回撫摸，見 registerStroke）。 */
   pet: () => void;
   react: (anim: PetAnim, opts?: { cycles?: number; motion?: Reaction["motion"]; ms?: number }) => void;
@@ -97,6 +104,10 @@ let clickTimes: number[] = [];
 let lastLineKey: string | null = null;
 let lastUnsolicitedAt: number | null = null;
 let bedtimeNagDay: string | null = null;
+/** 寵物何時被關掉；本次啟動讀到的就是關閉狀態時記成啟動時間。 */
+let disabledAt: number | null = null;
+let lastPeekAt: number | null = null;
+let peeksThisLaunch = 0;
 
 /** 寵物看得到嗎（解鎖且開著）。看不到時反應與泡泡都不必排。 */
 export function companionVisible(data: CompanionData | null): data is CompanionData {
@@ -115,6 +126,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
   pets: [],
   spriteUrl: null,
   spriteRows: PET_SHEET.rows,
+  peek: null,
 
   load: async () => {
     const res = await readAppFile(COMPANION_FILE);
@@ -128,6 +140,7 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
     }
     const launch = recordLaunch(data, Date.now());
     set({ data: launch.data, persistable: res.ok });
+    if (!launch.data.enabled) disabledAt = Date.now();
     void get().refreshPets();
     if (!companionVisible(launch.data)) return;
     // 熟了之後會跑進來、揮手迎接你；比平常早來時跳一下。都只用動作，不講話。
@@ -238,6 +251,39 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
     set({ data: { ...data, weather: on }, weatherFx: null });
   },
 
+  setPeek: (on) => {
+    const data = get().data;
+    if (!data || data.peek === on) return;
+    set({ data: { ...data, peek: on }, peek: on ? get().peek : null });
+  },
+
+  tryPeek: (fleet) => {
+    const data = get().data;
+    if (!data || get().peek) return;
+    const now = Date.now();
+    const ok = shouldPeek(
+      {
+        now,
+        unlocked: isUnlocked(data),
+        enabled: data.enabled,
+        peekAllowed: data.peek,
+        disabledAt,
+        lastPeekAt,
+        peeksThisLaunch,
+        waiting: fleet.waiting,
+        anyError: fleet.anyError,
+        reducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+      },
+      Math.random,
+    );
+    if (!ok) return;
+    lastPeekAt = now;
+    peeksThisLaunch++;
+    set({ peek: { key: now, x: pickPeekX(Math.random), until: now + PEEK_TOTAL_MS } });
+  },
+
+  endPeek: () => set({ peek: null }),
+
   pet: () => {
     // 跟點擊共用每日上限：摸頭不該是另一條升級捷徑。
     get().activity({ kind: "click" });
@@ -258,7 +304,8 @@ export const useCompanionStore = create<CompanionState>((set, get) => ({
   setEnabled: (enabled) => {
     const data = get().data;
     if (!data || data.enabled === enabled) return;
-    set({ data: { ...data, enabled }, reaction: null, bubble: null, card: null });
+    disabledAt = enabled ? null : Date.now();
+    set({ data: { ...data, enabled }, reaction: null, bubble: null, card: null, peek: null });
   },
 
   setActivePet: (id) => {

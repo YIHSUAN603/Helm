@@ -86,6 +86,8 @@ export interface CompanionData {
   petName: string | null;
   /** 甲板天氣（寵物背後的氛圍層）開關。 */
   weather: boolean;
+  /** 寵物關掉後，偶爾從甲板下緣探頭偷看（見 peek.ts）。 */
+  peek: boolean;
 }
 
 export function defaultCompanion(): CompanionData {
@@ -107,6 +109,7 @@ export function defaultCompanion(): CompanionData {
     lastLaunchDay: null,
     petName: null,
     weather: true,
+    peek: true,
   };
 }
 
@@ -164,6 +167,7 @@ export function normalizeCompanion(raw: unknown): CompanionData {
     petName: typeof r.petName === "string" && r.petName.trim() ? r.petName.trim() : null,
     // 舊檔沒有這個欄位 → 預設值；逐欄位退回預設，所以不必升版號。
     weather: typeof r.weather === "boolean" ? r.weather : base.weather,
+    peek: typeof r.peek === "boolean" ? r.peek : base.peek,
   };
 }
 

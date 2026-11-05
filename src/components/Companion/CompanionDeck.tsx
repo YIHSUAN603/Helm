@@ -11,7 +11,6 @@ import { useSessionStore } from "../../store/sessions";
 import { isBusyState } from "../../store/notificationRouter";
 import {
   BUILTIN_PETS,
-  companionVisible,
   useCompanionStore,
 } from "../../store/companion";
 import { lastUserInputAt } from "../../store/companionWatch";
@@ -41,7 +40,15 @@ import {
   type PetMotionInput,
   type PetMotionState,
 } from "../../companion/petMotion";
-import { isNightHour, levelOf, MAX_LEVEL } from "../../companion/progress";
+import { isNightHour, isUnlocked, levelOf, MAX_LEVEL } from "../../companion/progress";
+import {
+  PEEK_CAUGHT_MS,
+  PEEK_DUCK_MS,
+  PEEK_HEIGHT,
+  PEEK_HOLD_MS,
+  PEEK_REVEAL,
+  PEEK_RISE_MS,
+} from "../../companion/peek";
 import { pickWeather } from "../../companion/weather";
 import { CompanionWeather } from "./CompanionWeather";
 import { useT } from "../../i18n";
@@ -59,8 +66,89 @@ const MAX_STEP_MS = 100;
 
 export function CompanionDeck() {
   const data = useCompanionStore((s) => s.data);
-  if (!companionVisible(data)) return <div className="tb-spacer" />;
-  return <Deck />;
+  if (!data || !isUnlocked(data)) return <div className="tb-spacer" />;
+  if (data.enabled) return <Deck />;
+  // 關掉了：平常仍是空白，偶爾探頭偷看一下。
+  return data.peek ? <PeekDeck /> : <div className="tb-spacer" />;
+}
+
+/**
+ * 寵物關掉時的甲板：一片空白，偶爾（見 peek.ts）從下緣探出頭盯著你、再縮回去。
+ * 用 transition 而不是 keyframes：冒到一半被游標碰到時，要從當下的位置縮回去，
+ * 而不是先跳到頂再往下。不攔任何點擊 —— 抓到牠也不會把牠叫回來，關掉就是關掉。
+ */
+function PeekDeck() {
+  const peek = useCompanionStore((s) => s.peek);
+  return (
+    <div className="tb-spacer companion-deck">
+      {peek && <Peek key={peek.key} x={peek.x} />}
+    </div>
+  );
+}
+
+type PeekPhase = "below" | "up" | "down";
+
+function Peek({ x }: { x: number }) {
+  const spriteUrl = useCompanionStore((s) => s.spriteUrl);
+  const spriteRows = useCompanionStore((s) => s.spriteRows);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [phase, setPhase] = useState<PeekPhase>("below");
+  const [caught, setCaught] = useState(false);
+  const geo = useMemo(() => spriteGeometry("idle", PEEK_HEIGHT, spriteRows), [spriteRows]);
+
+  // 有轉頭列就用「正對畫面」那格 —— 盯著你看；沒有就用 idle 第一格。
+  const cell = spriteRows >= PET_SHEET.lookRows ? lookCell(LOOK_AT_YOU) : { row: 0, col: 0 };
+
+  useEffect(() => {
+    const end = () => useCompanionStore.getState().endPeek();
+    // 甲板被擠得太窄就算了：沒有地方探頭。
+    const deck = boxRef.current?.parentElement;
+    if (!deck || deck.getBoundingClientRect().width < geo.cellWidth * 2) {
+      end();
+      return;
+    }
+    // 先以「藏在下面」畫一幀，下一幀才切到 up，transition 才會真的播。
+    let raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => setPhase("up"));
+    });
+    const duck = setTimeout(() => setPhase("down"), PEEK_RISE_MS + PEEK_HOLD_MS);
+    // 保險：視窗在背景時 transitionend 可能不來，不讓 peek 卡在 store 裡。
+    const failsafe = setTimeout(end, PEEK_RISE_MS + PEEK_HOLD_MS + PEEK_DUCK_MS + 1_000);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(duck);
+      clearTimeout(failsafe);
+    };
+  }, [geo.cellWidth]);
+
+  const style = {
+    "--cw": `${geo.cellWidth}px`,
+    "--ch": `${geo.cellHeight}px`,
+    "--sw": `${geo.sheetWidth}px`,
+    "--sh": `${geo.sheetHeight}px`,
+    "--sheet": `url("${spriteUrl ?? BUILTIN_PETS[0].src}")`,
+    "--peek-h": `${geo.cellHeight * PEEK_REVEAL}px`,
+    "--peek-ms": `${phase === "up" ? PEEK_RISE_MS : caught ? PEEK_CAUGHT_MS : PEEK_DUCK_MS}ms`,
+    left: `calc((100% - ${geo.cellWidth}px) * ${x})`,
+  } as React.CSSProperties;
+
+  return (
+    <div ref={boxRef} className="companion-peek" style={style} aria-hidden>
+      <div
+        className="companion-peek-pet"
+        data-phase={phase}
+        style={{ backgroundPosition: `${-cell.col * geo.cellWidth}px ${-cell.row * geo.cellHeight}px` }}
+        onPointerEnter={() => {
+          // 被抓包了：馬上縮回去。
+          setCaught(true);
+          setPhase("down");
+        }}
+        onTransitionEnd={() => {
+          if (phase === "down") useCompanionStore.getState().endPeek();
+        }}
+      />
+    </div>
+  );
 }
 
 function Deck() {

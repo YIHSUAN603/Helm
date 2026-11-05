@@ -325,3 +325,33 @@
     animation: none !important;
   }
 }
+
+/* 寵物關掉時的偷看（見 peek.ts）：外框只有半格高、overflow 裁掉下半身，
+   只露出頭。冒出 / 縮回用 transition，被抓包時能從當下位置縮回去。 */
+.companion-peek {
+  position: absolute;
+  bottom: 0;
+  width: var(--cw);
+  height: var(--peek-h);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.companion-peek-pet {
+  width: var(--cw);
+  height: var(--ch);
+  background-image: var(--sheet);
+  background-repeat: no-repeat;
+  background-size: var(--sw) var(--sh);
+  transform: translateY(var(--peek-h));
+  transition: transform var(--peek-ms) ease-out;
+  pointer-events: auto;
+}
+
+.companion-peek-pet[data-phase="up"] {
+  transform: translateY(0);
+}
+
+.companion-peek-pet[data-phase="down"] {
+  transition-timing-function: ease-in;
+}

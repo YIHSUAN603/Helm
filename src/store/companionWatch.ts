@@ -60,6 +60,11 @@ function onSessions(sessions: Session[], prevSessions: Session[], activeId: stri
     const event = detectAgentEvent(p.agentState, s.agentState, "approval");
     if (event === "done") {
       companion.activity({ kind: "done" });
+      // 寵物關著時才可能生效（條件全在 shouldPeek）；開著時是 no-op。
+      companion.tryPeek({
+        waiting: sessions.some((x) => x.agentState === "waiting"),
+        anyError: sessions.some((x) => x.agentState === "error"),
+      });
       const r = nextStreak(doneStreak, "done");
       doneStreak = r.streak;
       // 長回合完成比連續完成更值得慶祝：跳久一點，蓋過一般的歡呼。

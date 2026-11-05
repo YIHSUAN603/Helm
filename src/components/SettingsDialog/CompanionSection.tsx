@@ -73,6 +73,17 @@ export function CompanionSection() {
         />
       </label>
 
+      {!data.enabled && (
+        <label className="settings-row settings-subrow">
+          <span>{t("settings.companionPeek")}</span>
+          <input
+            type="checkbox"
+            checked={data.peek}
+            onChange={(e) => store.setPeek(e.target.checked)}
+          />
+        </label>
+      )}
+
       <label className="settings-row">
         <span>{t("settings.companionWeather")}</span>
         <input
