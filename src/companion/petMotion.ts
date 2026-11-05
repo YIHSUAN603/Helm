@@ -130,3 +130,27 @@ export function stepPetMotion(s: PetMotionState, input: PetMotionInput, dt: numb
 export function frameColumn(s: PetMotionState): number {
   return Math.floor(s.frame) % PET_ANIMS[s.anim].frames;
 }
+
+/** 甲板在螢幕上的水平範圍（px），只需要 getBoundingClientRect 的 left / width。 */
+export interface DeckSpan {
+  left: number;
+  width: number;
+}
+
+/**
+ * 甲板被擠寬擠窄時（旁邊的 fleet chip、用量表出現或消失），把 x 換算成新甲板
+ * 上的值，讓寵物在螢幕上留在原處。x 是「可移動寬度」的比例，甲板一變寬窄，
+ * 同一個 x 就落在不同的 px —— 不換算的話寵物會瞬間跳一下。之後要不要走回
+ * 停留點，交給 stepPetMotion 照平常的速度走。
+ *
+ * 甲板外的 x（退場途中 < 0、進場起點 1 以外）原樣保留：那是動畫的一部分，
+ * 不是版面造成的位置。新甲板放不下寵物時也原樣保留，等版面恢復再說。
+ */
+export function rebaseDeckX(x: number, from: DeckSpan, to: DeckSpan, petWidth: number): number {
+  if (x < 0 || x > 1) return x;
+  const fromSpan = from.width - petWidth;
+  const toSpan = to.width - petWidth;
+  if (fromSpan <= 0 || toSpan <= 0) return x;
+  const px = from.left + fromSpan * x;
+  return Math.min(1, Math.max(0, (px - to.left) / toSpan));
+}

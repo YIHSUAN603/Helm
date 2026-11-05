@@ -36,6 +36,7 @@ import {
 import {
   frameColumn,
   initialPetMotion,
+  rebaseDeckX,
   stepPetMotion,
   type PetMotionInput,
   type PetMotionState,
@@ -254,6 +255,28 @@ function Deck() {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [paint]);
+
+  // 甲板是 Toolbar 裡的 flex: 1 空白：左邊的 fleet chip、右邊的用量表一出現或
+  // 消失，它就被擠寬擠窄，同一個比例 x 會落在不同的螢幕位置。尺寸一變就把 x
+  // 換算回原本的位置，再交給迴圈照常走回停留點。ResizeObserver 在排版後、
+  // 繪製前觸發，所以不會先畫出跳位的那一幀。
+  useEffect(() => {
+    const deck = deckRef.current;
+    if (!deck || typeof ResizeObserver === "undefined") return;
+    let prev = deck.getBoundingClientRect();
+    const observer = new ResizeObserver(() => {
+      const rect = deck.getBoundingClientRect();
+      const s = motion.current;
+      // 拖曳中的位置由游標決定，下一個 pointermove 會自己對齊。
+      if (s && motionInput.current?.dragX === null) {
+        motion.current = { ...s, x: rebaseDeckX(s.x, prev, rect, geo.cellWidth) };
+        paint();
+      }
+      prev = rect;
+    });
+    observer.observe(deck);
+    return () => observer.disconnect();
+  }, [geo, paint]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;

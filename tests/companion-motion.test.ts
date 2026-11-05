@@ -7,6 +7,7 @@ import {
   WALK_CROSS_MS,
   frameColumn,
   initialPetMotion,
+  rebaseDeckX,
   stepPetMotion,
   type PetMotionInput,
   type PetMotionState,
@@ -136,6 +137,26 @@ const MAX_PER_FRAME = Math.max(1 / STROLL_CROSS_MS, 1 / WALK_CROSS_MS) * 16 + 1e
   const r = run(initialPetMotion(HOME, STAY), input(STROLL, { reduced: true }), 2000);
   check("不位移", r.s.x === HOME);
   check("第一格", frameColumn(r.s) === 0);
+}
+
+// 甲板被旁邊的 chip 擠動時，寵物在螢幕上留在原處。
+{
+  const PET = 40;
+  const from = { left: 100, width: 540 }; // 可移動 500px
+  const px = (x: number, d: { left: number; width: number }) => d.left + (d.width - PET) * x;
+
+  const shrunk = { left: 180, width: 460 }; // 左邊多了一顆 chip
+  const x1 = rebaseDeckX(0.5, from, shrunk, PET);
+  check("左側變寬：螢幕位置不變", Math.abs(px(x1, shrunk) - px(0.5, from)) < 1e-9);
+
+  const grown = { left: 100, width: 740 }; // 右邊的用量表消失
+  const x2 = rebaseDeckX(0.5, from, grown, PET);
+  check("右側讓出空間：螢幕位置不變", Math.abs(px(x2, grown) - px(0.5, from)) < 1e-9);
+
+  check("被擠出甲板時夾在邊緣", rebaseDeckX(0.05, from, { left: 300, width: 340 }, PET) === 0);
+  check("尺寸沒變就不動", rebaseDeckX(0.3, from, from, PET) === 0.3);
+  check("退場途中的 x 原樣保留", rebaseDeckX(-0.4, from, shrunk, PET) === -0.4);
+  check("甲板放不下寵物時原樣保留", rebaseDeckX(0.5, from, { left: 100, width: 30 }, PET) === 0.5);
 }
 
 console.log(`companion-motion: ${passed} checks passed`);
