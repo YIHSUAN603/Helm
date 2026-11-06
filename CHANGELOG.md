@@ -4,6 +4,16 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.23.1](https://github.com/YIHSUAN603/Helm/releases/tag/v0.23.1) - 2026-11-06
+
+### Added
+
+- Companion: after you hide the pet, it occasionally peeks up from the bottom edge of the toolbar when an agent turn finishes, shows only its head for a moment, then ducks back down. It is deliberately rare: not within 30 minutes of hiding it, a 15% chance per finished turn, a 2-hour cooldown, and at most twice per launch. It never appears while a session is waiting for approval or has errored, or under reduced motion; touching it with the cursor makes it duck away sooner without re-enabling the pet or adding affinity. It can be turned off in Settings → Companion ("Peek in now and then while hidden", on by default).
+
+### Fixed
+
+- Companion: the pet no longer jumps when the deck changes width (e.g. when fleet-status chips or the plan-usage meters appear or disappear in the toolbar). Its on-screen position is now preserved across the resize, and it then walks back to its spot as usual.
+
 ## [0.23.0](https://github.com/YIHSUAN603/Helm/releases/tag/v0.23.0) - 2026-11-04
 
 ### Added
