@@ -9,6 +9,7 @@ import { memo } from "react";
 import { useSessionStore } from "../../store/sessions";
 import { useUiStore } from "../../store/ui";
 import type { SidebarSession } from "../../store/sidebarProjection";
+import { statusDotClass } from "../../store/fleet";
 import type { SplitClusterInfo } from "../../store/workspaceGroups";
 import {
   activateSession,
@@ -25,12 +26,6 @@ import { resolveSidebarShortcut } from "./sidebarKeymap";
 
 /** Every visible tree node participates in roving focus. */
 export const SIDEBAR_NAV_SELECTOR = ".session-item, .workspace-header";
-
-// 綜合狀態燈：有 agent 狀態優先，否則用活動狀態。
-function dotClass(s: SidebarSession): string {
-  if (s.agentState) return `agent-${s.agentState}`;
-  return s.status;
-}
 
 interface SessionItemProps {
   session: SidebarSession;
@@ -146,7 +141,7 @@ export const SessionItem = memo(function SessionItem({
     requestAnimationFrame(() => row.scrollIntoView({ block: "nearest" }));
   };
 
-  const cls = dotClass(s);
+  const cls = statusDotClass(s);
   return (
     <div
       className={`session-item ${isActive ? "active" : ""}`}

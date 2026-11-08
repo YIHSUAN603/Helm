@@ -33,6 +33,7 @@ const COMMAND_TITLE_KEYS: Record<string, string> = {
   "layout:split-down": "command.splitDown",
   "layout:close-pane": "command.closePane",
   "layout:focus-next-pane": "command.focusNextPane",
+  "layout:toggle-zoom": "command.toggleZoom",
   // The registry composes these four from a direction parameter; the reference
   // collapses them into one row instead (see ARROW_GROUPS).
   "layout:focus-left": "shortcut.prefix.focusPane",

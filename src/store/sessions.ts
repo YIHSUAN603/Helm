@@ -1,7 +1,8 @@
 // 多 session 狀態管理 + agent 感知。
 import { create } from "zustand";
 import { initialSessionTracker } from "./initialSession";
-import { groupTreeOf, useLayoutStore } from "./layout";
+import { groupTreeOf, useLayoutStore, visibleSessionIdsNow } from "./layout";
+import { markDoneSeen, nextDoneSeen } from "./doneSeen";
 import { findTreeBySession, siblingFirstSession } from "./layoutTree";
 import { resolveFocusedWorkspace, splitRunIds } from "./workspaceGroups";
 import { moveSessionOrder } from "./sidebarOrder";
@@ -51,6 +52,9 @@ export interface Session {
   // agentState 最後一次改變的時間（提醒卡的「完成 · 4 分鐘前」）。本次執行的
   // 觀測值，不持久化。
   stateSince?: number;
+  // agentState 為 done 時：使用者是否已經看過這次完成（見 doneSeen.ts）。看過的
+  // done 在狀態燈與 fleet 上等同閒置。本次執行的觀測值，不持久化。
+  doneSeen?: boolean;
   pendingApproval?: string; // waiting（kind = approval）時的提示行，進 ApprovalPanel
   // waiting 且 kind 為 question/plan 時的提示：question 進 ApprovalPanel 供導覽，
   // plan 只發桌面通知（兩者都不顯示 Approve，避免隨便選中第一個選項）。
@@ -176,6 +180,24 @@ function samePlanUsage(a?: PlanUsage, b?: PlanUsage): boolean {
   );
 }
 
+/** 使用者此刻是否正看著這個 session：視窗有焦點且它的 pane 在畫面上。 */
+function isLookingAt(id: string, activeId: string | null): boolean {
+  if (typeof document === "undefined" || !document.hasFocus()) return false;
+  return visibleSessionIdsNow(activeId).includes(id);
+}
+
+/**
+ * 把畫面上的 done 標為已看。呼叫時機：切換 active、關閉 session（sibling 補位）、
+ * 解除 zoom、視窗重新取得焦點 —— 也就是「畫面上出現的 pane 可能變了」的時候。
+ * 視窗沒焦點時不算看過（使用者可能根本不在電腦前）。
+ */
+export function markVisibleDoneSeen(): void {
+  if (typeof document === "undefined" || !document.hasFocus()) return;
+  const { sessions, activeId } = useSessionStore.getState();
+  const next = markDoneSeen(sessions, visibleSessionIdsNow(activeId));
+  if (next !== sessions) useSessionStore.setState({ sessions: next });
+}
+
 /** gating 環境的 scope（sessions + activeId）；見 alertRoute.desktopNotifyContext。 */
 function alertScope(): AlertScope {
   const { sessions, activeId } = useSessionStore.getState();
@@ -270,6 +292,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       nextActive = sibling ?? remaining[idx]?.id ?? remaining[idx - 1]?.id ?? null;
     }
     set({ sessions: remaining, activeId: nextActive });
+    markVisibleDoneSeen();
     clearNotifyDedupe(id);
     clearApprovalSuppress(id);
     clearScanState(id);
@@ -306,7 +329,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }));
   },
 
-  setActive: (id) => set({ activeId: id }),
+  setActive: (id) => {
+    // zoom 只屬於被放大的那個 pane：焦點移走就還原（tmux 行為）。
+    const layout = useLayoutStore.getState();
+    if (layout.zoomedId !== null && layout.zoomedId !== id) layout.clearZoom();
+    if (get().activeId !== id) set({ activeId: id });
+    markVisibleDoneSeen();
+  },
 
   // Setters below early-return when nothing would change: they run at PTY
   // output frequency (per chunk / per 150ms scan), and a no-op set() would
@@ -367,6 +396,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       state === "waiting" && kind !== "approval" && prompt
         ? { kind, text: prompt }
         : undefined;
+    const doneSeen = nextDoneSeen(
+      prev.agentState,
+      state,
+      prev.doneSeen,
+      state === "done" && isLookingAt(id, get().activeId),
+    );
     if (
       prev.agentState === state &&
       prev.pendingApproval === pendingApproval &&
@@ -383,6 +418,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
               agentState: state,
               // 只有狀態真的換了才重設：同狀態換提示（另一個審批）不算重新開始。
               stateSince: prev.agentState === state ? x.stateSince : Date.now(),
+              doneSeen,
               pendingApproval,
               pendingPrompt,
             }
@@ -412,6 +448,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
               pendingPrompt: undefined,
               agentState: undefined,
               stateSince: undefined,
+              doneSeen: undefined,
             }
           : x,
       ),

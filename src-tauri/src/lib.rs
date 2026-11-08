@@ -28,6 +28,7 @@ struct MenuLabels {
     split_down: &'static str,
     close_pane: &'static str,
     focus_next_pane: &'static str,
+    toggle_zoom: &'static str,
     view: &'static str,
     palette: &'static str,
     toggle_files: &'static str,
@@ -53,6 +54,7 @@ const LABELS_ZH_TW: MenuLabels = MenuLabels {
     split_down: "向下分割",
     close_pane: "關閉 Pane",
     focus_next_pane: "焦點：下一個 Pane",
+    toggle_zoom: "放大／還原 Pane",
     view: "檢視",
     palette: "命令面板",
     toggle_files: "檔案變更面板",
@@ -78,6 +80,7 @@ const LABELS_EN: MenuLabels = MenuLabels {
     split_down: "Split Down",
     close_pane: "Close Pane",
     focus_next_pane: "Focus: Next Pane",
+    toggle_zoom: "Zoom / Restore Pane",
     view: "View",
     palette: "Command Palette",
     toggle_files: "Changed Files Panel",
@@ -124,8 +127,9 @@ fn build_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<tauri::Wry>
     let split_down = item("layout:split-down", l.split_down, "\"")?;
     let close_pane = item("layout:close-pane", l.close_pane, "x")?;
     let focus_next_pane = item("layout:focus-next-pane", l.focus_next_pane, "o")?;
+    let toggle_zoom = item("layout:toggle-zoom", l.toggle_zoom, "z")?;
     let layout_menu = SubmenuBuilder::new(app, l.layout)
-        .items(&[&split_right, &split_down, &close_pane, &focus_next_pane])
+        .items(&[&split_right, &split_down, &close_pane, &focus_next_pane, &toggle_zoom])
         .build()?;
 
     let palette = MenuItemBuilder::with_id("palette:open", l.palette)

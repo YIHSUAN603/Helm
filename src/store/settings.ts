@@ -95,6 +95,7 @@ const KEYS = {
   notifyInterrupted: "helm.notifyInterrupted",
   notifyStalled: "helm.notifyStalled",
   notifyHiddenPanes: "helm.notifyHiddenPanes",
+  statusSymbols: "helm.statusSymbols",
   sessionBrief: "helm.sessionBrief",
   restoreSessions: "helm.restoreSessions",
   restoreScrollback: "helm.restoreScrollback",
@@ -126,6 +127,9 @@ interface SettingsState {
   notifyStalled: boolean; // agent 停在忙碌但長時間無輸出
   // 視窗聚焦時，畫面外 pane（不在目前分割群組）的 waiting / error 仍發桌面通知。
   notifyHiddenPanes: boolean;
+  // 狀態燈除了顏色也用形狀區分（三角＝等待、叉＝錯誤、菱形＝完成…），給色弱
+  // 使用者。預設關閉：圓點在一般情況下最安靜。
+  statusSymbols: boolean;
   // 離開一陣子後回到 session，自動跳出提醒卡（目標 / 離開期間的活動）。
   sessionBrief: boolean;
   // 重啟還原：session 清單 + 分割佈局（PTY 一律是新的，不會復活行程），
@@ -153,6 +157,7 @@ interface SettingsState {
   setNotifyInterrupted: (v: boolean) => void;
   setNotifyStalled: (v: boolean) => void;
   setNotifyHiddenPanes: (v: boolean) => void;
+  setStatusSymbols: (v: boolean) => void;
   setSessionBrief: (v: boolean) => void;
   setRestoreSessions: (v: boolean) => void;
   setRestoreScrollback: (v: boolean) => void;
@@ -225,6 +230,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   notifyInterrupted: initialBool(KEYS.notifyInterrupted),
   notifyStalled: initialBool(KEYS.notifyStalled),
   notifyHiddenPanes: initialBool(KEYS.notifyHiddenPanes),
+  statusSymbols: initialBoolOff(KEYS.statusSymbols),
   sessionBrief: initialBool(KEYS.sessionBrief),
   restoreSessions: initialBool(KEYS.restoreSessions),
   restoreScrollback: initialBool(KEYS.restoreScrollback),
@@ -299,6 +305,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setNotifyHiddenPanes: (v) => {
     localStorage.setItem(KEYS.notifyHiddenPanes, String(v));
     set({ notifyHiddenPanes: v });
+  },
+  setStatusSymbols: (v) => {
+    localStorage.setItem(KEYS.statusSymbols, String(v));
+    set({ statusSymbols: v });
   },
   setSessionBrief: (v) => {
     localStorage.setItem(KEYS.sessionBrief, String(v));

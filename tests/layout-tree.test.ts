@@ -15,6 +15,7 @@ import {
   setRatio,
   siblingFirstSession,
   splitLeaf,
+  visibleSessionIds,
   type LayoutNode,
   type SnapshotNode,
   type SplitNode,
@@ -201,6 +202,17 @@ function approx(a: number, b: number) {
     "hydrate 單一 leaf",
     hydrateSnapshotNode({ type: "leaf", sessionId: "solo" }).type === "leaf",
   );
+}
+
+// visibleSessionIds: 群組全員；zoom 到 active 時只剩 active；未分組只有 active
+{
+  const base = leaf("a");
+  const tree = splitLeaf(base, base.id, "row", "b");
+  check("無 active → 空", visibleSessionIds(tree, null, null).length === 0);
+  check("未分組 → 只有 active", visibleSessionIds(null, "x", null).join() === "x");
+  check("分組 → 全員", visibleSessionIds(tree, "a", null).join() === "a,b");
+  check("zoom 到 active → 只剩 active", visibleSessionIds(tree, "b", "b").join() === "b");
+  check("zoom 的不是 active → 視為未 zoom", visibleSessionIds(tree, "a", "b").join() === "a,b");
 }
 
 console.log(`\nlayout-tree: ${passed} checks passed`);

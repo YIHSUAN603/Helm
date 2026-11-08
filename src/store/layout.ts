@@ -12,6 +12,7 @@ import {
   removeLeafBySession,
   setRatio as setTreeRatio,
   splitLeaf,
+  visibleSessionIds,
   type LayoutNode,
   type SplitDir,
 } from "./layoutTree";
@@ -38,9 +39,24 @@ export function groupTreeOf(
   return key ? trees[key] : null;
 }
 
+/** 目前畫面上看得見的 session（含 zoom）；定義見 layoutTree.visibleSessionIds。 */
+export function visibleSessionIdsNow(activeId: string | null): string[] {
+  const { trees, zoomedId } = useLayoutStore.getState();
+  return visibleSessionIds(groupTreeOf(trees, activeId), activeId, zoomedId);
+}
+
 interface LayoutState {
   /** 群組 id → 該群組的版面樹（session 至多屬於一個群組）。 */
   trees: Record<string, LayoutNode>;
+  /**
+   * 被 zoom 的 session（暫時佔滿整個 terminal-area，群組其他成員隱藏）。
+   * 只在它同時是 active 時生效；切到別的 session、分割或群組變動都會解除
+   * （tmux 行為），所以不需要持久化，也不會在回到它時意外重新放大。
+   */
+  zoomedId: string | null;
+  /** zoom ↔ 還原；未分組的 session 本來就是全螢幕，不做任何事。 */
+  toggleZoom: (sessionId: string) => void;
+  clearZoom: () => void;
   /** 分割後的兩半是否都還夠大（量不到 DOM 時放行）。 */
   canSplitPane: (sessionId: string, dir: SplitDir) => boolean;
   /** 把 newSessionId 分割進 sessionId 的 leaf；未分組時先新建群組。 */
@@ -67,6 +83,20 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
 
   return {
     trees: {},
+    zoomedId: null,
+
+    toggleZoom: (sessionId) => {
+      if (get().zoomedId === sessionId) {
+        set({ zoomedId: null });
+        return;
+      }
+      if (!findTreeBySession(get().trees, sessionId)) return;
+      set({ zoomedId: sessionId });
+    },
+
+    clearZoom: () => {
+      if (get().zoomedId !== null) set({ zoomedId: null });
+    },
 
     canSplitPane: (sessionId, dir) => {
       const size = areaSize();
@@ -89,6 +119,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
     splitPane: (sessionId, dir, newSessionId) => {
       initialSessionTracker.markUsed(sessionId);
       initialSessionTracker.markUsed(newSessionId);
+      // 分割是對版面的明確操作，放大中的 pane 先還原，新 pane 才看得到。
+      get().clearZoom();
       const groupId = findTreeBySession(get().trees, sessionId);
       if (!groupId) {
         // 未分組 → 以該 session 為底新建群組再分割。
@@ -105,6 +137,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
       // session id 全域唯一，至多命中一棵樹。
       const groupId = findTreeBySession(get().trees, sessionId);
       if (!groupId) return;
+      const { zoomedId } = get();
+      if (zoomedId && findTreeBySession(get().trees, zoomedId) === groupId) {
+        set({ zoomedId: null });
+      }
       const next = removeLeafBySession(get().trees[groupId], sessionId);
       if (!next || next.type === "leaf") {
         // 剩單一 leaf 即解散群組，倖存的 session 回到未分組全螢幕。
@@ -122,7 +158,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
         if (leafCount(root) < 2) continue;
         trees[crypto.randomUUID()] = root;
       }
-      set({ trees });
+      set({ trees, zoomedId: null });
     },
 
     setRatio: (splitId, ratio) => {

@@ -1,7 +1,15 @@
 // Pure fleet-status helper tests (no GUI / Tauri needed).
 // Run: node --experimental-strip-types tests/fleet.test.ts
 import assert from "node:assert";
-import { fleetCounts, fleetStateOf, nextIdInState } from "../src/store/fleet.ts";
+import {
+  fleetCounts,
+  fleetDotClass,
+  fleetStateOf,
+  fleetStateOfSession,
+  nextIdInState,
+  rollupFleetState,
+  statusDotClass,
+} from "../src/store/fleet.ts";
 import type { FleetState } from "../src/store/fleet.ts";
 
 let passed = 0;
@@ -53,6 +61,65 @@ function check(name: string, cond: boolean) {
   check("active 為 null → 第一個", nextIdInState(ids, stateOf, null, "waiting") === "a");
   check("唯一候選點回自己", nextIdInState(ids, stateOf, "b", "busy") === "b");
   check("無候選 → undefined", nextIdInState(ids, stateOf, "a", "error") === undefined);
+}
+
+// 看過的 done 等同閒置：不計入 fleet、不參與跳轉、狀態燈降為灰
+{
+  check("未讀 done → done", fleetStateOfSession({ agentState: "done" }) === "done");
+  check(
+    "已讀 done → undefined",
+    fleetStateOfSession({ agentState: "done", doneSeen: true }) === undefined,
+  );
+  check(
+    "doneSeen 只影響 done",
+    fleetStateOfSession({ agentState: "thinking", doneSeen: true }) === "busy",
+  );
+  const counts = fleetCounts([
+    { agentState: "done" },
+    { agentState: "done", doneSeen: true },
+  ]);
+  check("已讀 done 不計數", counts.done === 1);
+}
+
+// rollupFleetState: waiting > error > busy > 未讀 done
+{
+  check("空 → undefined", rollupFleetState([]) === undefined);
+  check("無 agent → undefined", rollupFleetState([{}]) === undefined);
+  check(
+    "waiting 壓過一切",
+    rollupFleetState([
+      { agentState: "done" },
+      { agentState: "error" },
+      { agentState: "tool" },
+      { agentState: "waiting" },
+    ]) === "waiting",
+  );
+  check(
+    "error 壓過 busy",
+    rollupFleetState([{ agentState: "thinking" }, { agentState: "error" }]) === "error",
+  );
+  check(
+    "busy 壓過 done",
+    rollupFleetState([{ agentState: "done" }, { agentState: "tool" }]) === "busy",
+  );
+  check("只有未讀 done → done", rollupFleetState([{ agentState: "done" }]) === "done");
+  check(
+    "只有已讀 done → undefined",
+    rollupFleetState([{ agentState: "done", doneSeen: true }]) === undefined,
+  );
+}
+
+// 狀態燈 class
+{
+  check("busy 用 thinking 樣式", fleetDotClass("busy") === "agent-thinking");
+  check("waiting 一對一", fleetDotClass("waiting") === "agent-waiting");
+  check("agent 狀態優先", statusDotClass({ agentState: "tool", status: "busy" }) === "agent-tool");
+  check("無 agent 用活動狀態", statusDotClass({ status: "exited" }) === "exited");
+  check("未讀 done 綠燈", statusDotClass({ agentState: "done", status: "idle" }) === "agent-done");
+  check(
+    "已讀 done 灰燈",
+    statusDotClass({ agentState: "done", doneSeen: true, status: "idle" }) === "agent-idle",
+  );
 }
 
 console.log(`fleet: ${passed} checks passed`);

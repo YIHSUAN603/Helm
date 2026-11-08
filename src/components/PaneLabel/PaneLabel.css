@@ -33,6 +33,19 @@
   white-space: nowrap;
 }
 
+.pane-badge-zoom {
+  border: none;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--c-blue) 15%, transparent);
+  color: var(--c-blue);
+  font: inherit;
+  font-size: 10px;
+}
+
+.pane-badge-zoom:hover {
+  background: color-mix(in srgb, var(--c-blue) 25%, transparent);
+}
+
 .pane-badge-warn {
   background: color-mix(in srgb, var(--c-peach) 13%, transparent);
   color: var(--c-peach);

@@ -360,6 +360,8 @@ function SettingsDialogInner() {
   const setNotifyInterrupted = useSettingsStore((s) => s.setNotifyInterrupted);
   const setNotifyStalled = useSettingsStore((s) => s.setNotifyStalled);
   const setNotifyHiddenPanes = useSettingsStore((s) => s.setNotifyHiddenPanes);
+  const statusSymbols = useSettingsStore((s) => s.statusSymbols);
+  const setStatusSymbols = useSettingsStore((s) => s.setStatusSymbols);
   const setSessionBrief = useSettingsStore((s) => s.setSessionBrief);
   const setRestoreSessions = useSettingsStore((s) => s.setRestoreSessions);
   const setRestoreScrollback = useSettingsStore((s) => s.setRestoreScrollback);
@@ -685,6 +687,16 @@ function SettingsDialogInner() {
                   {t("settings.themeCustomCreate")}
                 </button>
               </div>
+
+              <label className="settings-row">
+                <span>{t("settings.statusSymbols")}</span>
+                <input
+                  type="checkbox"
+                  checked={statusSymbols}
+                  onChange={(e) => setStatusSymbols(e.target.checked)}
+                />
+              </label>
+              <p className="settings-hint">{t("settings.statusSymbolsHint")}</p>
 
               {customTheme && (
                 <>

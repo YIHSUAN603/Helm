@@ -1,7 +1,7 @@
 // Impure command helpers bridging the stores, PTY, and DOM focus.
 // Shared by the command registry and components so buttons and hotkeys
 // go through the exact same code path.
-import { useSessionStore, type Session } from "../store/sessions";
+import { markVisibleDoneSeen, useSessionStore, type Session } from "../store/sessions";
 import { initialSessionTracker } from "../store/initialSession";
 import { clearNotifyDedupe, isBusyState } from "../store/notificationRouter";
 import { markApprovalAnswered } from "../store/approvalSuppress";
@@ -33,7 +33,7 @@ import {
   type OrderRow,
 } from "../store/sidebarOrder";
 import { computeLayout, findTreeBySession, type LayoutNode, type SplitDir } from "../store/layoutTree";
-import { fleetStateOf, nextIdInState, type FleetState } from "../store/fleet";
+import { fleetStateOfSession, nextIdInState, type FleetState } from "../store/fleet";
 import { getProfile } from "../agents/registry";
 import { ptyWrite } from "../ipc/pty";
 import { focusActiveTerminal, focusRegion } from "../focus/focusUtils";
@@ -298,8 +298,10 @@ export function respondAllApprovals(approve: boolean): void {
  * order, wraps around; repeated clicks cycle through all of them). */
 export function activateNextInFleetState(state: FleetState): void {
   const { sessions, activeId } = useSessionStore.getState();
-  const stateOf = (id: string) =>
-    fleetStateOf(sessions.find((s) => s.id === id)?.agentState);
+  const stateOf = (id: string) => {
+    const s = sessions.find((x) => x.id === id);
+    return s ? fleetStateOfSession(s) : undefined;
+  };
   const next = nextIdInState(sessionIdsInSidebarOrder(), stateOf, activeId, state);
   if (next) activateSession(next);
 }
@@ -358,6 +360,24 @@ export function focusPane(dir: NavDir | "next"): void {
       : nextPaneDirectional(leaves, active, dir);
   if (next) activateSession(next);
   else if (dir === "left") focusSidebar();
+}
+
+/**
+ * Zoom ↔ restore a split pane (tmux `prefix z`). Ungrouped sessions are already
+ * fullscreen, so this is a no-op for them. Restoring brings the siblings back
+ * on screen, which is exactly when a finished-but-unseen sibling becomes seen.
+ */
+export function toggleZoomPane(sessionId: string): void {
+  const store = useSessionStore.getState();
+  if (store.activeId !== sessionId) store.setActive(sessionId);
+  useLayoutStore.getState().toggleZoom(sessionId);
+  markVisibleDoneSeen();
+  requestAnimationFrame(() => focusActiveTerminal());
+}
+
+export function toggleZoomActive(): void {
+  const { activeId } = useSessionStore.getState();
+  if (activeId) toggleZoomPane(activeId);
 }
 
 /** Nudge the active pane's nearest matching split by one keyboard step. */

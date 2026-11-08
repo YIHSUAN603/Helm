@@ -10,7 +10,7 @@ export const en: Record<string, string> = {
   "toolbar.fleetBusy": "{count} running",
   "toolbar.fleetWaiting": "{count} waiting",
   "toolbar.fleetError": "{count} error",
-  "toolbar.fleetDone": "{count} done",
+  "toolbar.fleetDone": "{count} to review",
   "toolbar.fleetJump": "Jump to the next session in this state",
   "toolbar.tokens": "input / output tokens",
   "toolbar.contextLeft": "Context remaining",
@@ -87,6 +87,8 @@ export const en: Record<string, string> = {
   "settings.notifyInterrupted": "When an agent is interrupted mid-run",
   "settings.notifyStalled": "When an agent goes quiet for too long",
   "settings.notifyHiddenPanes": "Off-screen sessions even when focused",
+  "settings.statusSymbols": "Distinguish states by shape",
+  "settings.statusSymbolsHint": "Shapes in addition to colors: triangle = waiting, cross = error, diamond = done and unseen, hollow circle = idle.",
   "settings.sessionBrief": "Show a brief card when returning to a session",
   "settings.restoreSection": "Restore on launch",
   "settings.restoreSessions": "Restore sessions and split layout",
@@ -166,6 +168,7 @@ export const en: Record<string, string> = {
   "sidebar.state.busy": "Running",
   "sidebar.state.idle": "Idle",
   "sidebar.state.exited": "Exited",
+  "sidebar.workspaceState": "Workspace: {state}",
 
   // Desktop notifications (titles by prompt kind)
   "notify.approval": "{label} needs your approval",
@@ -235,6 +238,9 @@ export const en: Record<string, string> = {
   "pane.restoredHint":
     "This pane was rebuilt after a restart: the screen is last session's record, the shell is new.",
   "pane.stalled": "No output for a while — may be stuck",
+  "pane.zoom": "Zoom this pane (Ctrl+A z)",
+  "pane.zoomed": "zoomed",
+  "pane.unzoom": "Restore split layout (Ctrl+A z)",
   "brief.goal": "Goal",
   "brief.goalPrevious": "Previous goal",
   "brief.noGoal": "No goal yet (install the agent integration hooks to record your last prompt)",
@@ -301,6 +307,7 @@ export const en: Record<string, string> = {
   "command.splitDown": "Split Down",
   "command.closePane": "Close Pane",
   "command.focusNextPane": "Focus: Next Pane",
+  "command.toggleZoom": "Zoom / Restore Pane",
   "command.focusPane": "Focus: {dir} Pane",
   "command.resizeLeft": "Shrink Pane",
   "command.resizeRight": "Widen Pane",

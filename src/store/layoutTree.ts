@@ -148,6 +148,21 @@ export function collectSessionIds(root: LayoutNode | null): string[] {
   return [...collectSessionIds(root.a), ...collectSessionIds(root.b)];
 }
 
+/**
+ * 目前畫面上看得見的 session：active 所在分割群組的全部成員；該群組被 zoom
+ * 到 active 時只剩 active 自己；未分組時就是 active 自己。通知 gating 與 done
+ * 已讀判斷共用這一個定義 —— 兩份定義遲早會在 zoom 這種邊角上分歧。
+ */
+export function visibleSessionIds(
+  groupTree: LayoutNode | null,
+  activeId: string | null,
+  zoomedId: string | null,
+): string[] {
+  if (!activeId) return [];
+  if (!groupTree || zoomedId === activeId) return [activeId];
+  return collectSessionIds(groupTree);
+}
+
 export function findLeafBySession(
   root: LayoutNode | null,
   sessionId: string,

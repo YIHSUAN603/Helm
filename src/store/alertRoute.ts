@@ -7,8 +7,7 @@
 //
 // 刻意只 type-only import Session：呼叫端自己把 sessions/activeId 當 scope 傳進來，
 // 本模組因此不 import sessions store，也就不會與它形成 import 循環。
-import { collectSessionIds } from "./layoutTree";
-import { groupTreeOf, useLayoutStore } from "./layout";
+import { visibleSessionIdsNow } from "./layout";
 import { NOTIFY_TOGGLE_KEYS } from "./notificationCenter";
 import { useNotificationsStore } from "./notifications";
 import { shouldDesktopNotify, type DesktopNotifyContext } from "./notificationRouter";
@@ -34,14 +33,9 @@ export function desktopNotifyContext(
 ): DesktopNotifyContext {
   const st = useSettingsStore.getState();
   const perKind = st[NOTIFY_TOGGLE_KEYS[kind]];
-  // 畫面上的 pane = active 的分割群組成員；未分組時只有 active 自己
-  //（與 Toolbar 的派工對象同一套定義）。
-  const tree = groupTreeOf(useLayoutStore.getState().trees, scope.activeId);
-  const visibleIds = tree
-    ? collectSessionIds(tree)
-    : scope.activeId
-      ? [scope.activeId]
-      : [];
+  // 畫面上的 pane = active 的分割群組成員（zoom 時只剩 active）；未分組時只有
+  // active 自己。與 done 已讀判斷共用 visibleSessionIds 這一個定義。
+  const visibleIds = visibleSessionIdsNow(scope.activeId);
   return {
     enabled: st.notificationsEnabled && perKind,
     windowFocused: document.hasFocus(),

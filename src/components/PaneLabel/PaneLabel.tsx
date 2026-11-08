@@ -3,8 +3,11 @@
 // 鍵盤等效為 ContextMenu 鍵或 Shift+F10。
 import { memo, useEffect, useRef, useState } from "react";
 import { useSessionStore, type Session } from "../../store/sessions";
+import { statusDotClass } from "../../store/fleet";
 import type { SplitDir } from "../../store/layoutTree";
-import { splitPane } from "../../commands/actions";
+import { splitPane, toggleZoomPane } from "../../commands/actions";
+import { useLayoutStore } from "../../store/layout";
+import { findTreeBySession } from "../../store/layoutTree";
 import { listLaunchers } from "../../agents/registry";
 import { ResumeButton } from "./ResumeButton";
 import { handleListKey, hasNonShiftModifier } from "../../focus/listNav";
@@ -12,11 +15,6 @@ import { handleDismissKey } from "../../focus/focusUtils";
 import type { AgentLauncher } from "../../agents/types";
 import { useT } from "../../i18n";
 import "./PaneLabel.css";
-
-// 綜合狀態燈：agent 狀態優先，否則活動狀態（同 sidebar）。
-function dotClass(s: Session): string {
-  return s.agentState ? `agent-${s.agentState}` : s.status;
-}
 
 function isContextMenuKey(e: React.KeyboardEvent): boolean {
   return e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey);
@@ -27,6 +25,9 @@ function isContextMenuKey(e: React.KeyboardEvent): boolean {
 export const PaneLabel = memo(function PaneLabel({ session }: { session: Session }) {
   const t = useT();
   const closeSession = useSessionStore((s) => s.closeSession);
+  // zoom 只對分割群組成員有意義（未分組的 pane 本來就全幅）。
+  const grouped = useLayoutStore((s) => findTreeBySession(s.trees, session.id) !== null);
+  const zoomed = useLayoutStore((s) => s.zoomedId === session.id);
   // 記住要用哪個方向開 launcher 選單；null = 選單關閉。
   const [menuDir, setMenuDir] = useState<SplitDir | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -79,7 +80,7 @@ export const PaneLabel = memo(function PaneLabel({ session }: { session: Session
 
   return (
     <div className="pane-label">
-      <span className={`status-dot ${dotClass(session)}`} />
+      <span className={`status-dot ${statusDotClass(session)}`} />
       <span className="pane-title">{session.title}</span>
       {/* 誠實標示：這個 pane 的畫面是上次的記錄，shell 是新開的。放在
           .pane-actions 之外，才不會跟著 hover 才顯示。 */}
@@ -88,6 +89,19 @@ export const PaneLabel = memo(function PaneLabel({ session }: { session: Session
           {t("pane.restored")}
         </span>
       )}
+      {/* 放大中要一直看得到（否則會以為其他 pane 被關掉了），點一下還原。 */}
+      {zoomed && (
+        <button
+          className="pane-badge pane-badge-zoom"
+          title={t("pane.unzoom")}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleZoomPane(session.id);
+          }}
+        >
+          {t("pane.zoomed")}
+        </button>
+      )}
       {session.stalled && (
         <span className="pane-badge pane-badge-warn" title={t("pane.stalled")}>
           ⏳
@@ -95,6 +109,17 @@ export const PaneLabel = memo(function PaneLabel({ session }: { session: Session
       )}
       <span className="pane-actions">
         <ResumeButton session={session} />
+        {grouped && !zoomed && (
+          <button
+            title={t("pane.zoom")}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleZoomPane(session.id);
+            }}
+          >
+            ⤢
+          </button>
+        )}
         {splitButton("row", "◫", t("pane.splitRight"))}
         {splitButton("column", "⊟", t("pane.splitDown"))}
         <button

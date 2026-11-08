@@ -19,6 +19,7 @@
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionStore } from "../../store/sessions";
 import type { SidebarSession } from "../../store/sidebarProjection";
+import { fleetDotClass, rollupFleetState } from "../../store/fleet";
 import { useFolderStatusStore } from "../../store/folderStatus";
 import { useWorkspaceStore } from "../../store/workspaces";
 import { useUiStore } from "../../store/ui";
@@ -124,11 +125,21 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
     () => sessions.filter(({ session: s }) => s.agentState === "waiting").length,
     [sessions],
   );
+  // 整個 workspace 彙整成一顆狀態燈（waiting > error > busy > 未讀 done）：
+  // 收合或捲出畫面時，看標題就知道哪個專案需要你。
+  const rollup = useMemo(
+    () => rollupFleetState(sessions.map(({ session: s }) => s)),
+    [sessions],
+  );
   // 名稱預算要扣掉「平時就看得見」的控制項：資料夾/啟動設定鍵設定後會保持著色
   // 不隨 hover 消失，approval 徽章則是沒處理完就一直在。這幾顆會實際壓縮名稱的
   // 可用寬度，不扣就會溢出被 CSS 從尾端裁掉。
   const alwaysOnBadges =
-    (w.folder && !folderMissing ? 1 : 0) + (w.recipe ? 1 : 0) + (pendingCount > 0 ? 1 : 0);
+    (w.folder && !folderMissing ? 1 : 0) +
+    (w.recipe ? 1 : 0) +
+    (pendingCount > 0 ? 1 : 0) +
+    // 狀態燈本身不到一顆徽章寬，照一顆算：寧可少放幾個字也不要溢出。
+    (rollup ? 1 : 0);
   const nameBudget = workspaceNameBudget(sidebarWidth, alwaysOnBadges);
   // The rendered rows as pure ordering data, for snapping the drop line to
   // split-cluster boundaries.
@@ -377,6 +388,12 @@ export const WorkspaceGroup = memo(function WorkspaceGroup({
           onKeyDown={onHeaderKeyDown}
         >
           <span className="workspace-chevron">{w.collapsed ? "▸" : "▾"}</span>
+          {rollup && !confirming && (
+            <span
+              className={`status-dot workspace-rollup ${fleetDotClass(rollup)}`}
+              title={t("sidebar.workspaceState", { state: t(`sidebar.state.${rollup}`) })}
+            />
+          )}
           {confirming ? (
             <>
               <span className="sidebar-inline-confirm">

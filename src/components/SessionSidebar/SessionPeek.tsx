@@ -11,6 +11,7 @@
 // 逐一看到每個 session 的摘要。
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSessionStore } from "../../store/sessions";
+import { statusDotClass } from "../../store/fleet";
 import { currentTask, taskProgress } from "../../store/sessionBrief";
 import { peekTop } from "./peekPosition";
 import { useT } from "../../i18n";
@@ -122,7 +123,7 @@ function PeekCard({ target }: { target: PeekTarget }) {
 
   if (!session) return null;
   const stateKey = session.agentState ?? session.status;
-  const dotClass = session.agentState ? `agent-${session.agentState}` : session.status;
+  const dotClass = statusDotClass(session);
   const waiting = session.pendingApproval ?? session.pendingPrompt?.text;
   const progress = taskProgress(session.tasks);
   const doing = currentTask(session.tasks);

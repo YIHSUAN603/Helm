@@ -28,6 +28,7 @@ export const PREFIX_TABLE: PrefixBinding[] = [
   { key: '"', commandId: "layout:split-down" },
   { key: "x", commandId: "layout:close-pane" },
   { key: "o", commandId: "layout:focus-next-pane" },
+  { key: "z", commandId: "layout:toggle-zoom" },
   { key: "ArrowLeft", commandId: "layout:focus-left" },
   { key: "ArrowRight", commandId: "layout:focus-right" },
   { key: "ArrowUp", commandId: "layout:focus-up" },

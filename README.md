@@ -275,6 +275,7 @@ Press Ctrl+A, then the second key. Esc or 3 seconds cancels; an unrecognised sec
 | `"` | Split Down |
 | `x` | Close Pane |
 | `o` | Focus: Next Pane |
+| `z` | Zoom / Restore Pane |
 | `← · → · ↑ · ↓` | Focus the pane in that direction |
 | `Ctrl+←` | Shrink Pane |
 | `Ctrl+→` | Widen Pane |

@@ -11,6 +11,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionStore, type Session } from "../../store/sessions";
 import { useBriefStore } from "../../store/briefs";
+import { statusDotClass } from "../../store/fleet";
 import { useNotificationsStore } from "../../store/notifications";
 import { usePrefixStore } from "../../store/prefix";
 import {
@@ -50,10 +51,6 @@ function stateKeyOf(s: Session): string {
   return s.agentState ?? s.status;
 }
 
-function dotClassOf(s: Session): string {
-  return s.agentState ? `agent-${s.agentState}` : s.status;
-}
-
 // Gate: 只有卡片開在這個 session 時才訂閱活動與通知。
 export const SessionBrief = memo(function SessionBrief({ session }: { session: Session }) {
   const open = useBriefStore((s) => (s.open?.sessionId === session.id ? s.open : null));
@@ -77,7 +74,7 @@ function PinnedStrip({ session }: { session: Session }) {
       }}
     >
       <span>📌</span>
-      <span className={`status-dot ${dotClassOf(session)}`} />
+      <span className={`status-dot ${statusDotClass(session)}`} />
       <span className="session-brief-pinned-text">{summary}</span>
       {progress.total > 0 && (
         <span className="session-brief-pinned-progress">
@@ -163,7 +160,7 @@ function BriefCard({ session, since }: { session: Session; since?: number }) {
       <div className="session-brief-head">
         <span className="session-brief-name">{session.agentLabel ?? session.title}</span>
         <span className="session-brief-state">
-          <span className={`status-dot ${dotClassOf(session)}`} />
+          <span className={`status-dot ${statusDotClass(session)}`} />
           {t(`sidebar.state.${stateKey}`)}
           {session.stateSince !== undefined && ` · ${ago(session.stateSince)}`}
         </span>

@@ -36,6 +36,7 @@ import {
   sendPrefixLiteral,
   splitActivePane,
   switchToSessionIndex,
+  toggleZoomActive,
 } from "./actions";
 import type { Command } from "./types";
 
@@ -159,6 +160,14 @@ function staticCommands(): Command[] {
       keywords: "next pane",
       enabled: activeIsGrouped,
       run: () => focusPane("next"),
+    },
+    {
+      id: "layout:toggle-zoom",
+      title: t("command.toggleZoom"),
+      category: t("category.layout"),
+      keywords: "zoom maximize pane fullscreen",
+      enabled: activeIsGrouped,
+      run: toggleZoomActive,
     },
     ...layoutCommands(),
     {

@@ -19,7 +19,12 @@ import { IntegrationHint } from "./components/IntegrationHint/IntegrationHint";
 import { PaneLabel } from "./components/PaneLabel/PaneLabel";
 import { SessionBrief } from "./components/SessionBrief/SessionBrief";
 import { SplitResizers } from "./components/SplitLayout/SplitResizers";
-import { notifyPendingPrompt, useSessionStore, type Session } from "./store/sessions";
+import {
+  markVisibleDoneSeen,
+  notifyPendingPrompt,
+  useSessionStore,
+  type Session,
+} from "./store/sessions";
 import {
   clearApprovalSuppress,
   isApprovalSuppressed,
@@ -534,19 +539,27 @@ function App() {
   const customTheme = useThemeStore((s) => s.customThemes.find((c) => c.id === s.name));
   const backgroundImage = useSettingsStore((s) => s.backgroundImage);
   const backgroundDim = useSettingsStore((s) => s.backgroundDim);
+  const statusSymbols = useSettingsStore((s) => s.statusSymbols);
   const trees = useLayoutStore((s) => s.trees);
+  const zoomedId = useLayoutStore((s) => s.zoomedId);
   // 只渲染 active session 所在群組的樹；其他 session 的 pane 拿不到
   // rect → data-in-layout="false" 隱藏（Terminal 保持掛載）。
   // active session 未分組時 layoutRoot 為 null → 該 pane 拿全幅 rect。
   const layoutRoot = groupTreeOf(trees, activeId);
 
+  // 被 zoom 的 active pane 暫時佔滿整個區域：群組樹不動，只是這一輪的幾何
+  // 換成「只有它、全幅、沒有分隔線」。其他成員拿不到 rect → 隱藏但保持掛載。
+  const zoomed = layoutRoot !== null && zoomedId !== null && zoomedId === activeId;
+
   // 群組樹 → 每個 leaf 的百分比 rect + 分隔線幾何。
   const layout = useMemo(
     () =>
-      layoutRoot
-        ? computeLayout(layoutRoot)
-        : { leaves: new Map<string, RectPct>(), resizers: [] },
-    [layoutRoot],
+      zoomed && activeId
+        ? { leaves: new Map<string, RectPct>([[activeId, FULL_RECT]]), resizers: [] }
+        : layoutRoot
+          ? computeLayout(layoutRoot)
+          : { leaves: new Map<string, RectPct>(), resizers: [] },
+    [layoutRoot, zoomed, activeId],
   );
 
   // 拖放命中判定需要 terminal-area 的實際幾何（Tauri 給的是視窗座標）。
@@ -682,6 +695,8 @@ function App() {
       // paths are re-probed, so this stays nearly free.
       window.addEventListener("focus", () => {
         useFolderStatusStore.getState().recheckMissing();
+        // 離開期間在畫面上完成的 agent，回來看到了才算看過。
+        markVisibleDoneSeen();
       });
       // 通知歷史（事件日記）：通知中心本身只在記憶體、上限 50 筆，重開歸零。
       void loadJournalEntries().then((history) => {
@@ -755,6 +770,7 @@ function App() {
       className="app"
       data-theme={customTheme ? "custom" : theme}
       data-bg-image={bgUrl ? "true" : undefined}
+      data-status-symbols={statusSymbols ? "true" : undefined}
       style={appStyle}
     >
       {!sidebarHidden && <SessionSidebar />}
@@ -774,7 +790,7 @@ function App() {
                 session={s}
                 rect={rect}
                 active={s.id === activeId}
-                solo={layoutRoot === null && s.id === activeId}
+                solo={(layoutRoot === null || zoomed) && s.id === activeId}
               />
             );
           })}
