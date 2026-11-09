@@ -4,6 +4,19 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.24.0](https://github.com/YIHSUAN603/Helm/releases/tag/v0.24.0) - 2026-11-09
+
+### Added
+
+- "Done but not yet seen": a finished session now stays highlighted only until you have actually looked at it. A session counts as seen if its pane was on screen with the window focused when it finished, or later when you switch to it, close it, unzoom, or bring the window back into focus. Seen sessions drop to the idle status light and no longer count toward the fleet chip, fleet jumps or workspace roll-ups; the toolbar chip now reads "N to review".
+- Workspace status lights: each workspace header in the sidebar shows a roll-up light for the sessions inside it (waiting > error > working > done and unseen).
+- Shape-coded status lights: a new Settings → Appearance toggle, "Distinguish states by shape" (off by default), adds shapes on top of colors — triangle = waiting, cross = error, diamond = done and unseen, hollow circle = idle — so states can be told apart without relying on color.
+- Pane zoom: `Ctrl+A z` or the ⤢ button on a pane's title bar temporarily enlarges one pane of a split group to fill the view, marked "zoomed". It restores automatically when focus moves to another session, or when you split or the group changes. Added to the native menu and the shortcut reference.
+
+### Fixed
+
+- Release: the auto-update manifest (`latest.json`) is now generated once after every platform has finished building, instead of being edited concurrently by each build job. Previously platforms could silently drop out of it (v0.23.1's listed Linux only), so those platforms were never offered the update.
+
 ## [0.23.1](https://github.com/YIHSUAN603/Helm/releases/tag/v0.23.1) - 2026-11-06
 
 ### Added
