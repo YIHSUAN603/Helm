@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+env:
+  # Shared by the release body and latest.json's `notes`.
+  RELEASE_BODY: 'See the assets below to download and install this version.'
+
 jobs:
   build:
     strategy:
@@ -70,7 +74,33 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Helm ${{ github.ref_name }}'
-          releaseBody: 'See the assets below to download and install this version.'
+          releaseBody: ${{ env.RELEASE_BODY }}
           releaseDraft: true
           prerelease: false
+          # The matrix jobs would each read-modify-write latest.json in
+          # parallel and drop each other's platforms; the updater-json job
+          # below writes it once instead.
+          includeUpdaterJson: false
           args: ${{ matrix.args }}
+
+  updater-json:
+    # Runs only when every build succeeded, so a partial manifest is never
+    # uploaded.
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
+      - name: Download updater signatures from the draft release
+        run: gh release download "$GITHUB_REF_NAME" --pattern '*.sig' --dir sigs
+
+      - run: node --experimental-strip-types scripts/gen-updater-json.ts sigs latest.json
+
+      - name: Upload latest.json
+        run: gh release upload "$GITHUB_REF_NAME" latest.json --clobber
