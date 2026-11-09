@@ -129,7 +129,13 @@ fn build_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<tauri::Wry>
     let focus_next_pane = item("layout:focus-next-pane", l.focus_next_pane, "o")?;
     let toggle_zoom = item("layout:toggle-zoom", l.toggle_zoom, "z")?;
     let layout_menu = SubmenuBuilder::new(app, l.layout)
-        .items(&[&split_right, &split_down, &close_pane, &focus_next_pane, &toggle_zoom])
+        .items(&[
+            &split_right,
+            &split_down,
+            &close_pane,
+            &focus_next_pane,
+            &toggle_zoom,
+        ])
         .build()?;
 
     let palette = MenuItemBuilder::with_id("palette:open", l.palette)
