@@ -19,6 +19,7 @@ import {
 import type { PlanUsage } from "../../agents/hookEvents";
 import { useT } from "../../i18n";
 import { CompanionDeck } from "../Companion/CompanionDeck";
+import { fmtResetTime } from "./resetTime";
 import "./Toolbar.css";
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
@@ -32,11 +33,6 @@ function hasPlanUsage(pu?: PlanUsage): boolean {
   return (
     !!pu && (pu.fiveHourLeftPercent !== undefined || pu.sevenDayLeftPercent !== undefined)
   );
-}
-
-function fmtResetTime(unixSec?: number): string | undefined {
-  if (unixSec === undefined) return undefined;
-  return new Date(unixSec * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 // meter 顏色門檻：剩餘 ≤10% 紅、≤25% 黃、其餘綠（CSS 依 data-level 上色）。
