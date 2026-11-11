@@ -4,6 +4,14 @@ All notable changes to Helm are recorded here. The format follows [Keep a Change
 
 This file was assembled from the published [GitHub Releases](https://github.com/YIHSUAN603/Helm/releases), which remain the canonical record -- each heading links back to its release, where the full notes and the download table for that version live.
 
+## [0.24.1](https://github.com/YIHSUAN603/Helm/releases/tag/v0.24.1) - 2026-11-11
+
+### Fixed
+
+- Codex plan usage: the toolbar now shows Codex's remaining 5-hour and weekly quota next to Claude Code's whenever a Codex session is open. It is read from the rate-limit events in Codex's own local session logs (`~/.codex/sessions`, honoring `CODEX_HOME`) and refreshed every 30 seconds; context-window usage is never shown in its place.
+- Codex question detection: when Codex ends its turn with a question, the session now goes to waiting so it surfaces like an approval. Only lines above the input composer are considered, so text you are typing into the composer cannot trigger it.
+- Plan usage tooltips now include the date when a reset is more than 24 hours away. Weekly quotas previously showed only the time (e.g. "resets 3:38 PM"), which read as today — or as a time already past.
+
 ## [0.24.0](https://github.com/YIHSUAN603/Helm/releases/tag/v0.24.0) - 2026-11-09
 
 ### Added
