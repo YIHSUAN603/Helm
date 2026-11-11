@@ -134,6 +134,7 @@ export const BUILTIN_PROFILES: AgentProfile[] = [
       // 回答後 composer 會恢復；其上方殘留的選單不再是待核准。
       // 排除帶編號的選項列，避免把仍有效的選單當成 composer。
       inputBox: "^\\s*›(?!\\s*\\d+\\.\\s)(?:\\s|$)",
+      question: "[?？]\\s*$",
       tool: "Running|exec|\\$\\s|patch",
       error: "\\berror\\b|failed",
       done: "\\bdone\\b|completed",

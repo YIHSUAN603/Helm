@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { codexPlanUsage } from "../../ipc/codexUsage";
 // 頂部工具列：左側是全局艦隊狀態 chips（誰在跑/誰在等你，點擊輪替跳轉），
 // 右側是方案剩餘額度 meter、active session 用量、變更/通知入口。
 // planUsage 是帳號級（statusline rate_limits，跨 session 同一份），讀 store 的
@@ -115,6 +117,23 @@ export function Toolbar() {
     }),
   );
 
+  const hasCodex = useSessionStore((s) => s.sessions.some((x) => x.agentId === "codex"));
+  const [codexUsage, setCodexUsage] = useState<PlanUsage>();
+  useEffect(() => {
+    if (!hasCodex) return;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const usage = await codexPlanUsage();
+        if (!disposed) setCodexUsage(usage);
+      } catch { /* Browser preview or unavailable native backend. */ }
+      if (!disposed) timer = setTimeout(() => void poll(), 30_000);
+    };
+    void poll();
+    return () => { disposed = true; clearTimeout(timer); };
+  }, [hasCodex]);
+  const showCodexPlan = hasCodex && hasPlanUsage(codexUsage);
   const showPlan = hasPlanUsage(planUsage);
 
   return (
@@ -169,7 +188,7 @@ export function Toolbar() {
         </span>
       )}
 
-      {(showPlan || active?.agentId) && (
+      {(showPlan || showCodexPlan || active?.agentId) && (
         <div className="tb-usage">
           {/* Claude Code 的方案額度屬於帳號，不應遮住目前 pane（例如 Codex）的
               session 統計。兩者各自成組，並排顯示。 */}
@@ -195,6 +214,17 @@ export function Toolbar() {
                   resetsAt={planUsage!.sevenDayResetsAt}
                   t={t}
                 />
+              )}
+            </div>
+          )}
+          {showCodexPlan && (
+            <div className="tb-usage-group" title="Codex">
+              <span className="tb-agent">Codex</span>
+              {codexUsage!.fiveHourLeftPercent !== undefined && (
+                <UsageMeter text={t("toolbar.planUsage5h", { percent: Math.round(codexUsage!.fiveHourLeftPercent) })} percent={codexUsage!.fiveHourLeftPercent} resetsAt={codexUsage!.fiveHourResetsAt} t={t} />
+              )}
+              {codexUsage!.sevenDayLeftPercent !== undefined && (
+                <UsageMeter text={t("toolbar.planUsageWeek", { percent: Math.round(codexUsage!.sevenDayLeftPercent) })} percent={codexUsage!.sevenDayLeftPercent} resetsAt={codexUsage!.sevenDayResetsAt} t={t} />
               )}
             </div>
           )}

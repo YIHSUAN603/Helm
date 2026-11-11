@@ -1,5 +1,6 @@
 mod appstore;
 mod background;
+mod codex_usage;
 mod config;
 mod fonts;
 mod git;
@@ -260,6 +261,7 @@ pub fn run() {
             integrations::install_claude_hooks,
             integrations::install_claude_statusline,
             integrations::codex_hooks_snippet,
+            codex_usage::codex_plan_usage,
             fonts::list_monospace_fonts,
             git::git_diff_file,
             paths::dir_exists,

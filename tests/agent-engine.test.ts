@@ -554,3 +554,11 @@ check(
 }
 
 console.log(`\n${passed} checks passed.`);
+
+{
+  const screen = "• 你希望使用哪個方案？\n\n› \n  gpt-5 · 90% context left · ? for shortcuts";
+  const result = deriveState(codex, screen);
+  check("Codex 純文字決策問題包含 footer 時仍進入 waiting", result.state === "waiting" && result.kind === "question");
+  check("Codex 工作中不把尚未完成的問題當成 pending", deriveState(codex, screen, "busy").state !== "waiting");
+  check("Codex 一般完成訊息不進入 pending", deriveState(codex, "• 已完成。\n› \n90% context left").state === "done");
+}
